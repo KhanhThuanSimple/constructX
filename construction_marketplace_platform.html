@@ -1,0 +1,1008 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Lexend:wght@300;400;500;600&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --font: 'Be Vietnam Pro', sans-serif;
+  --font-display: 'Lexend', sans-serif;
+  --primary: #1a4f3a;
+  --primary-light: #2d7a5a;
+  --primary-bg: #e8f5ee;
+  --accent: #e8a020;
+  --accent-bg: #fff8e6;
+  --danger: #c94040;
+  --danger-bg: #fef0f0;
+  --info: #2060c0;
+  --info-bg: #eaf0fc;
+  --surface: var(--color-background-primary);
+  --surface2: var(--color-background-secondary);
+  --border: var(--color-border-tertiary);
+  --border2: var(--color-border-secondary);
+  --text1: var(--color-text-primary);
+  --text2: var(--color-text-secondary);
+  --text3: var(--color-text-tertiary);
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+
+body { font-family: var(--font); background: transparent; }
+
+.app { display: flex; height: 680px; overflow: hidden; border: 0.5px solid var(--border2); border-radius: var(--radius-lg); background: var(--surface2); }
+
+/* SIDEBAR */
+.sidebar { width: 220px; background: var(--primary); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-brand { padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.brand-name { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
+.brand-sub { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+.role-tabs { display: flex; gap: 4px; padding: 12px 12px 0; }
+.role-tab { flex: 1; padding: 5px 4px; font-size: 10px; font-family: var(--font); font-weight: 500; text-align: center; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); background: transparent; transition: all 0.15s; }
+.role-tab.active { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.4); }
+
+.nav { padding: 8px 10px; flex: 1; overflow-y: auto; }
+.nav-section { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; padding: 10px 8px 4px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 400; transition: all 0.12s; margin-bottom: 1px; }
+.nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
+.nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.9; }
+.nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+
+.sidebar-user { padding: 12px; border-top: 1px solid rgba(255,255,255,0.12); }
+.user-card { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; flex-shrink: 0; }
+.user-name { font-size: 12px; font-weight: 500; color: #fff; }
+.user-role { font-size: 10px; color: rgba(255,255,255,0.5); }
+
+/* MAIN */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { padding: 14px 20px; background: var(--surface); border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-family: var(--font-display); font-size: 16px; font-weight: 500; color: var(--text1); flex: 1; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.btn { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-family: var(--font); font-weight: 500; cursor: pointer; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text1); transition: all 0.12s; }
+.btn:hover { background: var(--surface2); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
+.icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); font-size: 14px; position: relative; }
+.notif-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+.content { flex: 1; overflow-y: auto; padding: 18px 20px; }
+
+/* STATS ROW */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+.stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.stat-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 600; color: var(--text1); font-family: var(--font-display); line-height: 1; }
+.stat-change { font-size: 11px; margin-top: 4px; }
+.up { color: #2a9a5a; } .down { color: var(--danger); }
+.stat-icon { font-size: 18px; margin-bottom: 6px; }
+
+/* CARDS GRID */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--text1); }
+.card-action { font-size: 11px; color: var(--primary-light); cursor: pointer; }
+
+/* PROJECT LIST */
+.project-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.project-item:last-child { border-bottom: none; }
+.project-thumb { width: 40px; height: 40px; border-radius: 8px; background: var(--primary-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.project-info { flex: 1; min-width: 0; }
+.project-name { font-size: 13px; font-weight: 500; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+.badge-green { background: #e6f5eb; color: #1a7a40; }
+.badge-amber { background: var(--accent-bg); color: #9a6010; }
+.badge-blue { background: var(--info-bg); color: #1a4fa0; }
+.badge-red { background: var(--danger-bg); color: #a02020; }
+.badge-gray { background: var(--surface2); color: var(--text2); }
+
+/* PROGRESS */
+.progress-wrap { margin-top: 6px; }
+.progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 2px; background: var(--primary-light); }
+
+/* BID CARDS */
+.bid-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; position: relative; }
+.bid-card.winner { border-color: var(--primary-light); border-width: 1.5px; }
+.bid-winner-tag { position: absolute; top: -8px; left: 12px; background: var(--primary); color: #fff; font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.bid-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bid-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--primary); flex-shrink: 0; }
+.bid-company { font-size: 13px; font-weight: 500; color: var(--text1); }
+.bid-rating { font-size: 11px; color: var(--accent); }
+.bid-price { font-size: 20px; font-weight: 700; color: var(--primary); font-family: var(--font-display); }
+.bid-price-label { font-size: 11px; color: var(--text2); }
+.bid-row { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ESCROW TRACKER */
+.escrow-stages { display: flex; gap: 0; position: relative; margin: 16px 0 10px; }
+.escrow-stage { flex: 1; text-align: center; position: relative; }
+.stage-dot { width: 28px; height: 28px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border2); margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text2); position: relative; z-index: 1; transition: all 0.3s; }
+.stage-dot.done { background: var(--primary); border-color: var(--primary); color: #fff; }
+.stage-dot.active { background: #fff; border-color: var(--primary-light); color: var(--primary); box-shadow: 0 0 0 4px var(--primary-bg); }
+.stage-line { position: absolute; top: 14px; left: calc(50% + 14px); right: calc(-50% + 14px); height: 2px; background: var(--border2); z-index: 0; }
+.stage-line.done { background: var(--primary); }
+.stage-label { font-size: 10px; color: var(--text2); line-height: 1.3; }
+.stage-label.done { color: var(--primary); font-weight: 500; }
+.stage-label.active { color: var(--text1); font-weight: 500; }
+.stage-amount { font-size: 10px; color: var(--text3); }
+
+/* CHAT */
+.chat-messages { height: 220px; overflow-y: auto; padding: 8px 0; display: flex; flex-direction: column; gap: 10px; }
+.msg { display: flex; gap: 8px; align-items: flex-start; }
+.msg.mine { flex-direction: row-reverse; }
+.msg-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-bg); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--primary); flex-shrink: 0; }
+.msg-bubble { max-width: 75%; padding: 8px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5; background: var(--surface2); color: var(--text1); }
+.msg.mine .msg-bubble { background: var(--primary); color: #fff; }
+.msg-time { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.chat-input-row { display: flex; gap: 8px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+.chat-input { flex: 1; padding: 8px 12px; font-size: 12px; border-radius: 8px; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text1); font-family: var(--font); outline: none; }
+
+/* PRODUCTION LOG */
+.log-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.log-item:last-child { border-bottom: none; }
+.log-img { width: 56px; height: 56px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; overflow: hidden; }
+.log-info { flex: 1; }
+.log-title { font-size: 12px; font-weight: 500; color: var(--text1); }
+.log-desc { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+.log-time { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* MARKETPLACE */
+.market-item { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+.market-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.market-title { font-size: 13px; font-weight: 500; color: var(--text1); }
+.market-budget { font-size: 15px; font-weight: 600; color: var(--primary); font-family: var(--font-display); }
+.market-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.tag { padding: 3px 8px; border-radius: 5px; font-size: 10px; background: var(--surface2); color: var(--text2); border: 0.5px solid var(--border); }
+.market-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 0.5px solid var(--border); }
+
+/* EARNINGS */
+.earnings-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.earning-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.earning-icon { font-size: 20px; margin-bottom: 8px; }
+.earning-label { font-size: 11px; color: var(--text2); }
+.earning-value { font-size: 20px; font-weight: 600; font-family: var(--font-display); color: var(--text1); margin-top: 2px; }
+
+/* DISPUTE */
+.dispute-card { border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 10px; }
+.dispute-header { padding: 12px 14px; background: var(--danger-bg); border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.dispute-title { font-size: 13px; font-weight: 500; color: #a02020; }
+.dispute-body { padding: 14px; }
+.dispute-row { display: flex; gap: 10px; }
+.dispute-party { flex: 1; padding: 10px; background: var(--surface2); border-radius: 8px; border: 0.5px solid var(--border); }
+.party-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.party-name { font-size: 12px; font-weight: 500; color: var(--text1); }
+.party-claim { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.dispute-evidence { margin-top: 10px; }
+
+/* ADMIN CHART */
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; padding: 0 4px; }
+.bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--primary-bg); transition: all 0.3s; }
+.bar.active-bar { background: var(--primary-light); }
+.bar-label { font-size: 9px; color: var(--text3); }
+
+/* VENDOR */
+.vendor-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--border); }
+.vendor-item:last-child { border-bottom: none; }
+.vendor-logo { width: 40px; height: 40px; border-radius: 10px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 18px; border: 0.5px solid var(--border); }
+.vendor-info { flex: 1; }
+.vendor-name { font-size: 13px; font-weight: 500; color: var(--text1); }
+.vendor-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.vendor-actions { display: flex; gap: 6px; }
+
+/* NOTIF */
+.notif-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--border); align-items: flex-start; }
+.notif-item:last-child { border-bottom: none; }
+.notif-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.notif-content { flex: 1; }
+.notif-text { font-size: 12px; color: var(--text1); line-height: 1.4; }
+.notif-text b { font-weight: 500; }
+.notif-time { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.notif-unread .notif-text { color: var(--text1); }
+
+/* FILTER BAR */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-chip { padding: 5px 12px; border-radius: 20px; font-size: 11px; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; font-family: var(--font); transition: all 0.12s; }
+.filter-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.filter-chip:hover:not(.active) { background: var(--surface2); }
+
+/* PORTFOLIO */
+.portfolio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.portfolio-item { border-radius: var(--radius); overflow: hidden; border: 0.5px solid var(--border); }
+.portfolio-img { height: 80px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+.portfolio-info { padding: 8px 10px; background: var(--surface); }
+.portfolio-title { font-size: 11px; font-weight: 500; color: var(--text1); }
+.portfolio-meta { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+
+<h2 class="sr-only">Nền tảng thị trường xây dựng — giao diện đa vai trò cho khách hàng, nhà thầu và quản trị viên</h2>
+
+<div class="app" id="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">ConstructX</div>
+      <div class="brand-sub">Sàn thi công nội thất</div>
+    </div>
+    <div class="role-tabs">
+      <div class="role-tab active" onclick="switchRole('customer')">KH</div>
+      <div class="role-tab" onclick="switchRole('contractor')">NT</div>
+      <div class="role-tab" onclick="switchRole('admin')">QT</div>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar" id="userAvatar">NL</div>
+        <div>
+          <div class="user-name" id="userName">Nguyễn Lan</div>
+          <div class="user-role" id="userRole">Khách hàng</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="pageTitle">Tổng quan</div>
+      <div class="topbar-actions">
+        <div class="icon-btn" onclick="showPage('notifications')">
+          🔔<div class="notif-dot"></div>
+        </div>
+        <div class="icon-btn">💬</div>
+        <button class="btn btn-primary btn-sm" id="primaryAction" onclick="handlePrimary()">+ Tạo dự án</button>
+      </div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+const state = { role: 'customer', page: 'dashboard' };
+
+const navs = {
+  customer: [
+    { id: 'dashboard', icon: '⊞', label: 'Tổng quan', badge: null },
+    { id: 'create-project', icon: '✦', label: 'Tạo dự án', badge: null },
+    { id: 'bidding', icon: '📋', label: 'Quản lý báo giá', badge: '3' },
+    { id: 'project-detail', icon: '🏗', label: 'Chi tiết dự án', badge: null },
+    { id: 'payment', icon: '💳', label: 'Thanh toán & Ví', badge: null },
+    { id: 'notifications', icon: '🔔', label: 'Thông báo', badge: '5' },
+    { id: 'chat', icon: '💬', label: 'Tin nhắn', badge: '2' },
+  ],
+  contractor: [
+    { id: 'marketplace', icon: '🏪', label: 'Sàn dự án', badge: null },
+    { id: 'submit-bid', icon: '📝', label: 'Gửi báo giá', badge: null },
+    { id: 'work-orders', icon: '🔧', label: 'Quản lý đơn hàng', badge: '1' },
+    { id: 'production-log', icon: '📸', label: 'Nhật ký sản xuất', badge: null },
+    { id: 'earnings', icon: '💰', label: 'Ví nhà thầu', badge: null },
+    { id: 'portfolio', icon: '🖼', label: 'Portfolio', badge: null },
+    { id: 'chat', icon: '💬', label: 'Tin nhắn', badge: '3' },
+  ],
+  admin: [
+    { id: 'admin-dashboard', icon: '⊞', label: 'Tổng quan hệ thống', badge: null },
+    { id: 'vendor-verify', icon: '✅', label: 'Phê duyệt đối tác', badge: '7' },
+    { id: 'dispute', icon: '⚖', label: 'Trung tâm tranh chấp', badge: '2' },
+    { id: 'system-config', icon: '⚙', label: 'Cấu hình hệ thống', badge: null },
+    { id: 'notifications', icon: '🔔', label: 'Thông báo', badge: null },
+  ]
+};
+
+const primaryActions = {
+  customer: { text: '+ Tạo dự án', page: 'create-project' },
+  contractor: { text: '+ Gửi báo giá', page: 'submit-bid' },
+  admin: { text: '+ Thêm danh mục', page: 'system-config' }
+};
+
+const users = {
+  customer: { name: 'Nguyễn Lan', role: 'Khách hàng', initials: 'NL' },
+  contractor: { name: 'Xưởng Minh Phú', role: 'Nhà thầu', initials: 'MP' },
+  admin: { name: 'Admin Hệ thống', role: 'Quản trị viên', initials: 'AD' }
+};
+
+function switchRole(role) {
+  state.role = role;
+  document.querySelectorAll('.role-tab').forEach((t,i) => {
+    t.classList.toggle('active', ['customer','contractor','admin'][i] === role);
+  });
+  const u = users[role];
+  document.getElementById('userAvatar').textContent = u.initials;
+  document.getElementById('userName').textContent = u.name;
+  document.getElementById('userRole').textContent = u.role;
+  const pa = primaryActions[role];
+  document.getElementById('primaryAction').textContent = pa.text;
+  const firstPage = navs[role][0].id;
+  state.page = firstPage;
+  renderNav();
+  renderContent();
+}
+
+function handlePrimary() {
+  showPage(primaryActions[state.role].page);
+}
+
+function showPage(pageId) {
+  state.page = pageId;
+  renderNav();
+  renderContent();
+}
+
+function renderNav() {
+  const nav = navs[state.role];
+  document.getElementById('nav').innerHTML = nav.map(item => `
+    <div class="nav-item ${state.page === item.id ? 'active' : ''}" onclick="showPage('${item.id}')">
+      <span class="nav-icon">${item.icon}</span>
+      <span>${item.label}</span>
+      ${item.badge ? `<span class="nav-badge">${item.badge}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderContent() {
+  const pages = { ...customerPages, ...contractorPages, ...adminPages, ...commonPages };
+  const fn = pages[state.page];
+  const el = document.getElementById('content');
+  document.getElementById('pageTitle').textContent = navs[state.role].find(n=>n.id===state.page)?.label || '';
+  el.innerHTML = fn ? fn() : `<div style="color:var(--text2);font-size:13px;padding:20px">Trang đang phát triển</div>`;
+}
+
+const customerPages = {
+  'dashboard': () => `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-icon">🏗</div><div class="stat-label">Dự án đang chạy</div><div class="stat-value">4</div><div class="stat-change up">↑ 1 tháng này</div></div>
+      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Số dư Escrow</div><div class="stat-value">85tr</div><div class="stat-change" style="color:var(--text3)">Đã khóa: 60tr</div></div>
+      <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-label">Báo giá chờ duyệt</div><div class="stat-value">3</div><div class="stat-change up">Mới hôm nay</div></div>
+      <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Dự án hoàn thành</div><div class="stat-value">12</div><div class="stat-change" style="color:var(--text3)">Năm 2024–2025</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Dự án đang chạy</span><span class="card-action" onclick="showPage('project-detail')">Xem tất cả →</span></div>
+        ${[['🛋','Phòng khách Vila Q2','Đang thi công','65','badge-amber'],['🛏','Phòng ngủ Master','Chờ duyệt bản vẽ','30','badge-blue'],['🍳','Bếp & Dining Linh Đàm','Hoàn thiện','90','badge-green'],['🚿','WC Tầng 2','Khởi động','10','badge-gray']].map(([icon,name,status,pct,bc])=>`
+          <div class="project-item">
+            <div class="project-thumb">${icon}</div>
+            <div class="project-info">
+              <div class="project-name">${name}</div>
+              <div class="project-meta"><span class="badge ${bc}">${status}</span></div>
+              <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2)">${pct}%</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Thông báo gần đây</span><span class="card-action" onclick="showPage('notifications')">Tất cả →</span></div>
+        ${[['💬','bg:#e8f5ee','Xưởng Minh Phú gửi báo giá mới cho <b>Phòng khách Vila Q2</b>','5 phút trước'],['💳','bg:#fff8e6','Giải ngân 15tr cho Giai đoạn 2 <b>Bếp Linh Đàm</b> thành công','1 giờ trước'],['✏️','bg:#eaf0fc','Bản vẽ <b>WC Tầng 2</b> đã được cập nhật, chờ duyệt','3 giờ trước'],['⚠️','bg:#fef0f0','Nhà thầu <b>Phòng ngủ Master</b> yêu cầu gia hạn 3 ngày','Hôm qua']].map(([icon,bg,text,time])=>`
+          <div class="notif-item">
+            <div class="notif-icon" style="${bg};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${icon}</div>
+            <div class="notif-content"><div class="notif-text">${text}</div><div class="notif-time">${time}</div></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Chat nhanh — Phòng khách Vila Q2</span></div>
+      ${chatWidget('customer')}
+    </div>
+  `,
+
+  'create-project': () => `
+    <div class="card" style="max-width:680px">
+      <div class="card-header"><span class="card-title">Tạo dự án mới</span><span class="badge badge-blue">Bước 1 / 4</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:18px">
+        ${['Thông tin cơ bản','Ngân sách','Tài liệu','Đấu giá'].map((s,i)=>`
+          <div style="flex:1;text-align:center">
+            <div style="width:24px;height:24px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:${i===0?'var(--primary)':'var(--surface2)'};color:${i===0?'#fff':'var(--text3)'};">${i+1}</div>
+            <div style="font-size:10px;color:${i===0?'var(--primary)':'var(--text3)'};font-weight:${i===0?'500':'400'}">${s}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Tên dự án</label>
+          <input style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text1)" value="Nội thất phòng khách chung cư Vinhomes" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Hạng mục</label>
+          <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font)">
+            <option>Phòng khách</option><option>Phòng ngủ</option><option>Bếp</option><option>Toàn nhà</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Diện tích (m²)</label>
+          <input type="number" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font)" value="35" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Phong cách</label>
+          <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font)">
+            <option>Hiện đại</option><option>Tối giản</option><option>Scandinavian</option><option>Indochine</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Địa chỉ thi công</label>
+          <input style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font)" value="Vinhomes Grand Park, Q9, TPHCM" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Hình thức đấu thầu</label>
+          <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font)">
+            <option>Mở — nhiều nhà thầu</option><option>Đóng — mời trực tiếp</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Mô tả yêu cầu</label>
+          <textarea style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;background:var(--surface);color:var(--text1);font-family:var(--font);height:80px;resize:vertical">Căn hộ 2PN, cần thiết kế phòng khách kết hợp bếp, phong cách hiện đại tối giản, ưu tiên vật liệu gỗ tự nhiên và tone trung tính...</textarea>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Tải lên mặt bằng / ảnh mẫu</label>
+          <div style="border:1.5px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;background:var(--surface2);cursor:pointer">
+            <div style="font-size:24px;margin-bottom:6px">📁</div>
+            <div style="font-size:12px;color:var(--text2)">Kéo thả file hoặc <span style="color:var(--primary-light);font-weight:500">chọn file</span></div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">PDF, PNG, JPG — tối đa 20MB</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:0.5px solid var(--border)">
+        <button class="btn">← Quay lại</button>
+        <button class="btn btn-primary">Tiếp theo →</button>
+      </div>
+    </div>
+  `,
+
+  'bidding': () => `
+    <div class="filter-bar">
+      <div class="filter-chip active">Tất cả (3)</div>
+      <div class="filter-chip">Mới nhất</div>
+      <div class="filter-chip">Giá thấp nhất</div>
+      <div class="filter-chip">Đánh giá cao</div>
+    </div>
+    <div style="margin-bottom:8px;font-size:12px;color:var(--text2)">Báo giá cho: <b style="color:var(--text1)">Phòng khách Vila Q2</b> — Ngân sách: 80–120 triệu</div>
+    ${[
+      { name:'Xưởng Minh Phú', rating:'4.9 ★ (87)', price:'94.5tr', time:'45 ngày', init:'MP', winner:true, bg:'#e8f5ee', tags:['Gỗ công nghiệp','3D render','Bảo hành 2 năm'] },
+      { name:'Nội thất Hoàng Gia', rating:'4.7 ★ (52)', price:'108tr', time:'38 ngày', init:'HG', winner:false, bg:'#eaf0fc', tags:['Gỗ tự nhiên','Nhập khẩu','Cam kết tiến độ'] },
+      { name:'Xưởng Á Châu', rating:'4.5 ★ (34)', price:'85tr', time:'55 ngày', init:'AC', winner:false, bg:'#fff8e6', tags:['Giá tốt','Vật liệu cơ bản'] }
+    ].map(b => `
+      <div class="bid-card ${b.winner?'winner':''}">
+        ${b.winner?'<div class="bid-winner-tag">Đề xuất hàng đầu</div>':''}
+        <div class="bid-header">
+          <div class="bid-avatar" style="background:${b.bg}">${b.init}</div>
+          <div style="flex:1">
+            <div class="bid-company">${b.name}</div>
+            <div class="bid-rating">${b.rating}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="bid-price">${b.price}</div>
+            <div class="bid-price-label">⏱ ${b.time}</div>
+          </div>
+        </div>
+        <div class="market-tags">${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="bid-row">
+          <button class="btn btn-sm" style="flex:1">Xem hồ sơ</button>
+          <button class="btn btn-sm" style="flex:1;background:var(--info-bg);color:var(--info);border-color:var(--info)">Nhắn tin</button>
+          ${b.winner?`<button class="btn btn-sm btn-primary" style="flex:1">✓ Chọn nhà thầu</button>`:''}
+        </div>
+      </div>
+    `).join('')}
+  `,
+
+  'project-detail': () => `
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      ${['Thiết kế','Tiến độ & Escrow','Tài liệu'].map((t,i)=>`
+        <div onclick="this.parentElement.querySelectorAll('div').forEach(x=>x.style.background='');this.parentElement.querySelectorAll('div').forEach(x=>x.style.color='var(--text2)');this.style.background='var(--primary)';this.style.color='#fff'" 
+          style="padding:6px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:0.5px solid var(--border2);background:${i===0?'var(--primary)':'var(--surface)'};color:${i===0?'#fff':'var(--text2)'};">${t}</div>
+      `).join('')}
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Bản vẽ 3D/2D</span><span class="badge badge-amber">v2.3</span></div>
+        <div style="background:var(--surface2);border-radius:10px;height:160px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;border:0.5px solid var(--border);font-size:48px;cursor:pointer">🏠</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Mặt bằng phòng khách 35m² — Phong cách Scandinavian</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" style="flex:1">⬇ Tải bản vẽ</button>
+          <button class="btn btn-sm btn-primary" style="flex:1">✏ Thêm comment</button>
+        </div>
+        <div style="margin-top:12px;padding-top:10px;border-top:0.5px solid var(--border)">
+          <div style="font-size:11px;font-weight:500;color:var(--text1);margin-bottom:8px">Lịch sử comment</div>
+          ${[['NL','Cần dịch ghế sofa sang phải 50cm để thông hơn','14:32 hôm nay'],['MP','Đã cập nhật bản v2.3, mời khách xem lại','09:15 hôm nay']].map(([init,text,time])=>`
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--primary);flex-shrink:0">${init}</div>
+              <div><div style="font-size:11px;color:var(--text1)">${text}</div><div style="font-size:10px;color:var(--text3)">${time}</div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Escrow Tracker</span><span class="badge badge-green">Đang thi công</span></div>
+        <div class="escrow-stages">
+          ${[['✓','Đặt cọc','10tr',true,true],['✓','Phần thô','20tr',true,true],['●','Đang sơn','25tr',false,true],['○','Hoàn thiện','30tr',false,false],['○','Nghiệm thu','10tr',false,false]].map(([sym,label,amt,done,line],i,arr)=>`
+            <div class="escrow-stage">
+              ${i<arr.length-1?`<div class="stage-line ${done&&i<2?'done':''}"></div>`:''}
+              <div class="stage-dot ${done?'done':sym==='●'?'active':''}">${done?'✓':i+1}</div>
+              <div class="stage-label ${done?'done':sym==='●'?'active':''}">${label}</div>
+              <div class="stage-amount">${amt}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="background:var(--primary-bg);border-radius:10px;padding:14px;margin-top:14px">
+          <div style="font-size:12px;color:var(--primary);font-weight:500;margin-bottom:4px">Giai đoạn hiện tại: Đang sơn</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Nhà thầu đã tải lên 3 ảnh tiến độ hôm nay. Vui lòng xác nhận để giải ngân.</div>
+          <button class="btn btn-primary btn-sm" style="width:100%">💰 Giải ngân 25tr → Giai đoạn 3</button>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--text2)">Đã giải ngân</span><span style="font-weight:500;color:var(--primary)">30tr / 95tr</span>
+          </div>
+          <div class="progress-bar" style="margin-top:6px;height:6px"><div class="progress-fill" style="width:32%"></div></div>
+        </div>
+      </div>
+    </div>
+  `,
+
+  'payment': () => `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Số dư ví</div><div class="stat-value" style="color:var(--primary)">85tr</div></div>
+      <div class="stat-card"><div class="stat-label">Đang khóa (Escrow)</div><div class="stat-value" style="color:var(--accent)">60tr</div></div>
+      <div class="stat-card"><div class="stat-label">Khả dụng</div><div class="stat-value">25tr</div></div>
+      <div class="stat-card"><div class="stat-label">Đã chi tổng</div><div class="stat-value">245tr</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Nạp tiền vào ví</span></div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Số tiền nạp</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            ${['10tr','20tr','50tr','100tr','200tr','Tùy chỉnh'].map(a=>`<div style="padding:8px;text-align:center;border-radius:8px;border:0.5px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;background:var(--surface2);color:var(--text1)">${a}</div>`).join('')}
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Phương thức</div>
+          ${[['🏦','Chuyển khoản ngân hàng','Miễn phí'],['💳','Thẻ Visa/Mastercard','1.5% phí'],['📱','Ví MoMo / ZaloPay','Miễn phí']].map(([ic,name,fee])=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;border:0.5px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--surface2)">
+              <span style="font-size:18px">${ic}</span>
+              <div style="flex:1"><div style="font-size:12px;font-weight:500;color:var(--text1)">${name}</div><div style="font-size:10px;color:var(--text3)">${fee}</div></div>
+              <input type="radio" name="pm" />
+            </div>
+          `).join('')}
+          <button class="btn btn-primary" style="width:100%;margin-top:8px">Xác nhận nạp tiền</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Lịch sử giao dịch</span></div>
+        ${[['💰','Nạp tiền','+ 50,000,000đ','13/06/2025','badge-green'],['🔒','Khóa Escrow — Vila Q2','- 30,000,000đ','10/06/2025','badge-amber'],['✅','Giải ngân GĐ2 — Bếp','- 15,000,000đ','05/06/2025','badge-blue'],['💰','Nạp tiền','+ 100,000,000đ','01/06/2025','badge-green']].map(([ic,desc,amt,date,bc])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)">
+            <span style="font-size:16px">${ic}</span>
+            <div style="flex:1"><div style="font-size:12px;font-weight:500;color:var(--text1)">${desc}</div><div style="font-size:10px;color:var(--text3)">${date}</div></div>
+            <span class="badge ${bc}" style="font-size:11px">${amt}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `,
+};
+
+const contractorPages = {
+  'marketplace': () => `
+    <div class="filter-bar">
+      <div class="filter-chip active">Tất cả</div>
+      <div class="filter-chip">Gỗ tự nhiên</div>
+      <div class="filter-chip">TP.HCM</div>
+      <div class="filter-chip">50–100tr</div>
+      <div class="filter-chip">Mới đăng</div>
+    </div>
+    ${[
+      {icon:'🛋',name:'Nội thất phòng khách Vila Thủ Đức',budget:'80–120tr',area:'35m²',style:'Scandinavian',loc:'Thủ Đức, TPHCM',bids:3,tags:['Gỗ tự nhiên','3D design','Phòng khách']},
+      {icon:'🍳',name:'Cải tạo bếp & bàn ăn chung cư Q7',budget:'40–60tr',area:'20m²',style:'Hiện đại',loc:'Q7, TPHCM',bids:5,tags:['Inox','Kính cường lực','Bếp']},
+      {icon:'🛏',name:'Phòng ngủ trẻ em phong cách Hàn',budget:'25–45tr',area:'15m²',style:'Korean',loc:'Bình Dương',bids:2,tags:['Pastel','Gỗ MDF','Phòng ngủ']},
+    ].map(p=>`
+      <div class="market-item">
+        <div class="market-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:44px;height:44px;border-radius:10px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:22px">${p.icon}</div>
+            <div><div class="market-title">${p.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px">📍 ${p.loc} · ${p.area} · ${p.style}</div></div>
+          </div>
+          <div style="text-align:right"><div class="market-budget">${p.budget}</div><div style="font-size:10px;color:var(--text3)">${p.bids} báo giá</div></div>
+        </div>
+        <div class="market-tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="market-footer">
+          <span style="font-size:11px;color:var(--text3)">Đăng 2 giờ trước</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm">Xem chi tiết</button>
+            <button class="btn btn-sm btn-primary" onclick="showPage('submit-bid')">Gửi báo giá</button>
+          </div>
+        </div>
+      </div>
+    `).join('')}
+  `,
+
+  'submit-bid': () => `
+    <div class="card" style="max-width:680px">
+      <div class="card-header"><span class="card-title">Gửi báo giá — Phòng khách Vila Q2</span></div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2)">
+        📋 <b style="color:var(--text1)">Yêu cầu:</b> Phòng khách 35m², Scandinavian, gỗ tự nhiên, ngân sách 80–120tr
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Tổng giá trị hợp đồng (VND)</label>
+          <input type="number" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text1)" value="94500000" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Thời gian hoàn thành (ngày)</label>
+          <input type="number" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text1)" value="45" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Chi tiết đơn giá theo hạng mục</label>
+          <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead><tr style="background:var(--surface2)">${['Hạng mục','ĐVT','Số lượng','Đơn giá','Thành tiền'].map(h=>`<th style="padding:7px 10px;text-align:left;border:0.5px solid var(--border);font-weight:500;color:var(--text2)">${h}</th>`).join('')}</tr></thead>
+            <tbody>${[['Sofa góc L','Bộ',1,'18,000,000','18,000,000'],['Kệ TV gỗ sồi','Cái',1,'12,500,000','12,500,000'],['Bàn coffee','Cái',1,'5,500,000','5,500,000'],['Thảm trải sàn','m²',10,'850,000','8,500,000']].map(r=>`<tr>${r.map(c=>`<td style="padding:7px 10px;border:0.5px solid var(--border);color:var(--text1)">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Tải lên hồ sơ phương án thi công</label>
+          <div style="border:1.5px dashed var(--border2);border-radius:10px;padding:16px;text-align:center;background:var(--surface2);cursor:pointer">
+            <div style="font-size:20px;margin-bottom:4px">📎</div>
+            <div style="font-size:12px;color:var(--text2)">PDF phương án, hình ảnh mẫu, bản vẽ sơ bộ</div>
+          </div>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Ghi chú thêm</label>
+          <textarea style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:12px;background:var(--surface);color:var(--text1);font-family:var(--font);height:70px;resize:vertical">Xưởng cam kết tiến độ, bảo hành 24 tháng, sử dụng 100% gỗ sồi nhập khẩu Mỹ. Sẵn sàng khởi công trong 3 ngày sau khi ký hợp đồng.</textarea>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)">
+        <button class="btn">Lưu nháp</button>
+        <button class="btn btn-primary">Gửi báo giá →</button>
+      </div>
+    </div>
+  `,
+
+  'production-log': () => `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--text2)">Dự án: <b style="color:var(--text1)">Phòng khách Vila Q2</b></div>
+      <button class="btn btn-primary btn-sm">📸 Đăng tiến độ mới</button>
+    </div>
+    ${[
+      {date:'Hôm nay, 14:22',title:'Hoàn thiện lớp sơn lót tường',desc:'Đã hoàn thành toàn bộ lớp lót. Khô hoàn toàn sau 4h. Chuẩn bị sơn màu chính vào sáng mai.',emojis:['🖌️','🏗️'],reactions:2,read:true},
+      {date:'Hôm qua, 09:15',title:'Lắp đặt khung xương kệ TV',desc:'Khung gỗ sồi đã được định vị và bắt vít. Kiểm tra cân bằng đạt chuẩn. Chờ ráp mặt gỗ.',emojis:['🔨','📐'],reactions:1,read:true},
+      {date:'12/06, 16:40',title:'Nhận vật tư & kiểm kho',desc:'Toàn bộ gỗ sồi Mỹ 47 tấm, 2 bộ phụ kiện inox đã được nhận và kiểm tra chất lượng. Đạt 100%.',emojis:['📦','✅'],reactions:3,read:true},
+    ].map(l=>`
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text3)">${l.date}</div>
+          <div style="display:flex;gap:4px">${l.emojis.map(e=>`<span style="font-size:16px">${e}</span>`).join('')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+          ${[['#e8f5ee','🏗','📸'],['#eaf0fc','📸','🔍'],['#fff8e6','📸','✨']].map(([bg,a,b])=>`
+            <div style="background:${bg};border-radius:8px;height:64px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer">${a}</div>
+          `).join('')}
+        </div>
+        <div style="font-size:13px;font-weight:500;color:var(--text1);margin-bottom:4px">${l.title}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">${l.desc}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:0.5px solid var(--border)">
+          <span style="font-size:11px;color:var(--text3)">👁 Khách hàng đã xem</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm">👍 ${l.reactions}</button>
+            <button class="btn btn-sm">💬 Phản hồi</button>
+          </div>
+        </div>
+      </div>
+    `).join('')}
+  `,
+
+  'earnings': () => `
+    <div class="earnings-row">
+      <div class="earning-card"><div class="earning-icon">💵</div><div class="earning-label">Số dư thực tế</div><div class="earning-value" style="color:var(--primary)">42.5tr</div></div>
+      <div class="earning-card"><div class="earning-icon">⏳</div><div class="earning-label">Đang chờ giải ngân</div><div class="earning-value" style="color:var(--accent)">25tr</div></div>
+      <div class="earning-card"><div class="earning-icon">📈</div><div class="earning-label">Tổng doanh thu</div><div class="earning-value">380tr</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Rút tiền về ngân hàng</span></div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Ngân hàng</div>
+          <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:12px;background:var(--surface);color:var(--text1);font-family:var(--font)">
+            <option>Vietcombank ****4521</option><option>Techcombank ****8830</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Số tiền rút</div>
+          <input type="number" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border2);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text1)" value="20000000" />
+        </div>
+        <button class="btn btn-primary" style="width:100%">Rút tiền ngay</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Lịch sử giao dịch</span></div>
+        ${[['✅','Giải ngân GĐ3 — Vila Q2','+ 25,000,000đ','Hôm nay','badge-green'],['💸','Rút về Vietcombank','- 20,000,000đ','12/06','badge-gray'],['✅','Giải ngân GĐ2 — Vila Q2','+ 20,000,000đ','05/06','badge-green'],['💸','Rút về Techcombank','- 15,000,000đ','01/06','badge-gray']].map(([ic,desc,amt,date,bc])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)">
+            <span style="font-size:16px">${ic}</span>
+            <div style="flex:1"><div style="font-size:12px;font-weight:500;color:var(--text1)">${desc}</div><div style="font-size:10px;color:var(--text3)">${date}</div></div>
+            <span class="badge ${bc}" style="font-size:11px">${amt}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `,
+
+  'portfolio': () => `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--text2)">6 công trình hoàn thành · Đánh giá trung bình: ⭐ 4.9</div>
+      <button class="btn btn-primary btn-sm">+ Thêm công trình</button>
+    </div>
+    <div class="portfolio-grid">
+      ${[['🛋','Phòng khách Vinhomes','2024 · 95tr'],['🍳','Bếp tối giản Q7','2024 · 58tr'],['🛏','Phòng ngủ Master','2024 · 72tr'],['🏠','Toàn nhà Bình Dương','2023 · 320tr'],['🚿','WC Luxury SPA','2023 · 45tr'],['🏢','Văn phòng Startup','2023 · 180tr']].map(([ic,name,meta])=>`
+        <div class="portfolio-item">
+          <div class="portfolio-img">${ic}</div>
+          <div class="portfolio-info">
+            <div class="portfolio-title">${name}</div>
+            <div class="portfolio-meta">${meta}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `,
+};
+
+const adminPages = {
+  'admin-dashboard': () => `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Tổng doanh thu sàn</div><div class="stat-value" style="color:var(--primary)">1.2 tỷ</div><div class="stat-change up">↑ 18% tháng này</div></div>
+      <div class="stat-card"><div class="stat-label">Dự án mới (tháng)</div><div class="stat-value">47</div><div class="stat-change up">↑ 12%</div></div>
+      <div class="stat-card"><div class="stat-label">Tổng Escrow đang giữ</div><div class="stat-value" style="color:var(--accent)">850tr</div><div class="stat-change" style="color:var(--text3)">38 dự án</div></div>
+      <div class="stat-card"><div class="stat-label">Nhà thầu active</div><div class="stat-value">124</div><div class="stat-change up">↑ 8%</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Doanh thu theo tháng</span></div>
+        <div class="chart-bars">
+          ${[45,60,52,78,65,90,105,88,95,110,98,120].map((v,i)=>`
+            <div class="bar-wrap">
+              <div class="bar ${i===11?'active-bar':''}" style="height:${Math.round(v*0.65)}px"></div>
+              <div class="bar-label">${['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'][i]}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Chờ phê duyệt</span><span class="badge badge-red">7 mới</span></div>
+        ${[['🏭','Xưởng Mộc Bền Vững','Hồ sơ đầy đủ','Đang chờ'],['🏗','NT Gia Định Group','Thiếu GPKD','Cần bổ sung'],['🛋','Design Studio Linh','Hồ sơ đầy đủ','Đang chờ']].map(([ic,name,status,action])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)">
+            <span style="font-size:20px">${ic}</span>
+            <div style="flex:1"><div style="font-size:12px;font-weight:500;color:var(--text1)">${name}</div><div style="font-size:10px;color:var(--text2)">${status}</div></div>
+            <span class="badge ${action==='Đang chờ'?'badge-amber':'badge-red'}">${action}</span>
+          </div>
+        `).join('')}
+        <button class="btn btn-sm" style="width:100%;margin-top:10px" onclick="showPage('vendor-verify')">Xem tất cả →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Dòng tiền Escrow theo dự án</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${[['Phòng khách Vila Q2','95tr','32%','badge-amber'],['Bếp Linh Đàm','58tr','85%','badge-green'],['Biệt thự Thủ Đức','320tr','20%','badge-blue'],['Văn phòng Q1','180tr','60%','badge-amber']].map(([name,total,pct,bc])=>`
+          <div style="padding:12px;background:var(--surface2);border-radius:10px;border:0.5px solid var(--border)">
+            <div style="font-size:11px;font-weight:500;color:var(--text1);margin-bottom:4px">${name}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--primary);font-family:var(--font-display)">${total}</div>
+            <div class="progress-bar" style="margin:6px 0"><div class="progress-fill" style="width:${pct}"></div></div>
+            <span class="badge ${bc}" style="font-size:10px">${pct} giải ngân</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `,
+
+  'vendor-verify': () => `
+    <div class="filter-bar">
+      <div class="filter-chip active">Chờ duyệt (7)</div>
+      <div class="filter-chip">Đã duyệt</div>
+      <div class="filter-chip">Từ chối</div>
+    </div>
+    ${[
+      {name:'Xưởng Mộc Bền Vững',sub:'TP.HCM · 5 năm kinh nghiệm',status:'full',icon:'🏭'},
+      {name:'Design Studio Linh',sub:'Hà Nội · 3 năm kinh nghiệm',status:'full',icon:'🎨'},
+      {name:'NT Gia Định Group',sub:'TP.HCM · 8 năm kinh nghiệm',status:'missing',icon:'🏗'},
+      {name:'Xưởng Gỗ Phú Quý',sub:'Bình Dương · 6 năm kinh nghiệm',status:'full',icon:'🪵'},
+    ].map(v=>`
+      <div class="vendor-item">
+        <div class="vendor-logo">${v.icon}</div>
+        <div class="vendor-info">
+          <div class="vendor-name">${v.name}</div>
+          <div class="vendor-sub">${v.sub} · ${v.status==='full'?'✅ Hồ sơ đầy đủ':'⚠️ Thiếu GPKD'}</div>
+        </div>
+        <div class="vendor-actions">
+          <button class="btn btn-sm">Xem hồ sơ</button>
+          ${v.status==='full'?`<button class="btn btn-sm" style="background:#e6f5eb;color:#1a7a40;border-color:#b0dcc0">✓ Duyệt</button>`:''}
+          <button class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border-color:#f0b0b0">✗ Từ chối</button>
+        </div>
+      </div>
+    `).join('')}
+  `,
+
+  'dispute': () => `
+    ${[
+      {title:'Tranh chấp #D-0091 — Phòng khách Vila Q2',user:'Khách hàng: Nguyễn Lan',contractor:'Nhà thầu: Xưởng Minh Phú',uclaim:'Sản phẩm giao không đúng mẫu, yêu cầu hoàn 15tr',cclaim:'Đã thi công đúng theo bản vẽ duyệt v2.3'},
+    ].map(d=>`
+      <div class="dispute-card">
+        <div class="dispute-header">
+          <div class="dispute-title">⚖ ${d.title}</div>
+          <span class="badge badge-red">Đang xử lý</span>
+        </div>
+        <div class="dispute-body">
+          <div class="dispute-row">
+            <div class="dispute-party">
+              <div class="party-label">👤 Khách hàng</div>
+              <div class="party-name">Nguyễn Lan</div>
+              <div class="party-claim">${d.uclaim}</div>
+            </div>
+            <div style="display:flex;align-items:center;padding:0 6px;font-size:18px;color:var(--text3)">⚖</div>
+            <div class="dispute-party">
+              <div class="party-label">🏭 Nhà thầu</div>
+              <div class="party-name">Xưởng Minh Phú</div>
+              <div class="party-claim">${d.cclaim}</div>
+            </div>
+          </div>
+          <div class="dispute-evidence">
+            <div style="font-size:12px;font-weight:500;color:var(--text1);margin-bottom:8px">Bằng chứng đính kèm</div>
+            <div style="display:flex;gap:8px">
+              ${['📷','📄','📷','💬'].map((ic,i)=>`<div style="width:52px;height:52px;background:var(--surface2);border-radius:8px;border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer">${ic}</div>`).join('')}
+              <span style="font-size:11px;color:var(--text3);align-self:center">+3 file</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding-top:10px;border-top:0.5px solid var(--border);display:flex;gap:8px">
+            <button class="btn btn-sm" style="flex:1;background:#e6f5eb;color:#1a7a40;border-color:#b0dcc0">✓ Giải ngân cho nhà thầu</button>
+            <button class="btn btn-sm" style="flex:1;background:var(--danger-bg);color:var(--danger);border-color:#f0b0b0">↩ Hoàn tiền khách hàng</button>
+            <button class="btn btn-sm" style="flex:1">✂ Chia đôi</button>
+          </div>
+        </div>
+      </div>
+    `).join('')}
+    <div class="card">
+      <div class="card-header"><span class="card-title">Lịch sử chat 3 bên</span></div>
+      ${chatWidget('admin')}
+    </div>
+  `,
+
+  'system-config': () => `
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Cấu hình phí sàn</span></div>
+        ${[['Phí sàn từ khách hàng','3.5','%'],['Phí sàn từ nhà thầu','5','%'],['Phí chuyển đổi ví','0.5','%'],['Phí tranh chấp xử lý','500,000','đ/vụ']].map(([label,val,unit])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">
+            <div style="flex:1;font-size:12px;color:var(--text1)">${label}</div>
+            <input style="width:80px;padding:6px 8px;border-radius:6px;border:0.5px solid var(--border2);font-size:12px;text-align:right;background:var(--surface);color:var(--text1);font-family:var(--font)" value="${val}" />
+            <span style="font-size:12px;color:var(--text2);width:16px">${unit}</span>
+          </div>
+        `).join('')}
+        <button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%">Lưu cấu hình</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Danh mục vật liệu / phong cách</span></div>
+        ${['Gỗ tự nhiên','Gỗ công nghiệp','Kính cường lực','Inox 304','Đá nhân tạo'].map(cat=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border)">
+            <span style="font-size:14px">📦</span>
+            <span style="flex:1;font-size:12px;color:var(--text1)">${cat}</span>
+            <button class="btn btn-sm">✏</button>
+            <button class="btn btn-sm" style="color:var(--danger)">✕</button>
+          </div>
+        `).join('')}
+        <button class="btn btn-sm" style="margin-top:8px;width:100%">+ Thêm danh mục</button>
+      </div>
+    </div>
+  `,
+};
+
+const commonPages = {
+  'notifications': () => `
+    <div class="filter-bar">
+      <div class="filter-chip active">Tất cả</div>
+      <div class="filter-chip">Chưa đọc (5)</div>
+      <div class="filter-chip">Báo giá</div>
+      <div class="filter-chip">Thanh toán</div>
+      <div class="filter-chip">Tiến độ</div>
+    </div>
+    <div class="card">
+      ${[
+        {ic:'💬',bg:'#e8f5ee',text:'<b>Xưởng Minh Phú</b> gửi báo giá mới cho dự án <b>Phòng khách Vila Q2</b> — 94.5 triệu đồng',time:'5 phút trước',unread:true},
+        {ic:'💰',bg:'#fff8e6',text:'Giải ngân thành công <b>15,000,000đ</b> cho Giai đoạn 2 — <b>Bếp Linh Đàm</b>',time:'1 giờ trước',unread:true},
+        {ic:'✏️',bg:'#eaf0fc',text:'Bản vẽ <b>WC Tầng 2</b> phiên bản v1.2 đã được cập nhật, chờ duyệt từ bạn',time:'3 giờ trước',unread:true},
+        {ic:'📸',bg:'#f0eafc',text:'<b>Xưởng Minh Phú</b> vừa đăng 3 ảnh tiến độ mới cho <b>Phòng khách Vila Q2</b>',time:'5 giờ trước',unread:false},
+        {ic:'⚠️',bg:'#fef0f0',text:'Nhà thầu <b>Phòng ngủ Master</b> đề nghị gia hạn thêm 3 ngày do thiếu vật tư',time:'Hôm qua',unread:false},
+        {ic:'✅',bg:'#e6f5eb',text:'Dự án <b>Bếp & Dining Linh Đàm</b> đã hoàn thành và được nghiệm thu',time:'2 ngày trước',unread:false},
+      ].map(n=>`
+        <div class="notif-item" style="${n.unread?'background:var(--surface2);padding:10px;border-radius:10px;margin-bottom:6px;border-bottom:none':''}">
+          <div style="width:36px;height:36px;border-radius:50%;background:${n.bg};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${n.ic}</div>
+          <div class="notif-content">
+            <div class="notif-text">${n.text}</div>
+            <div class="notif-time">${n.time} ${n.unread?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--primary-light);margin-left:4px;vertical-align:middle"></span>':''}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `,
+
+  'chat': () => `
+    <div style="display:flex;gap:14px;height:520px">
+      <div style="width:220px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;flex-shrink:0">
+        <div style="padding:12px;border-bottom:0.5px solid var(--border);font-size:12px;font-weight:500;color:var(--text1)">Cuộc trò chuyện</div>
+        ${[
+          {name:'Xưởng Minh Phú',project:'Vila Q2',last:'OK, mình sẽ điều chỉnh ngay',time:'5 phút',unread:2,active:true},
+          {name:'Nội thất Hoàng Gia',project:'Phòng ngủ',last:'Đã gửi bản vẽ v2 rồi nhé',time:'1h',unread:0,active:false},
+          {name:'Admin Hệ thống',project:'Hỗ trợ',last:'Tranh chấp đã được giải quyết',time:'Hôm qua',unread:0,active:false},
+        ].map(c=>`
+          <div style="padding:12px;border-bottom:0.5px solid var(--border);cursor:pointer;background:${c.active?'var(--primary-bg)':'transparent'};display:flex;gap:8px;align-items:center">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--primary);flex-shrink:0">${c.name[0]}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;font-weight:500;color:var(--text1)">${c.name}</span>
+                <span style="font-size:10px;color:var(--text3)">${c.time}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.last}</div>
+            </div>
+            ${c.unread?`<div style="width:18px;height:18px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${c.unread}</div>`:''}
+          </div>
+        `).join('')}
+      </div>
+      <div style="flex:1;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--primary)">X</div>
+          <div><div style="font-size:13px;font-weight:500;color:var(--text1)">Xưởng Minh Phú</div><div style="font-size:10px;color:var(--text3)">Dự án: Phòng khách Vila Q2</div></div>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button class="btn btn-sm">📎 File</button>
+            <button class="btn btn-sm">💰 Báo giá nhanh</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+          ${[
+            {from:'contractor',text:'Chào anh/chị, em đã xem mặt bằng và có thể bắt đầu từ tuần tới. Cho em hỏi thêm về phong cách sofa muốn chọn ạ?',time:'09:15'},
+            {from:'customer',text:'Sofa góc chữ L, màu xám đậm, chất liệu vải tổng hợp chống bám bẩn nhé. Chiều cao ghế khoảng 40cm.',time:'09:32'},
+            {from:'contractor',text:'Dạ em hiểu rồi. Em sẽ cập nhật bản vẽ và gửi cho anh/chị xem trước khi sản xuất. Dự kiến gửi vào chiều nay ạ.',time:'09:45'},
+            {from:'customer',text:'OK anh, chờ bản vẽ nhé. Nhớ thêm tủ kệ TV gỗ sồi theo đúng mẫu em đã gửi.',time:'10:02'},
+            {from:'contractor',text:'OK, mình sẽ điều chỉnh ngay 👍',time:'10:05'},
+          ].map(m=>`
+            <div style="display:flex;gap:8px;flex-direction:${m.from==='customer'?'row-reverse':'row'};align-items:flex-start">
+              <div style="width:28px;height:28px;border-radius:50%;background:${m.from==='customer'?'var(--info-bg)':'var(--primary-bg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${m.from==='customer'?'var(--info)':'var(--primary)'};flex-shrink:0">${m.from==='customer'?'KH':'NT'}</div>
+              <div style="max-width:75%">
+                <div style="padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.5;background:${m.from==='customer'?'var(--primary)':'var(--surface2)'};color:${m.from==='customer'?'#fff':'var(--text1)'}">${m.text}</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:3px;text-align:${m.from==='customer'?'right':'left'}">${m.time}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="padding:12px;border-top:0.5px solid var(--border);display:flex;gap:8px">
+          <input class="chat-input" placeholder="Nhập tin nhắn..." style="flex:1" />
+          <button class="btn btn-primary btn-sm">Gửi</button>
+        </div>
+      </div>
+    </div>
+  `,
+};
+
+function chatWidget(role) {
+  return `
+    <div class="chat-messages">
+      ${[
+        {from:'other',init:'MP',text:'Đã hoàn thiện lớp sơn lót, chuẩn bị sơn màu chính vào sáng mai ạ.',time:'14:22'},
+        {from:'me',init:'KH',text:'OK anh, nhớ dùng đúng màu RAL 9003 nhé. Có thể chụp ảnh tiến độ không?',time:'14:35'},
+        {from:'other',init:'MP',text:'Dạ em đã đăng ảnh lên nhật ký rồi ạ. Anh/chị xem giúp em với!',time:'14:40'},
+      ].map(m=>`
+        <div class="msg ${m.from==='me'?'mine':''}">
+          <div class="msg-avatar">${m.init}</div>
+          <div>
+            <div class="msg-bubble">${m.text}</div>
+            <div class="msg-time">${m.time}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" placeholder="Nhập tin nhắn..." />
+      <button class="btn btn-primary btn-sm">Gửi</button>
+    </div>
+  `;
+}
+
+switchRole('customer');
+</script>

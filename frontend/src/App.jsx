@@ -1,0 +1,127 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import useAuthStore from './store/useAuthStore';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import WalletPage from './pages/WalletPage';
+import CreateProjectPage from './pages/CreateProjectPage';
+import HomePage from './pages/HomePage';
+import ProjectListPage from './pages/ProjectListPage';
+import ProfilePage from './pages/ProfilePage';
+import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
+import ProductionLogPage from './pages/ProductionLogPage';
+import PortfolioPage from './pages/PortfolioPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+
+// Temporary components until I create them
+const Notifications = () => <div className="p-8">Notifications (Coming soon)</div>;
+const MyBids = () => <div className="p-8">My Bids (Coming soon)</div>;
+
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { token, user } = useAuthStore();
+  
+  if (!token) return <Navigate to="/login" />;
+  
+  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    return <Navigate to="/" />;
+  }
+  
+  return children;
+};
+
+function App() {
+  return (
+    <Router>
+      <Toaster position="top-right" />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        
+        <Route path="/" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <HomePage />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/dashboard" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <DashboardPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/projects" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
+            <ProjectListPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/projects/new" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER']}>
+            <CreateProjectPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/projects/:id" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/projects/browse" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProjectMarketplacePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/production-log" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProductionLogPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/portfolio" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <PortfolioPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bids" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <MyBids />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/wallet" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <WalletPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/notifications" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <Notifications />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/profile" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;

@@ -1,0 +1,80 @@
+package com.constructx.backend.service;
+
+import com.constructx.backend.dto.request.ProjectRequest;
+import com.constructx.backend.entity.Project;
+import com.constructx.backend.entity.User;
+import com.constructx.backend.repository.ProjectRepository;
+import com.constructx.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    public List<Project> getMyProjects() {
+        User user = getCurrentUser();
+        return projectRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+    }
+
+    public List<Project> getAllOpenProjects() {
+        return projectRepository.findByStatusOrderByCreatedAtDesc(Project.Status.OPEN);
+    }
+
+    public Project getProjectById(Long id) {
+        User user = getCurrentUser();
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy dự án"));
+        if (!project.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Bạn không có quyền xem dự án này");
+        }
+        return project;
+    }
+
+    @Transactional
+    public Project createProject(ProjectRequest request) {
+        User user = getCurrentUser();
+
+        Project.BidType bidType = Project.BidType.OPEN;
+        if ("DIRECT".equalsIgnoreCase(request.getBidType())) {
+            bidType = Project.BidType.DIRECT;
+        }
+
+        Project project = Project.builder()
+                .user(user)
+                .name(request.getName())
+                .category(request.getCategory())
+                .area(request.getArea())
+                .style(request.getStyle())
+                .address(request.getAddress())
+                .description(request.getDescription())
+                .budgetMin(request.getBudgetMin())
+                .budgetMax(request.getBudgetMax())
+                .bidType(bidType)
+                .status(Project.Status.OPEN)
+                .build();
+
+        return projectRepository.save(project);
+    }
+
+    @Transactional
+    public Project updateProjectStatus(Long id, String status) {
+        Project project = getProjectById(id);
+        project.setStatus(Project.Status.valueOf(status.toUpperCase()));
+        return projectRepository.save(project);
+    }
+}
