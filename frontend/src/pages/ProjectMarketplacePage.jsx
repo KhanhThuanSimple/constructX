@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { 
-  Search, 
-  MapPin, 
-  Clock, 
+import {
+  Search,
+  MapPin,
+  Clock,
   ArrowUpRight,
   Filter,
   DollarSign
@@ -31,9 +31,11 @@ const ProjectMarketplacePage = () => {
       setLoading(false);
     }
   };
+  console.log('Open projects:', projects);
 
-  const handleProjectClick = (projectId) => {
-    navigate(`/projects/${projectId}`);
+  const GoToProjectDetail = (projectId) => {
+    console.log('chạy vào đây r:', projectId);
+    navigate(`/projectsv2/${projectId}`);
   };
 
   return (
@@ -41,9 +43,9 @@ const ProjectMarketplacePage = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Tìm theo tên dự án, hạng mục..." 
+          <input
+            type="text"
+            placeholder="Tìm theo tên dự án, hạng mục..."
             className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm shadow-sm focus:border-[#1a4f3a] transition-all outline-none"
           />
         </div>
@@ -72,9 +74,8 @@ const ProjectMarketplacePage = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {projects.map((project) => (
-            <div 
-              key={project.id} 
-              onClick={() => handleProjectClick(project.id)}
+            <div
+              key={project.id}
               className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer"
             >
               <div className="p-6">
@@ -86,11 +87,11 @@ const ProjectMarketplacePage = () => {
                     <Clock size={12} /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}
                   </div>
                 </div>
-                
+
                 <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-[#1a4f3a] transition-colors">
                   {project.name}
                 </h3>
-                
+
                 <div className="flex flex-wrap gap-4 mb-6">
                   <div className="flex items-center gap-1.5 text-gray-500 text-xs">
                     <MapPin size={14} className="text-gray-400" />
@@ -109,7 +110,9 @@ const ProjectMarketplacePage = () => {
                     </div>
                     <span className="text-xs font-medium text-gray-600">{project.customerName || 'Khách hàng'}</span>
                   </div>
-                  <button className="flex items-center gap-2 text-sm font-bold text-[#1a4f3a] hover:gap-3 transition-all">
+                  <button className="flex items-center gap-2 text-sm font-bold text-[#1a4f3a] hover:gap-3 transition-all"
+                    onClick={() => { GoToProjectDetail(project.id) }}
+                  >
                     Xem chi tiết <ArrowUpRight size={18} />
                   </button>
                 </div>

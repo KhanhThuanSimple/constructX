@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  Wallet, 
-  Bell, 
-  MessageCircle, 
-  History, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Wallet,
+  Bell,
+  MessageCircle,
+  History,
+  LogOut,
   Construction,
   Image,
   Shield,
@@ -32,7 +32,7 @@ const Sidebar = () => {
 
   const contractorNav = [
     { id: 'home', label: 'Trang chủ', icon: <Construction size={20} />, path: '/' },
-    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
     { id: 'marketplace', label: 'Tìm việc mới', icon: <PlusCircle size={20} />, path: '/projects/browse' },
     { id: 'my-bids', label: 'Đấu thầu của tôi', icon: <History size={20} />, path: '/bids' },
     { id: 'production-log', label: 'Nhật ký thi công', icon: <Camera size={20} />, path: '/production-log' },
@@ -70,9 +70,8 @@ const Sidebar = () => {
           <NavLink
             key={item.id}
             to={item.path}
-            className={({ isActive }) => 
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                isActive ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:bg-white/10 hover:text-white'
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${isActive ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -107,7 +106,7 @@ const Sidebar = () => {
 const Topbar = ({ title }) => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  
+
   return (
     <div className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-between sticky top-0 z-10">
       <h2 className="text-lg font-semibold text-gray-800 font-display">{title}</h2>
