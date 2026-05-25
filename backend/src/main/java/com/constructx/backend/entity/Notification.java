@@ -1,7 +1,9 @@
 package com.constructx.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,6 +18,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -34,7 +37,12 @@ public class Notification {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum NotifType {
-        BID_RECEIVED, PAYMENT_SUCCESS, PAYMENT_FAILED,
-        DESIGN_UPDATED, MILESTONE_REQUEST, DISPUTE, SYSTEM
+        BID_RECEIVED,
+        PAYMENT_SUCCESS,
+        PAYMENT_FAILED,
+        DESIGN_UPDATED,
+        MILESTONE_REQUEST,
+        DISPUTE,
+        SYSTEM
     }
 }

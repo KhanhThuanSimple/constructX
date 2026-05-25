@@ -27,8 +27,8 @@ public class NotificationController {
     }
 
     @PostMapping("/mark-all-read")
-    public ResponseEntity<ApiResponse<Void>> markAllRead() {
+    public ResponseEntity<ApiResponse<String>> markAllRead() {
         notificationService.markAllRead();
-        return ResponseEntity.ok(ApiResponse.ok("Đã đánh dấu tất cả là đã đọc", null));
+        return ResponseEntity.ok(ApiResponse.ok("Đã đánh dấu tất cả thông báo là đã đọc"));
     }
 }
