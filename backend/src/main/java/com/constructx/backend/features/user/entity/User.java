@@ -41,9 +41,15 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
     private LocalDateTime createdAt;
 
     public enum Role { CUSTOMER, CONTRACTOR, ADMIN }
+
+    public enum ApprovalStatus { PENDING, APPROVED, REJECTED }
 
     @PrePersist
     protected void onCreate() {

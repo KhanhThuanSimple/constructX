@@ -1,6 +1,5 @@
-package com.constructx.backend.features.notification.entity;
+package com.constructx.backend.entity;
 
-import com.constructx.backend.features.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;

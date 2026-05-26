@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.constructx.backend.entity.Notification;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
+    private final NotificationService notificationService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -35,15 +37,25 @@ public class AuthService {
         }
 
         User.Role userRole = User.Role.CUSTOMER;
+        User.ApprovalStatus approvalStatus = User.ApprovalStatus.APPROVED;
+        boolean active = true;
+
         if (request.getRole() != null) {
             try {
                 User.Role requestedRole = User.Role.valueOf(request.getRole().toUpperCase());
+
                 if (requestedRole == User.Role.ADMIN) {
                     throw new RuntimeException("Không thể đăng ký tài khoản Admin công khai");
                 }
+
                 userRole = requestedRole;
+
+                if (requestedRole == User.Role.CONTRACTOR) {
+                    approvalStatus = User.ApprovalStatus.PENDING;
+                    active = false;
+                }
             } catch (IllegalArgumentException e) {
-                // Keep default CUSTOMER
+                userRole = User.Role.CUSTOMER;
             }
         }
 
@@ -53,20 +65,34 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phoneNumber(request.getPhone())
                 .role(userRole)
+                .active(active)
+                .approvalStatus(approvalStatus)
                 .build();
 
         user = userRepository.save(user);
 
-        // Tự động tạo ví cho khách hàng mới
         Wallet wallet = Wallet.builder()
                 .user(user)
                 .balance(0L)
                 .lockedAmount(0L)
                 .build();
+
         walletRepository.save(wallet);
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtUtil.generateToken(userDetails);
+        if (user.getRole() == User.Role.CONTRACTOR) {
+        notificationService.createNotificationForAdmins(
+            Notification.NotifType.SYSTEM,
+            "Nhà thầu mới " + user.getFullName()
+                    + " (" + user.getEmail() + ") đang chờ phê duyệt."
+        );
+        }
+
+        String token = null;
+
+        if (user.isActive()) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+            token = jwtUtil.generateToken(userDetails);
+        }
 
         return AuthResponse.builder()
                 .token(token)

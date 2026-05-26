@@ -1,18 +1,20 @@
 import React from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  Wallet, 
-  Bell, 
-  MessageCircle, 
-  History, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Wallet,
+  Bell,
+  MessageCircle,
+  History,
+  LogOut,
   Construction,
   Image,
   Shield,
   User as UserIcon,
-  Camera
+  Camera,
+  Settings,
+  ClipboardCheck
 } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 
@@ -32,7 +34,7 @@ const Sidebar = () => {
 
   const contractorNav = [
     { id: 'home', label: 'Trang chủ', icon: <Construction size={20} />, path: '/' },
-    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
     { id: 'marketplace', label: 'Tìm việc mới', icon: <PlusCircle size={20} />, path: '/projects/browse' },
     { id: 'my-bids', label: 'Đấu thầu của tôi', icon: <History size={20} />, path: '/bids' },
     { id: 'production-log', label: 'Nhật ký thi công', icon: <Camera size={20} />, path: '/production-log' },
@@ -42,13 +44,21 @@ const Sidebar = () => {
   ];
 
   const adminNav = [
-    { id: 'admin-dashboard', label: 'Quản trị hệ thống', icon: <LayoutDashboard size={20} />, path: '/admin' },
-    { id: 'user-management', label: 'Quản lý người dùng', icon: <UserIcon size={20} />, path: '/admin/users' },
+    { id: 'admin-dashboard', label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'admin-projects', label: 'Duyệt dự án', icon: <ClipboardCheck size={20} />, path: '/admin/projects' },
+    { id: 'user-management', label: 'Phê duyệt đối tác', icon: <UserIcon size={20} />, path: '/admin/users' },
     { id: 'disputes', label: 'Tranh chấp', icon: <Shield size={20} />, path: '/admin/disputes' },
+    { id: 'settings', label: 'Cấu hình hệ thống', icon: <Settings size={20} />, path: '/admin/settings' },
     { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />, path: '/profile' },
+    { id: 'notifications', label: 'Thông báo', icon: <Bell size={20} />, path: '/notifications' },
   ];
 
-  const navItems = user?.role === 'ADMIN' ? adminNav : (user?.role === 'CONTRACTOR' ? contractorNav : customerNav);
+  const navItems =
+    user?.role === 'ADMIN'
+      ? adminNav
+      : user?.role === 'CONTRACTOR'
+        ? contractorNav
+        : customerNav;
 
   const handleLogout = () => {
     logout();
@@ -59,20 +69,29 @@ const Sidebar = () => {
     <div className="w-64 bg-[#1a4f3a] text-white flex flex-col h-screen shrink-0">
       <div className="p-6 border-b border-white/10">
         <h1 className="text-xl font-bold tracking-tight font-display">ConstructX</h1>
-        <p className="text-[10px] uppercase tracking-widest text-white/50 mt-1">Sàn thi công nội thất</p>
+        <p className="text-[10px] uppercase tracking-widest text-white/50 mt-1">
+          Sàn thi công nội thất
+        </p>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         <p className="text-[10px] uppercase tracking-widest text-white/30 px-3 py-2">
-          {user?.role === 'ADMIN' ? 'Quản trị viên' : (user?.role === 'CONTRACTOR' ? 'Nhà thầu' : 'Khách hàng')}
+          {user?.role === 'ADMIN'
+            ? 'Quản trị viên'
+            : user?.role === 'CONTRACTOR'
+              ? 'Nhà thầu'
+              : 'Khách hàng'}
         </p>
+
         {navItems.map((item) => (
           <NavLink
             key={item.id}
             to={item.path}
-            className={({ isActive }) => 
+            className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                isActive ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                isActive
+                  ? 'bg-white/15 text-white font-medium'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -88,14 +107,25 @@ const Sidebar = () => {
             <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm shrink-0 group-hover:bg-white/30 transition-colors">
               {user?.fullName?.charAt(0) || 'U'}
             </div>
+
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate group-hover:text-white transition-colors">{user?.fullName || 'Người dùng'}</p>
+              <p className="text-sm font-medium truncate group-hover:text-white transition-colors">
+                {user?.fullName || 'Người dùng'}
+              </p>
               <p className="text-[10px] text-white/50 truncate">
-                {user?.role === 'CUSTOMER' ? 'Khách hàng' : user?.role === 'CONTRACTOR' ? 'Nhà thầu' : 'Quản trị viên'}
+                {user?.role === 'CUSTOMER'
+                  ? 'Khách hàng'
+                  : user?.role === 'CONTRACTOR'
+                    ? 'Nhà thầu'
+                    : 'Quản trị viên'}
               </p>
             </div>
           </Link>
-          <button onClick={handleLogout} className="text-white/40 hover:text-white transition-colors ml-2">
+
+          <button
+            onClick={handleLogout}
+            className="text-white/40 hover:text-white transition-colors ml-2"
+          >
             <LogOut size={18} />
           </button>
         </div>
@@ -107,14 +137,27 @@ const Sidebar = () => {
 const Topbar = ({ title }) => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  
+
   return (
     <div className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-between sticky top-0 z-10">
       <h2 className="text-lg font-semibold text-gray-800 font-display">{title}</h2>
+
       <div className="flex items-center gap-4">
         {user?.role === 'CUSTOMER' && (
-          <button className="btn btn-primary text-xs py-1.5 px-4" onClick={() => navigate('/projects/new')}>
+          <button
+            className="btn btn-primary text-xs py-1.5 px-4"
+            onClick={() => navigate('/projects/new')}
+          >
             + Tạo dự án
+          </button>
+        )}
+
+        {user?.role === 'ADMIN' && (
+          <button
+            className="btn btn-primary text-xs py-1.5 px-4"
+            onClick={() => navigate('/admin/settings')}
+          >
+            Cấu hình
           </button>
         )}
       </div>
@@ -126,8 +169,10 @@ const Layout = ({ children, title }) => {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
+
       <div className="flex-1 flex flex-col min-w-0 bg-gray-50 overflow-hidden">
         <Topbar title={title} />
+
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>

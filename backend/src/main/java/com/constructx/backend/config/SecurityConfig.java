@@ -33,29 +33,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // 1. Các Endpoints mở hoàn toàn công khai (Không check JWT)
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/mock-vnpay/**").permitAll() // Cho phép chạy trang giả lập nếu có
-                        .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll() // Giữ lại callback cũ nếu cần
-
-                        // ĐẶC BIỆT QUAN TRỌNG: Mở cổng hoàn toàn cho IPN của VNPay (Server-to-Server không có JWT)
-                        .requestMatchers("/api/wallet/deposit/vnpay-ipn").permitAll()
-
-                        // 2. Các Endpoints liên quan đến nghiệp vụ Ví bắt buộc phải ĐĂNG NHẬP (Check JWT)
-                        .requestMatchers("/api/wallet/deposit/vnpay-token").authenticated()
-                        .requestMatchers("/api/wallet/saved-cards").authenticated()
-                        .requestMatchers("/api/wallet/**").authenticated()
-
-                        // Tất cả các request còn lại đều phải xác thực
-                        .anyRequest().authenticated()
-                )
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                // Public endpoints
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll() // VNPay callback
+                .requestMatchers("/mock-vnpay/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // All others require authentication
+                .anyRequest().authenticated()
+            )
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

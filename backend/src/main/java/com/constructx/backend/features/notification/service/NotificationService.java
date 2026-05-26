@@ -20,15 +20,18 @@ public class NotificationService {
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    @Transactional(readOnly = true)
     public List<Notification> getMyNotifications() {
         User user = getCurrentUser();
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
     }
 
+    @Transactional(readOnly = true)
     public long getUnreadCount() {
         User user = getCurrentUser();
         return notificationRepository.countByUserIdAndIsReadFalse(user.getId());
@@ -42,11 +45,32 @@ public class NotificationService {
 
     @Transactional
     public void createNotification(User user, Notification.NotifType type, String content) {
+        if (user == null || content == null || content.isBlank()) {
+            return;
+        }
+
         Notification notification = Notification.builder()
                 .user(user)
-                .type(type)
-                .content(content)
+                .type(type == null ? Notification.NotifType.SYSTEM : type)
+                .content(content.trim())
+                .isRead(false)
                 .build();
+
         notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public void createNotificationForAdmins(Notification.NotifType type, String content) {
+        if (content == null || content.isBlank()) {
+            return;
+        }
+
+        List<User> admins = userRepository.findByRole(User.Role.ADMIN);
+
+        for (User admin : admins) {
+            if (admin.isActive()) {
+                createNotification(admin, type, content);
+            }
+        }
     }
 }
