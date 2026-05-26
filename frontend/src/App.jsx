@@ -18,6 +18,9 @@ import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProjectDetailPageV2 from './pages/ProjectDetailPageV2';
+import DashboardContractorPage from './pages/DashboardContractorPage';
+import ProductionLogDetailPage from './pages/ProductionLogDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
 
 // Temporary components until I create them
@@ -26,13 +29,13 @@ const MyBids = () => <div className="p-8">My Bids (Coming soon)</div>;
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
-  
+
   if (!token) return <Navigate to="/login" />;
-  
+
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/" />;
   }
-  
+
   return children;
 };
 
@@ -43,15 +46,15 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
+
         <Route path="/" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <HomePage />
           </ProtectedRoute>
         } />
-        
+
         <Route path="/dashboard" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'ADMIN']}>
             <DashboardPage />
           </ProtectedRoute>
         } />
@@ -137,6 +140,24 @@ function App() {
         <Route path="/notifications" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <NotificationsPage />
+          </ProtectedRoute>
+        } />
+        {/* contractor only */}
+        <Route path="/projectsv2/:id" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProjectDetailPageV2 />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contractor/dashboard" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <DashboardContractorPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/production-log/:jobId" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProductionLogDetailPage />
           </ProtectedRoute>
         } />
 

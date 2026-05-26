@@ -5,6 +5,7 @@ import {
   PlusCircle,
   Wallet,
   Bell,
+  MessageCircle,
   History,
   LogOut,
   Construction,
@@ -33,7 +34,7 @@ const Sidebar = () => {
 
   const contractorNav = [
     { id: 'home', label: 'Trang chủ', icon: <Construction size={20} />, path: '/' },
-    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
     { id: 'marketplace', label: 'Tìm việc mới', icon: <PlusCircle size={20} />, path: '/projects/browse' },
     { id: 'my-bids', label: 'Đấu thầu của tôi', icon: <History size={20} />, path: '/bids' },
     { id: 'production-log', label: 'Nhật ký thi công', icon: <Camera size={20} />, path: '/production-log' },

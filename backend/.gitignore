@@ -1,0 +1,7 @@
+# Tránh lưu các file build của Java Maven/Gradle
+target/
+*.class
+
+# Tránh lưu cấu hình IDE cá nhân
+.idea/
+.vscode/
