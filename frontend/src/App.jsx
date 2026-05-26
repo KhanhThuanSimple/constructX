@@ -13,14 +13,18 @@ import ProfilePage from './pages/ProfilePage';
 import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
 import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminProjectsPage from './pages/AdminProjectsPage';
+import AdminDisputesPage from './pages/AdminDisputesPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProjectDetailPageV2 from './pages/ProjectDetailPageV2';
 import DashboardContractorPage from './pages/DashboardContractorPage';
 import ProductionLogDetailPage from './pages/ProductionLogDetailPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 // Temporary components until I create them
-const Notifications = () => <div className="p-8">Notifications (Coming soon)</div>;
+// const Notifications = () => <div className="p-8">Notifications (Coming soon)</div>;
 const MyBids = () => <div className="p-8">My Bids (Coming soon)</div>;
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -97,9 +101,27 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/admin" element={
+        <Route path="/admin/projects" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <AdminDashboardPage />
+            <AdminProjectsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/disputes" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminDisputesPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/users" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminUsersPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/settings" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminSettingsPage />
           </ProtectedRoute>
         } />
 
@@ -109,15 +131,15 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/notifications" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
-            <Notifications />
-          </ProtectedRoute>
-        } />
-
         <Route path="/profile" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ProfilePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/notifications" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <NotificationsPage />
           </ProtectedRoute>
         } />
         {/* contractor only */}

@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByUserIdOrderByCreatedAtDesc(Long userId);
+
     List<Project> findByStatusOrderByCreatedAtDesc(Project.Status status);
 
     @Query("""
@@ -19,4 +20,15 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
         WHERE p.id = :projectId
     """)
     Optional<Project> findDetailById(@Param("projectId") Long projectId);
+}
+    List<Project> findByStatusAndApprovalStatusOrderByCreatedAtDesc(
+            Project.Status status,
+            Project.ApprovalStatus approvalStatus
+    );
+
+    List<Project> findAllByOrderByCreatedAtDesc();
+
+    long countByUserId(Long userId);
+
+    long countByApprovalStatus(Project.ApprovalStatus approvalStatus);
 }
