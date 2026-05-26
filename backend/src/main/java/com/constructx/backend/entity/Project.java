@@ -1,5 +1,6 @@
 package com.constructx.backend.entity;
 
+import com.constructx.backend.entity.User.ApprovalStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,6 +21,7 @@ public class Project {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"password", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "username"})
     private User user;
 
     @Column(nullable = false, length = 200)
@@ -50,11 +52,33 @@ public class Project {
     @Builder.Default
     private Status status = Status.OPEN;
 
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private ApprovalStatus approvalStatus = ApprovalStatus.PENDING;
+
+    @Column(length = 500)
+    private String adminNote;
+
+    private LocalDateTime approvedAt;
+
     @Column(updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime updatedAt;
+
+     @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (approvalStatus == null) {
+            approvalStatus = ApprovalStatus.PENDING;
+        }
+        if (status == null) {
+            status = Status.OPEN;
+        }
+    }
 
     @PreUpdate
     public void preUpdate() {
@@ -64,4 +88,6 @@ public class Project {
     public enum BidType { OPEN, DIRECT }
 
     public enum Status { OPEN, IN_PROGRESS, COMPLETED, CANCELLED }
+
+    public enum ApprovalStatus { PENDING, APPROVED, REJECTED }
 }

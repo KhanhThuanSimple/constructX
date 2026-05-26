@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.constructx.backend.entity.Notification;
 
 import java.util.List;
 
@@ -18,10 +19,13 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
+                .getAuthentication()
+                .getName();
+
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
@@ -32,16 +36,30 @@ public class ProjectService {
     }
 
     public List<Project> getAllOpenProjects() {
-        return projectRepository.findByStatusOrderByCreatedAtDesc(Project.Status.OPEN);
+        return projectRepository.findByStatusAndApprovalStatusOrderByCreatedAtDesc(
+                Project.Status.OPEN,
+                Project.ApprovalStatus.APPROVED
+        );
     }
 
     public Project getProjectById(Long id) {
         User user = getCurrentUser();
+
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy dự án"));
-        if (!project.getUser().getId().equals(user.getId())) {
+
+        boolean owner = project.getUser().getId().equals(user.getId());
+
+        boolean admin = user.getRole() == User.Role.ADMIN;
+
+        boolean contractorCanView = user.getRole() == User.Role.CONTRACTOR
+                && project.getStatus() == Project.Status.OPEN
+                && project.getApprovalStatus() == Project.ApprovalStatus.APPROVED;
+
+        if (!owner && !admin && !contractorCanView) {
             throw new RuntimeException("Bạn không có quyền xem dự án này");
         }
+
         return project;
     }
 
@@ -50,6 +68,7 @@ public class ProjectService {
         User user = getCurrentUser();
 
         Project.BidType bidType = Project.BidType.OPEN;
+
         if ("DIRECT".equalsIgnoreCase(request.getBidType())) {
             bidType = Project.BidType.DIRECT;
         }
@@ -66,9 +85,20 @@ public class ProjectService {
                 .budgetMax(request.getBudgetMax())
                 .bidType(bidType)
                 .status(Project.Status.OPEN)
+                .approvalStatus(Project.ApprovalStatus.PENDING)
                 .build();
 
-        return projectRepository.save(project);
+
+        Project savedProject = projectRepository.save(project);
+
+        notificationService.createNotificationForAdmins(
+            Notification.NotifType.SYSTEM,
+            "Dự án mới #" + savedProject.getId()
+                + " - " + savedProject.getName()
+                + " đang chờ quản trị viên duyệt."
+        );
+
+    return savedProject;
     }
 
     @Transactional

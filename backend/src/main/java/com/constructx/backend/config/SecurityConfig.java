@@ -41,6 +41,8 @@ public class SecurityConfig {
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll() // VNPay callback
+                .requestMatchers("/mock-vnpay/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // All others require authentication
                 .anyRequest().authenticated()
             )
