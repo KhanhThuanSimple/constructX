@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/constructx_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
-    password:
+    password: 
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,15 +19,12 @@ jwt:
   secret: "constructx-super-secret-key-2025-at-least-256-bits-long-for-hs256"
   expiration: 86400000
 
-# VNPay Payment (Sandbox Environment)
+# VNPay Payment (Sandbox)
 vnpay:
-  tmn-code: PV7YIINN
-  # ĐỒNG BỘ: Đổi cả 2 cấu hình sang chuỗi mới nhất từ email thứ 2 của bạn
-  hash-secret-normal: P4UJTF7S9STPZFQ11RSD2Z59CSG2KXAP
-  hash-secret-token: P4UJTF7S9STPZFQ11RSD2Z59CSG2KXAP
+  tmn-code: QZ4OY5M1
+  hash-secret: E317R8GYL6VKJ1CU7OOZG1GAXOI4MCWM
   api-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
   return-url: http://localhost:5173/wallet
-  cancel-url: http://localhost:5173/wallet
   use-mock: false
 
 logging:

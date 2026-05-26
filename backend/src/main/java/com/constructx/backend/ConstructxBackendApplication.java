@@ -1,5 +1,7 @@
 package com.constructx.backend;
 
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
 import com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -19,7 +21,7 @@ public class ConstructxBackendApplication {
 
     @Bean
     public org.springframework.boot.CommandLineRunner initAdmin(
-            com.constructx.backend.repository.UserRepository userRepository,
+            UserRepository userRepository,
             org.springframework.security.crypto.password.PasswordEncoder passwordEncoder
     ) {
         return args -> {
@@ -30,11 +32,11 @@ public class ConstructxBackendApplication {
                     System.out.println(">>> Updated existing ADMIN account password: admin@constructx.com / admin123");
                 },
                 () -> {
-                    com.constructx.backend.entity.User admin = new com.constructx.backend.entity.User();
+                    User admin = new User();
                     admin.setFullName("Admin Hệ Thống");
                     admin.setEmail("admin@constructx.com");
                     admin.setPassword(passwordEncoder.encode("admin123"));
-                    admin.setRole(com.constructx.backend.entity.User.Role.ADMIN);
+                    admin.setRole(User.Role.ADMIN);
                     admin.setActive(true);
                     admin.setCreatedAt(java.time.LocalDateTime.now());
                     userRepository.save(admin);

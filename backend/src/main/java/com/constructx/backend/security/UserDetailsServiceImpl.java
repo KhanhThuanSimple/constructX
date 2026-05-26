@@ -1,7 +1,7 @@
 package com.constructx.backend.security;
 
-import com.constructx.backend.entity.User;
-import com.constructx.backend.repository.UserRepository;
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
