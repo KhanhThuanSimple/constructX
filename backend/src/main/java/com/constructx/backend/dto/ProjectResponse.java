@@ -1,4 +1,4 @@
-package com.constructx.backend.dto.response;
+package com.constructx.backend.dto;
 
 import lombok.Builder;
 import lombok.Data;

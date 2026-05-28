@@ -1,11 +1,14 @@
 package com.constructx.backend.service;
 
-import com.constructx.backend.dto.response.*;
+
+import com.constructx.backend.dto.*;
 import com.constructx.backend.entity.*;
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.project.repository.ProjectRepository;
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.repository.BidRepository;
 import com.constructx.backend.repository.ContractJobRepository;
-import com.constructx.backend.repository.ProjectRepository;
-import com.constructx.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -65,10 +68,10 @@ public class ContractJobService {
         bidRepository.rejectOtherBids(projectId, bidId);
 
         // update project
-        project.setStatus(Project.Status.IN_PROGRESS);
+        project.setStatus(Project.Status.CLOSED);
 
         // tạo contract job
-        ContractJob contractJob = ContractJob.builder()
+        com.constructx.backend.entity.ContractJob contractJob = ContractJob.builder()
                 .project(project)
                 .bid(bid)
                 .customer(project.getUser())

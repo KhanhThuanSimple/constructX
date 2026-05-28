@@ -7,4 +7,8 @@ import java.util.List;
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Project> findByStatusOrderByCreatedAtDesc(Project.Status status);
+    List<Project> findAllByOrderByCreatedAtDesc();
+
+    // thêm
+    long countByApprovalStatus(Project.ApprovalStatus approvalStatus);
 }

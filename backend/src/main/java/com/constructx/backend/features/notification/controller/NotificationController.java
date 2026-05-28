@@ -1,7 +1,7 @@
 package com.constructx.backend.features.notification.controller;
 
-import com.constructx.backend.shared.dto.ApiResponse;
 import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.shared.dto.ApiResponse;
 import com.constructx.backend.features.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

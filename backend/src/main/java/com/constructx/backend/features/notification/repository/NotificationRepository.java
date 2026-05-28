@@ -1,10 +1,10 @@
 package com.constructx.backend.features.notification.repository;
-
 import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.repository.NotificationRepository;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-// import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;

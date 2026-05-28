@@ -1,9 +1,9 @@
 package com.constructx.backend.controller;
 
 import com.constructx.backend.dto.request.CreateBidRequest;
-import com.constructx.backend.dto.response.ApiResponse;
-import com.constructx.backend.dto.response.BidResponse;
+import com.constructx.backend.dto.BidResponse;
 import com.constructx.backend.service.BidService;
+import com.constructx.backend.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

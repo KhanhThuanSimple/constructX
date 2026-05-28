@@ -1,8 +1,8 @@
 package com.constructx.backend.repository;
 
 import com.constructx.backend.entity.Bid;
-import com.constructx.backend.entity.Project;
-import com.constructx.backend.entity.User;
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

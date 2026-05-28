@@ -1,8 +1,12 @@
-package com.constructx.backend.dto.response;
+package com.constructx.backend.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 @Data
 @Builder
 public class BidDetailResponse {

@@ -1,11 +1,14 @@
-package com.constructx.backend.dto.response;
+package com.constructx.backend.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+@Getter
+@Setter
 @Data
 @Builder
 public class BidResponse {

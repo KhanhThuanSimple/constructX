@@ -2,8 +2,8 @@ package com.constructx.backend.admin.controller;
 
 import com.constructx.backend.admin.dto.response.AdminDashboardStatsResponse;
 import com.constructx.backend.admin.service.AdminDashboardService;
-import com.constructx.backend.dto.response.ApiResponse;
 
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

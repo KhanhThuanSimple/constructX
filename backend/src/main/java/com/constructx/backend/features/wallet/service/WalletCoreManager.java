@@ -1,34 +1,44 @@
 package com.constructx.backend.features.wallet.service;
 
-import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.entity.Wallet;
-import com.constructx.backend.features.wallet.repository.TransactionRepository;
+import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class WalletCoreManager {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
 
     /**
-     * SỬA LỖI: Bổ sung hàm executeDeposit đa năng 6 tham số phục vụ chia doanh thu (REVENUE)
+     * KHÓA TIỀN KHI USER TẠO YÊU CẦU RÚT TIỀN (Trạng thái chờ Admin duyệt - PENDING)
+     * ĐỂ ĐỒNG BỘ: Tổng tài sản (balance) GIỮ NGUYÊN. Chỉ tăng lượng đóng băng (lockedAmount).
+     * Số dư khả dụng (balance - lockedAmount) tự động giảm xuống chính xác.
      */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void executeDeposit(Wallet wallet, Long amount, Transaction.Type type, String gateway, String orderId, String description) {
-        int updatedRows = walletRepository.depositBalance(wallet.getId(), amount);
-        if (updatedRows == 0) {
-            throw new RuntimeException("Lỗi hệ thống: Không thể cập nhật tăng số dư tài khoản.");
-        }
+    @Transactional
+    public void executeLockForWithdraw(Wallet wallet, Long amount, Transaction transaction) {
+        // KHÔNG trừ balance ở đây để giữ nguyên tổng tài sản khi lệnh chưa thực sự chuyển đi
+        wallet.setLockedAmount(wallet.getLockedAmount() + amount);
+        walletRepository.save(wallet);
+
+        transaction.setStatus(Transaction.Status.PENDING);
+        transactionRepository.save(transaction);
+    }
+
+    /**
+     * KHÓA TIỀN TỰ ĐỘNG CHO ĐƠN HÀNG (Trạng thái SUCCESS ngay lập tức)
+     * Tương tự rút tiền: Giữ nguyên balance tổng, tăng lockedAmount để cô lập số tiền giao dịch.
+     */
+    @Transactional
+    public void executeLockForOrder(Wallet wallet, Long amount, Transaction.Type type, String gateway, String orderCode) {
+        wallet.setLockedAmount(wallet.getLockedAmount() + amount);
+        walletRepository.save(wallet);
 
         Transaction transaction = Transaction.builder()
                 .wallet(wallet)
@@ -36,86 +46,128 @@ public class WalletCoreManager {
                 .type(type)
                 .status(Transaction.Status.SUCCESS)
                 .paymentGateway(gateway)
-                .gatewayOrderId(orderId)
-                .description(description)
+                .gatewayOrderId("LOCK-" + orderCode)
+                .description("Khóa tiền đơn hàng: " + orderCode)
                 .createdAt(LocalDateTime.now())
-                .completedAt(LocalDateTime.now())
                 .build();
-
         transactionRepository.save(transaction);
-        log.info("[CORE] Cộng tiền thành công: {}đ vào Wallet ID: {} | Loại: {}", amount, wallet.getId(), type);
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void executeConfirmDepositSuccess(Transaction pendingTx, String gatewayTransId, String description) {
-        int updatedRows = walletRepository.depositBalance(pendingTx.getWallet().getId(), pendingTx.getAmount());
-        if (updatedRows == 0) {
-            throw new RuntimeException("Lỗi hệ thống: Không thể cập nhật tăng số dư.");
-        }
-
-        pendingTx.setStatus(Transaction.Status.SUCCESS);
-        pendingTx.setGatewayTransId(gatewayTransId);
-        pendingTx.setDescription(description);
-        pendingTx.setCompletedAt(LocalDateTime.now());
-        transactionRepository.save(pendingTx);
-
-        log.info("[CORE] Nạp tiền THÀNH CÔNG: {}đ vào Wallet ID: {}", pendingTx.getAmount(), pendingTx.getWallet().getId());
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void executeConfirmDepositFailed(Transaction pendingTx, String gatewayTransId, String responseCode) {
-        pendingTx.setStatus(Transaction.Status.FAILED);
-        pendingTx.setGatewayTransId(gatewayTransId); // Đồng bộ lưu mã cổng khi thất bại để tra soát
-        pendingTx.setDescription("Thanh toán thất bại từ cổng. Mã lỗi: " + responseCode);
-        pendingTx.setCompletedAt(LocalDateTime.now());
-        transactionRepository.save(pendingTx);
-
-        log.warn("[CORE] Giao dịch nạp tiền THẤT BẠI cho Transaction ID: {}", pendingTx.getId());
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Transaction executeLockAmount(Wallet wallet, Long amount, Transaction.Type type, String gateway, String description) {
-        int updatedRows = walletRepository.lockAmount(wallet.getId(), amount);
-        if (updatedRows == 0) {
-            throw new RuntimeException("Số dư khả dụng không đủ để thực hiện thao tác đóng băng.");
-        }
+    /**
+     * CỘNG TIỀN DOANH THU HOẶC NẠP TIỀN
+     * Tăng trực tiếp vào tổng tài sản balance. Lượng tiền này khả dụng ngay lập tức.
+     */
+    @Transactional
+    public void executeDeposit(Wallet wallet, Long amount, Transaction.Type type, String gateway, String gatewayOrderId, String description) {
+        wallet.setBalance(wallet.getBalance() + amount);
+        walletRepository.save(wallet);
 
         Transaction transaction = Transaction.builder()
                 .wallet(wallet)
                 .amount(amount)
                 .type(type)
-                .status(Transaction.Status.PENDING)
+                .status(Transaction.Status.SUCCESS)
                 .paymentGateway(gateway)
+                .gatewayOrderId(gatewayOrderId)
                 .description(description)
                 .createdAt(LocalDateTime.now())
                 .build();
-
-        return transactionRepository.save(transaction);
+        transactionRepository.save(transaction);
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void confirmDebitLocked(Transaction transaction, String updateDesc) {
-        int updatedRows = walletRepository.debitLockedAmount(transaction.getWallet().getId(), transaction.getAmount());
-        if (updatedRows == 0) {
-            throw new RuntimeException("Lỗi hệ thống: Không thể trừ tiền đóng băng.");
-        }
+    /**
+     * XỬ LÝ DUYỆT RÚT TIỀN THÀNH CÔNG (Trừ hẳn tiền trong kho đóng băng)
+     * Lúc này tiền thực sự rời khỏi hệ thống: Trừ cả balance tổng và lockedAmount.
+     */
+    @Transactional
+    public void confirmDebitLocked(Transaction transaction, String note) {
+        Wallet wallet = transaction.getWallet();
+
+        wallet.setBalance(wallet.getBalance() - transaction.getAmount());
+        wallet.setLockedAmount(wallet.getLockedAmount() - transaction.getAmount());
+        walletRepository.save(wallet);
 
         transaction.setStatus(Transaction.Status.SUCCESS);
-        transaction.setDescription(transaction.getDescription() + " | " + updateDesc);
-        transaction.setCompletedAt(LocalDateTime.now());
+        transaction.setDescription(transaction.getDescription() + " | Admin duyệt: " + note);
         transactionRepository.save(transaction);
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
+    /**
+     * XỬ LÝ TỪ CHỐI RÚT TIỀN / HỦY ĐƠN HÀNG (Hoàn trả lại tiền về số dư khả dụng)
+     * Trả tự do cho dòng tiền: Chỉ cần trừ lockedAmount. balance tổng giữ nguyên không đổi.
+     */
+    @Transactional
     public void executeUnlockAmount(Transaction transaction, String rejectReason) {
-        int updatedRows = walletRepository.unlockAmount(transaction.getWallet().getId(), transaction.getAmount());
-        if (updatedRows == 0) {
-            throw new RuntimeException("Lỗi hệ thống: Không thể giải băng số tiền.");
-        }
+        Wallet wallet = transaction.getWallet();
 
-        transaction.setStatus(Transaction.Status.CANCELLED);
-        transaction.setDescription(transaction.getDescription() + " | Lý do hoàn trả: " + rejectReason);
-        transaction.setCompletedAt(LocalDateTime.now());
+        // Chỉ xả băng, số dư khả dụng (balance - lockedAmount) sẽ tăng ngược lại đúng bằng số tiền xả
+        wallet.setLockedAmount(wallet.getLockedAmount() - transaction.getAmount());
+        walletRepository.save(wallet);
+
+        transaction.setStatus(Transaction.Status.FAILED);
+        transaction.setDescription(transaction.getDescription() + " | Từ chối do: " + rejectReason);
         transactionRepository.save(transaction);
+    }
+
+    /**
+     * VNPAY NẠP TIỀN THÀNH CÔNG
+     * Tiền nạp trực tiếp vào tài khoản -> Tăng số dư tổng balance.
+     */
+    @Transactional
+    public void executeConfirmDepositSuccess(Transaction transaction, String gatewayTransId, String description) {
+        Wallet wallet = transaction.getWallet();
+        wallet.setBalance(wallet.getBalance() + transaction.getAmount());
+        walletRepository.save(wallet);
+
+        transaction.setStatus(Transaction.Status.SUCCESS);
+        transaction.setGatewayOrderId(gatewayTransId);
+        transaction.setDescription(description);
+        transactionRepository.save(transaction);
+    }
+
+    /**
+     * VNPAY NẠP TIỀN THẤT BẠI
+     * Không phát sinh biến động số dư.
+     */
+    @Transactional
+    public void executeConfirmDepositFailed(Transaction transaction, String gatewayTransId, String responseCode) {
+        transaction.setStatus(Transaction.Status.FAILED);
+        transaction.setDescription("Giao dịch thất bại. Mã lỗi cổng thanh toán: " + responseCode);
+        transactionRepository.save(transaction);
+    }
+
+    /**
+     * PHÂN CHIA TIỀN TRANH CHẤP THEO PHẦN TRĂM GIỮA NGƯỜI DÙNG VÀ NHÀ THẦU
+     */
+    @Transactional
+    public void executeDisputeRefundDistribution(
+            Wallet userWallet, Wallet constructorWallet,
+            Long totalLockedAmount, Long userRefundShare, Long constructorRevenueShare,
+            String projectCode) {
+
+        // 1. Giải phóng quỹ đóng băng của User trước
+        userWallet.setLockedAmount(userWallet.getLockedAmount() - totalLockedAmount);
+
+        // 2. Tính toán lại tài sản thực tế của User dựa trên số tiền được hoàn trả
+        // Vì quỹ đóng băng mất đi totalLockedAmount, nên tổng tài sản (balance) phải trừ đi phần tiền bị mất (phần chia cho constructor)
+        Long userLossAmount = totalLockedAmount - userRefundShare;
+        userWallet.setBalance(userWallet.getBalance() - userLossAmount);
+        walletRepository.save(userWallet);
+
+        // 3. Đối tác (Constructor) nhận phần doanh thu phân chia -> Cộng thẳng vào balance tổng
+        constructorWallet.setBalance(constructorWallet.getBalance() + constructorRevenueShare);
+        walletRepository.save(constructorWallet);
+
+        Transaction userTrans = Transaction.builder()
+                .wallet(userWallet).amount(userRefundShare).type(Transaction.Type.RELEASE).status(Transaction.Status.SUCCESS)
+                .paymentGateway("CONSTRUCTX_ARBITRATION").gatewayOrderId("DISP-USER-" + projectCode)
+                .description("Nhận tiền hoàn trả từ phân xử tranh chấp dự án: " + projectCode).createdAt(LocalDateTime.now()).build();
+        transactionRepository.save(userTrans);
+
+        Transaction constructorTrans = Transaction.builder()
+                .wallet(constructorWallet).amount(constructorRevenueShare).type(Transaction.Type.REVENUE).status(Transaction.Status.SUCCESS)
+                .paymentGateway("CONSTRUCTX_ARBITRATION").gatewayOrderId("DISP-CONS-" + projectCode)
+                .description("Nhận thanh toán một phần từ phân xử tranh chấp dự án: " + projectCode).createdAt(LocalDateTime.now()).build();
+        transactionRepository.save(constructorTrans);
     }
 }

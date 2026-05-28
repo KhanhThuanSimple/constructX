@@ -1,8 +1,6 @@
-package com.constructx.backend.dto.response;
+package com.constructx.backend.dto;
 
 import lombok.*;
-
-import java.util.List;
 
 @Getter
 @Setter

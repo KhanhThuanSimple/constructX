@@ -1,10 +1,10 @@
 package com.constructx.backend.controller;
 
-import com.constructx.backend.dto.response.ApiResponse;
-import com.constructx.backend.dto.response.ContractorJobResponse;
-import com.constructx.backend.dto.response.JobDetailResponse;
-import com.constructx.backend.dto.response.ProjectResponse;
+import com.constructx.backend.dto.ContractorJobResponse;
+import com.constructx.backend.dto.JobDetailResponse;
+import com.constructx.backend.dto.ProjectResponse;
 import com.constructx.backend.service.ContractJobService;
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

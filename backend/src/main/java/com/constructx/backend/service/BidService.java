@@ -1,15 +1,16 @@
 package com.constructx.backend.service;
 
 import com.constructx.backend.dto.request.CreateBidRequest;
-import com.constructx.backend.dto.response.BidDetailResponse;
-import com.constructx.backend.dto.response.BidResponse;
+import com.constructx.backend.dto.BidDetailResponse;
+import com.constructx.backend.dto.BidResponse;
 import com.constructx.backend.entity.Bid;
 import com.constructx.backend.entity.BidDetail;
-import com.constructx.backend.entity.Project;
-import com.constructx.backend.entity.User;
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.project.repository.ProjectRepository;
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.repository.BidRepository;
-import com.constructx.backend.repository.ProjectRepository;
-import com.constructx.backend.repository.UserRepository;
+
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -74,8 +75,8 @@ public class BidService {
                 .stream()
                 .map(d -> {
 
-                    Long totalPrice =
-                            (long) (d.getQuantity() * d.getUnitPrice());
+                    long totalPrice =
+                            Math.round(d.getQuantity() * d.getUnitPrice());
 
                     return BidDetail.builder()
                             .bid(bid)
@@ -89,7 +90,6 @@ public class BidService {
                             .build();
                 })
                 .toList();
-
         Long totalBidPrice = details.stream()
                 .mapToLong(BidDetail::getTotalPrice)
                 .sum();

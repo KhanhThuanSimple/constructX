@@ -1,6 +1,5 @@
 package com.constructx.backend.admin.dto.response;
 
-import com.constructx.backend.entity.User;
 import lombok.Builder;
 import lombok.Data;
 
@@ -16,6 +15,6 @@ public class AdminPartnerResponse {
     private String address;
     private String role;
     private boolean active;
-    private User.ApprovalStatus approvalStatus;
+    private String approvalStatus;
     private LocalDateTime createdAt;
 }

@@ -4,8 +4,8 @@ import com.constructx.backend.admin.dto.request.DisputeMessageRequest;
 import com.constructx.backend.admin.dto.request.DisputeResolutionRequest;
 import com.constructx.backend.admin.dto.response.DisputeResponse;
 import com.constructx.backend.admin.service.AdminDisputeService;
-import com.constructx.backend.dto.response.ApiResponse;
 
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

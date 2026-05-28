@@ -1,5 +1,7 @@
 package com.constructx.backend.entity;
 
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;

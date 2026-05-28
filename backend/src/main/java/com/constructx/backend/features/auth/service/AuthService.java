@@ -3,6 +3,8 @@ package com.constructx.backend.features.auth.service;
 import com.constructx.backend.features.auth.dto.request.LoginRequest;
 import com.constructx.backend.features.auth.dto.request.RegisterRequest;
 import com.constructx.backend.features.auth.dto.response.AuthResponse;
+import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.service.NotificationService;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.wallet.entity.Wallet;
 import com.constructx.backend.features.user.repository.UserRepository;
@@ -16,7 +18,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.constructx.backend.entity.Notification;
 
 @Service
 @RequiredArgsConstructor

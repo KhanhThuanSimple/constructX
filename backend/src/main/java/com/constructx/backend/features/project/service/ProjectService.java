@@ -49,9 +49,9 @@ public class ProjectService {
     public Project createProject(ProjectRequest request) {
         User user = getCurrentUser();
 
-        Project.BidType bidType = Project.BidType.OPEN;
+        Project.BidType bidType = Project.BidType.FIXED_PRICE;
         if ("DIRECT".equalsIgnoreCase(request.getBidType())) {
-            bidType = Project.BidType.DIRECT;
+            bidType = Project.BidType.NEGOTIABLE;
         }
 
         Project project = Project.builder()

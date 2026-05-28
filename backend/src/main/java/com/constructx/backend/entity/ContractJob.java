@@ -1,5 +1,7 @@
 package com.constructx.backend.entity;
 
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,30 +20,27 @@ public class ContractJob {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // project gốc
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    // bid được chọn
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bid_id", nullable = false)
     private Bid bid;
 
-    // chủ nhà
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private User customer;
 
-    // nhà thầu
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contractor_id", nullable = false)
     private User contractor;
 
-    // kế hoạch thi công
-    @OneToOne(mappedBy = "contractJob",
+    @OneToOne(
+            mappedBy = "contractJob",
             fetch = FetchType.LAZY,
-            cascade = CascadeType.ALL)
+            cascade = CascadeType.ALL
+    )
     private WorkPlan workPlan;
 
     private Long agreedPrice;
@@ -58,6 +57,8 @@ public class ContractJob {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum Status {
+        PENDING,
+        ACCEPTED,
         IN_PROGRESS,
         COMPLETED,
         CANCELLED

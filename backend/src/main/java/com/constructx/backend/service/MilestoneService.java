@@ -1,7 +1,7 @@
 package com.constructx.backend.service;
 
 import com.constructx.backend.dto.request.CreateMilestoneUpdateRequest;
-import com.constructx.backend.dto.response.MilestoneUpdateResponse;
+import com.constructx.backend.dto.MilestoneUpdateResponse;
 import com.constructx.backend.entity.MilestoneUpdate;
 import com.constructx.backend.entity.WorkMilestone;
 import com.constructx.backend.repository.MilestoneUpdateRepository;

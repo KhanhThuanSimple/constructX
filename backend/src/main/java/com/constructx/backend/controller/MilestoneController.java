@@ -1,9 +1,9 @@
 package com.constructx.backend.controller;
 
 import com.constructx.backend.dto.request.CreateMilestoneUpdateRequest;
-import com.constructx.backend.dto.response.ApiResponse;
-import com.constructx.backend.dto.response.MilestoneUpdateResponse;
+import com.constructx.backend.dto.MilestoneUpdateResponse;
 import com.constructx.backend.service.MilestoneService;
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

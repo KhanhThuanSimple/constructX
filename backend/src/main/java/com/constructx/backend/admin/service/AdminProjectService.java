@@ -1,14 +1,16 @@
 package com.constructx.backend.admin.service;
 
+
+
 import com.constructx.backend.admin.dto.request.AdminProjectReviewRequest;
 import com.constructx.backend.admin.dto.response.AdminProjectResponse;
-import com.constructx.backend.entity.Project;
-import com.constructx.backend.repository.ProjectRepository;
+import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.service.NotificationService;
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.project.repository.ProjectRepository;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.constructx.backend.entity.Notification;
-import com.constructx.backend.service.NotificationService;
 
 import java.time.LocalDateTime;
 import java.util.List;

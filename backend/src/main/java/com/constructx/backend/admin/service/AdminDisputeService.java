@@ -7,7 +7,7 @@ import com.constructx.backend.admin.entity.Dispute;
 import com.constructx.backend.admin.entity.DisputeMessage;
 import com.constructx.backend.admin.repository.DisputeMessageRepository;
 import com.constructx.backend.admin.repository.DisputeRepository;
-import com.constructx.backend.repository.UserRepository;
+import com.constructx.backend.features.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;

@@ -1,7 +1,9 @@
 package com.constructx.backend.features.wallet.repository;
 
 import com.constructx.backend.features.wallet.entity.Wallet;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,4 +33,14 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     @Query("UPDATE Wallet w SET w.lockedAmount = w.lockedAmount - :amount, w.updatedAt = CURRENT_TIMESTAMP " +
             "WHERE w.id = :walletId AND w.lockedAmount >= :amount")
     int unlockAmount(@Param("walletId") Long walletId, @Param("amount") Long amount);
+    @Query("""
+        SELECT COALESCE(SUM(w.lockedAmount),0)
+        FROM Wallet w
+    """)
+    Long sumLockedAmount();
+    // Thêm hàm này để khóa row trong Database khi đọc dữ liệu tính toán số dư
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM Wallet w WHERE w.user.id = :userId")
+    Optional<Wallet> findByUserIdForUpdate(Long userId);
+
 }

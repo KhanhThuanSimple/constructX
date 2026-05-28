@@ -8,6 +8,8 @@ import lombok.*;
 @Table(name = "bid_details")
 @Data
 @Builder
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

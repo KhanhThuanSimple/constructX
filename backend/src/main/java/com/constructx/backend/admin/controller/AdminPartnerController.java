@@ -2,8 +2,8 @@ package com.constructx.backend.admin.controller;
 
 import com.constructx.backend.admin.dto.response.AdminPartnerResponse;
 import com.constructx.backend.admin.service.AdminPartnerService;
-import com.constructx.backend.dto.response.ApiResponse;
 
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

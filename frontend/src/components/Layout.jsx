@@ -48,6 +48,7 @@ const Sidebar = () => {
     { id: 'admin-projects', label: 'Duyệt dự án', icon: <ClipboardCheck size={20} />, path: '/admin/projects' },
     { id: 'user-management', label: 'Phê duyệt đối tác', icon: <UserIcon size={20} />, path: '/admin/users' },
     { id: 'disputes', label: 'Tranh chấp', icon: <Shield size={20} />, path: '/admin/disputes' },
+    { id: 'allowances', label: 'Duyệt tiền', icon: <Shield size={20} />, path: '/admin/AdminWithdrawalsPage' },
     { id: 'settings', label: 'Cấu hình hệ thống', icon: <Settings size={20} />, path: '/admin/settings' },
     { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />, path: '/profile' },
     { id: 'notifications', label: 'Thông báo', icon: <Bell size={20} />, path: '/notifications' },

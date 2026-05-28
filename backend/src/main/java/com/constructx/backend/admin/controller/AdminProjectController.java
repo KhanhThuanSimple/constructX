@@ -4,8 +4,8 @@ package com.constructx.backend.admin.controller;
 import com.constructx.backend.admin.dto.request.AdminProjectReviewRequest;
 import com.constructx.backend.admin.dto.response.AdminProjectResponse;
 import com.constructx.backend.admin.service.AdminProjectService;
-import com.constructx.backend.dto.response.ApiResponse;
 
+import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

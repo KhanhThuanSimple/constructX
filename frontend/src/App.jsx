@@ -15,6 +15,7 @@ import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
+import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
@@ -118,6 +119,12 @@ function App() {
             <AdminUsersPage />
           </ProtectedRoute>
         } />
+        <Route path="/admin/AdminWithdrawalsPage" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminWithdrawalsPage />
+          </ProtectedRoute>
+        } />
+
 
         <Route path="/admin/settings" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>

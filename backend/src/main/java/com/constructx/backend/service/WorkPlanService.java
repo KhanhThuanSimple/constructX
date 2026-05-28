@@ -1,9 +1,9 @@
 package com.constructx.backend.service;
 
 import com.constructx.backend.dto.request.CreateWorkPlanRequest;
+import com.constructx.backend.dto.WorkMilestoneResponse;
+import com.constructx.backend.dto.WorkPlanResponse;
 import com.constructx.backend.dto.request.MilestoneRequest;
-import com.constructx.backend.dto.response.WorkMilestoneResponse;
-import com.constructx.backend.dto.response.WorkPlanResponse;
 import com.constructx.backend.entity.ContractJob;
 import com.constructx.backend.entity.WorkMilestone;
 import com.constructx.backend.entity.WorkPlan;

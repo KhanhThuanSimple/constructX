@@ -34,3 +34,8 @@ logging:
   level:
     com.constructx: DEBUG
     org.springframework.security: WARN
+    server:
+      servlet:
+        session:
+          cookie:
+            same-site=lax:

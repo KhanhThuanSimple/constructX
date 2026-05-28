@@ -1,68 +1,78 @@
 package com.constructx.backend.features.project.entity;
 
 import com.constructx.backend.features.user.entity.User;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "projects")
-@Data
-@Builder
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Builder
 public class Project {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Column(nullable = false, length = 200)
     private String name;
 
-    @Column(length = 100)
-    private String category;  // Phòng khách, Phòng ngủ, Bếp...
+    private String category;
 
-    private Double area;       // m²
+    private Double area;
 
-    @Column(length = 100)
-    private String style;     // Hiện đại, Scandinavian...
+    private String style;
 
-    @Column(length = 300)
     private String address;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
     private Long budgetMin;
+
     private Long budgetMax;
 
     @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private BidType bidType = BidType.OPEN;  // OPEN = đấu giá mở, DIRECT = gửi trực tiếp
+    private BidType bidType;
 
     @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private Status status = Status.OPEN;
+    private Status status;
 
-    @Column(updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Enumerated(EnumType.STRING)
+    private ApprovalStatus approvalStatus;
 
-    private LocalDateTime updatedAt;
+    // thêm
+    @Column(columnDefinition = "TEXT")
+    private String adminNote;
 
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = LocalDateTime.now();
+    // thêm
+    private LocalDateTime approvedAt;
+
+    private LocalDateTime createdAt;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    public enum Status {
+        DRAFT,
+        OPEN,
+        IN_PROGRESS,
+        CLOSED,
+        CANCELLED
     }
 
-    public enum BidType { OPEN, DIRECT }
+    public enum BidType {
+        FIXED_PRICE,
+        NEGOTIABLE
+    }
 
-    public enum Status { OPEN, IN_PROGRESS, COMPLETED, CANCELLED }
+    public enum ApprovalStatus {
+        PENDING,
+        APPROVED,
+        REJECTED
+    }
 }

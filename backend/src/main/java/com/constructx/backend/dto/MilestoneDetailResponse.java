@@ -1,15 +1,16 @@
-package com.constructx.backend.dto.response;
+package com.constructx.backend.dto;
 
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkMilestoneResponse {
+public class MilestoneDetailResponse {
 
     private Long id;
 
@@ -23,7 +24,9 @@ public class WorkMilestoneResponse {
 
     private Integer stepOrder;
 
+    private String status;
+
     private LocalDate deadline;
 
-    private String status;
+    private List<MilestoneUpdateResponse> updates;
 }

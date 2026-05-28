@@ -1,13 +1,13 @@
 package com.constructx.backend.admin.service;
 
 import com.constructx.backend.admin.dto.response.AdminPartnerResponse;
-import com.constructx.backend.entity.User;
-import com.constructx.backend.repository.UserRepository;
+import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.service.NotificationService;
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.constructx.backend.entity.Notification;
-import com.constructx.backend.service.NotificationService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -88,7 +88,11 @@ public class AdminPartnerService {
                 .address(user.getAddress())
                 .role(user.getRole().name())
                 .active(user.isActive())
-                .approvalStatus(user.getApprovalStatus())
+                .approvalStatus(
+                        user.getApprovalStatus() != null
+                                ? user.getApprovalStatus().name()
+                                : null
+                )
                 .createdAt(user.getCreatedAt())
                 .build();
     }
