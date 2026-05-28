@@ -1,4 +1,4 @@
-package com.constructx.backend.dto.request;
+package com.constructx.backend.features.constructor.dto.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
