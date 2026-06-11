@@ -29,4 +29,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             User.ApprovalStatus approvalStatus
     );
 
+    long countByRole(User.Role role);
+
+    long countByActiveFalse();
 }

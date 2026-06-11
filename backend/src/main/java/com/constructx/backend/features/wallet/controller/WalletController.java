@@ -76,7 +76,7 @@ public class WalletController {
      * Endpoint: POST /api/wallet/withdraw
      */
     @PostMapping("/withdraw")
-    @PreAuthorize("hasAnyRole('USER','CONSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('CUSTOMER','CONTRACTOR','ADMIN')")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> handleWithdrawRequest(
             @RequestBody Map<String, Object> payload,
@@ -137,7 +137,7 @@ public class WalletController {
 
     @PostMapping("/verify-sandbox-dispute/{orderId}")
     @org.springframework.transaction.annotation.Transactional
-    @PreAuthorize("hasAnyRole('USER', 'CONSTRUCTOR', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'CONTRACTOR', 'ADMIN')")
     public ResponseEntity<?> verifySandboxDispute(
             @PathVariable String orderId,
             @RequestParam String responseCode) {

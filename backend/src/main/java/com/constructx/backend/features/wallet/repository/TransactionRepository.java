@@ -5,19 +5,24 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId);
     Optional<Transaction> findByGatewayOrderId(String gatewayOrderId);
-    @Query("""
-        SELECT COALESCE(SUM(t.amount),0)
-        FROM Transaction t
-        WHERE t.status = :status
-    """)
-    Long sumAmountByStatus(
-            @Param("status") Transaction.Status status
-    );
+
+    @Query("SELECT COALESCE(SUM(t.amount),0) FROM Transaction t WHERE t.status = :status")
+    Long sumAmountByStatus(@Param("status") Transaction.Status status);
+
     List<Transaction> findByTypeOrderByCreatedAtDesc(Transaction.Type type);
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.status = 'SUCCESS'
+        AND t.createdAt >= :from AND t.createdAt < :to
+    """)
+    Long sumSuccessAmountBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

@@ -16,6 +16,10 @@ public class BidResponse {
     private Long id;
 
     private Long projectId;
+    private String projectName;
+    private String projectCategory;
+    private Long projectBudgetMin;
+    private Long projectBudgetMax;
 
     private Long contractorId;
 
@@ -35,9 +39,17 @@ public class BidResponse {
     // mẫu thiết kế tổng
     private String designImage;
 
+    private Integer warrantyMonths;
+
+    private String paymentTerms;
+
     private String status;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime submittedAt;
+
+    private LocalDateTime reviewedAt;
 
     private List<BidDetailResponse> details;
 }

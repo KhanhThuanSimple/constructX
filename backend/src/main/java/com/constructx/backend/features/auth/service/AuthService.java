@@ -53,7 +53,7 @@ public class AuthService {
 
                 if (requestedRole == User.Role.CONTRACTOR) {
                     approvalStatus = User.ApprovalStatus.PENDING;
-                    active = false;
+                    active = true; // vẫn cho đăng nhập, block action qua approvalStatus
                 }
             } catch (IllegalArgumentException e) {
                 userRole = User.Role.CUSTOMER;
@@ -88,18 +88,16 @@ public class AuthService {
         );
         }
 
-        String token = null;
-
-        if (user.isActive()) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-            token = jwtUtil.generateToken(userDetails);
-        }
+        // Token luôn được cấp (kể cả contractor PENDING)
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String token = jwtUtil.generateToken(userDetails);
 
         return AuthResponse.builder()
                 .token(token)
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
+                .approvalStatus(user.getApprovalStatus() != null ? user.getApprovalStatus().name() : "APPROVED")
                 .userId(user.getId())
                 .build();
     }
@@ -121,6 +119,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
+                .approvalStatus(user.getApprovalStatus() != null ? user.getApprovalStatus().name() : "APPROVED")
                 .userId(user.getId())
                 .build();
     }

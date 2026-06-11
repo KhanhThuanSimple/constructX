@@ -3,6 +3,7 @@ package com.constructx.backend.features.user.service;
 import com.constructx.backend.features.user.dto.UserUpdateRequest;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -29,5 +30,9 @@ public class UserService {
         if (request.getAddress() != null) user.setAddress(request.getAddress());
         
         return userRepository.save(user);
+    }
+    public User getUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
     }
 }

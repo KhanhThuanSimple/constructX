@@ -30,6 +30,7 @@ public class User implements UserDetails {
 
     @JsonIgnore
     private String password;
+    private String avatarUrl;
 
     private String fullName;
     private String phoneNumber;
@@ -59,6 +60,9 @@ public class User implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+    public String getAvatarUrl() {
+        return avatarUrl != null && !avatarUrl.isEmpty() ? avatarUrl : "/default-avatar.png";
     }
 
     @Override

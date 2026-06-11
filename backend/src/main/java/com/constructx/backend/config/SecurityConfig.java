@@ -40,8 +40,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/public/**").permitAll() // Public catalog (materials, etc.)
                 .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll() // VNPay callback
                 .requestMatchers("/mock-vnpay/**").permitAll()
+                .requestMatchers("/ws-chat/**").permitAll() // WebSocket handshake (native + SockJS)
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // All others require authentication
                 .anyRequest().authenticated()

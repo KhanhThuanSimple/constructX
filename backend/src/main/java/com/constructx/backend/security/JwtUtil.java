@@ -27,7 +27,24 @@ public class JwtUtil {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
+        // Embed userId in the token so controllers can extract it
+        if (userDetails instanceof com.constructx.backend.features.user.entity.User u) {
+            claims.put("userId", u.getId());
+        }
         return createToken(claims, userDetails.getUsername());
+    }
+
+    public Long extractUserId(String token) {
+        try {
+            return extractClaim(token, claims -> {
+                Object id = claims.get("userId");
+                if (id instanceof Integer) return ((Integer) id).longValue();
+                if (id instanceof Long) return (Long) id;
+                return null;
+            });
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String createToken(Map<String, Object> claims, String subject) {

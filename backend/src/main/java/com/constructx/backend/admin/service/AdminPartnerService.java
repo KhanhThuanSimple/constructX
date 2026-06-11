@@ -48,8 +48,8 @@ public class AdminPartnerService {
         User contractor = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Đối tác không tồn tại"));
         ensureContractor(contractor);
-        contractor.setActive(false);
         contractor.setApprovalStatus(User.ApprovalStatus.REJECTED);
+        // Không set active = false — vẫn cho login để xem thông báo
         User savedContractor = userRepository.save(contractor);
 
         notificationService.createNotification(

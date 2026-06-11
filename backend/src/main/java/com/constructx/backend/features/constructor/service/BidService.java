@@ -103,15 +103,27 @@ public class BidService {
     }
     @Transactional(readOnly = true)
     public List<BidResponse> getMyBids() {
-
         User contractor = getCurrentUser();
-
         return bidRepository.findMyBids(contractor.getId())
                 .stream()
                 .map(this::mapBidResponse)
                 .toList();
     }
 
+    @Transactional
+    public BidResponse withdrawBid(Long bidId) {
+        User contractor = getCurrentUser();
+        Bid bid = bidRepository.findById(bidId)
+                .orElseThrow(() -> new RuntimeException("Báo giá không tồn tại"));
+        if (!bid.getContractor().getId().equals(contractor.getId())) {
+            throw new RuntimeException("Bạn không có quyền rút báo giá này");
+        }
+        if (bid.getStatus() != Bid.Status.PENDING) {
+            throw new RuntimeException("Chỉ có thể rút báo giá đang ở trạng thái chờ");
+        }
+        bid.setStatus(Bid.Status.WITHDRAWN);
+        return mapBidResponse(bidRepository.save(bid));
+    }
 
     private BidResponse mapBidResponse(Bid bid) {
 
@@ -132,6 +144,10 @@ public class BidService {
         return BidResponse.builder()
                 .id(bid.getId())
                 .projectId(bid.getProject().getId())
+                .projectName(bid.getProject().getName())
+                .projectCategory(bid.getProject().getCategory())
+                .projectBudgetMin(bid.getProject().getBudgetMin())
+                .projectBudgetMax(bid.getProject().getBudgetMax())
                 .contractorId(bid.getContractor().getId())
                 .contractorName(bid.getContractor().getFullName())
                 .contractorEmail(bid.getContractor().getEmail())
@@ -140,8 +156,12 @@ public class BidService {
                 .estimatedDays(bid.getEstimatedDays())
                 .message(bid.getMessage())
                 .designImage(bid.getDesignImage())
+                .warrantyMonths(bid.getWarrantyMonths())
+                .paymentTerms(bid.getPaymentTerms())
                 .status(bid.getStatus().name())
                 .createdAt(bid.getCreatedAt())
+                .submittedAt(bid.getSubmittedAt())
+                .reviewedAt(bid.getReviewedAt())
                 .details(detailResponses)
                 .build();
     }

@@ -34,4 +34,10 @@ public class BidController {
                 bidService.getMyBids()
         );
     }
+
+    // contractor rút bid (chỉ khi PENDING)
+    @PostMapping("/{id}/withdraw")
+    public ApiResponse<BidResponse> withdrawBid(@PathVariable Long id) {
+        return ApiResponse.ok("Đã rút báo giá", bidService.withdrawBid(id));
+    }
 }

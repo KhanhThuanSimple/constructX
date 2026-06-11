@@ -42,10 +42,14 @@ public class JwtFilter extends OncePerRequestFilter {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 if (userDetails.isEnabled() && jwtUtil.validateToken(token, userDetails)) {
+                    Long userId = jwtUtil.extractUserId(token);
+                    // Store userId in details so controllers can retrieve it
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    // Store userId alongside the standard WebAuthenticationDetails
+                    var webDetails = new WebAuthenticationDetailsSource().buildDetails(request);
+                    authToken.setDetails(userId != null ? userId : webDetails);
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }

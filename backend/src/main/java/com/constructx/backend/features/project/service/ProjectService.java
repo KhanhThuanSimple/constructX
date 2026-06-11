@@ -39,7 +39,11 @@ public class ProjectService {
         User user = getCurrentUser();
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy dự án"));
-        if (!project.getUser().getId().equals(user.getId())) {
+        // Owner, admin, và contractor đều có thể xem
+        boolean isOwner = project.getUser().getId().equals(user.getId());
+        boolean isAdminOrContractor = user.getRole() == User.Role.ADMIN
+                || user.getRole() == User.Role.CONTRACTOR;
+        if (!isOwner && !isAdminOrContractor) {
             throw new RuntimeException("Bạn không có quyền xem dự án này");
         }
         return project;
@@ -65,7 +69,8 @@ public class ProjectService {
                 .budgetMin(request.getBudgetMin())
                 .budgetMax(request.getBudgetMax())
                 .bidType(bidType)
-                .status(Project.Status.OPEN)
+                .status(Project.Status.DRAFT)
+                .approvalStatus(Project.ApprovalStatus.PENDING)
                 .build();
 
         return projectRepository.save(project);

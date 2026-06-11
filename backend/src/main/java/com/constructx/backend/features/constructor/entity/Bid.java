@@ -45,6 +45,13 @@ public class Bid {
     // mẫu thiết kế tổng thể
     private String designImage;
 
+    @Column(name = "warranty_months")
+    @Builder.Default
+    private Integer warrantyMonths = 0;
+
+    @Column(name = "payment_terms", columnDefinition = "TEXT")
+    private String paymentTerms;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Status status = Status.PENDING;
@@ -60,10 +67,18 @@ public class Bid {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "submitted_at")
+    @Builder.Default
+    private LocalDateTime submittedAt = LocalDateTime.now();
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
     public enum Status {
         PENDING,
         ACCEPTED,
         REJECTED,
-        CANCELLED
+        CANCELLED,
+        WITHDRAWN
     }
 }

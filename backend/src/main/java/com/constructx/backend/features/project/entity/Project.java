@@ -61,6 +61,7 @@ public class Project {
         DRAFT,
         OPEN,
         IN_PROGRESS,
+        COMPLETED,
         CLOSED,
         CANCELLED
     }
