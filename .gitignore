@@ -21,4 +21,4 @@ dist/
 .vscode/
 
 # Java upgrade generated files
-.github/java-upgrade/
+.github/java-upgrade/backend/target/classes/application.yml
