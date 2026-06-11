@@ -8,6 +8,11 @@ import DashboardPage from './pages/DashboardPage';
 import WalletPage from './pages/WalletPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import HomePage from './pages/HomePage';
+import CustomerHomePage from './pages/CustomerHomePage';
+import ContractorHomePage from './pages/ContractorHomePage';
+import ShopPage from './pages/shop/ShopPage';
+import ShopProductDetailPage from './pages/shop/ShopProductDetailPage';
+import AdminProductsPage from './pages/AdminProductsPage';
 import ProjectListPage from './pages/ProjectListPage';
 import ProfilePage from './pages/ProfilePage';
 import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
@@ -23,10 +28,17 @@ import ProjectDetailPageV2 from './pages/ProjectDetailPageV2';
 import DashboardContractorPage from './pages/DashboardContractorPage';
 import ProductionLogDetailPage from './pages/ProductionLogDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
-
-// Temporary components until I create them
-// const Notifications = () => <div className="p-8">Notifications (Coming soon)</div>;
-const MyBids = () => <div className="p-8">My Bids (Coming soon)</div>;
+import ChatPage from './pages/ChatPage';
+import { ChatMonitoring } from './pages/ChatMonitoring';
+import ContractsPage from './pages/ContractsPage';
+import AdminContractsPage from './pages/AdminContractsPage';
+import OrderCheckoutPage from './pages/shop/OrderCheckoutPage';
+import OrdersPage from './pages/OrdersPage';
+import AdminOrdersPage from './pages/AdminOrdersPage';
+import FurnitureDesignerPage from './pages/shop/FurnitureDesignerPage';
+import OrderBiddingPage from './pages/OrderBiddingPage';
+import MyBidsPage from './pages/MyBidsPage';
+import AdminAllUsersPage from './pages/AdminAllUsersPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -40,6 +52,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
+// Trang chủ thông minh: phân luồng theo role
+const SmartHomePage = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'CUSTOMER') return <CustomerHomePage />;
+  if (user?.role === 'CONTRACTOR') return <ContractorHomePage />;
+  // ADMIN vẫn dùng HomePage cũ (marketplace dự án)
+  return <HomePage />;
+};
+
 function App() {
   return (
     <Router>
@@ -50,7 +71,7 @@ function App() {
 
         <Route path="/" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
-            <HomePage />
+            <SmartHomePage />
           </ProtectedRoute>
         } />
 
@@ -59,7 +80,6 @@ function App() {
             <DashboardPage />
           </ProtectedRoute>
         } />
-
         <Route path="/projects" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
             <ProjectListPage />
@@ -95,12 +115,50 @@ function App() {
             <PortfolioPage />
           </ProtectedRoute>
         } />
+ <Route path="/shop" element={<ShopPage />} />
+        <Route path="/shop/products/:id" element={<ShopProductDetailPage />} />
+        <Route path="/shop/order" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <OrderCheckoutPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/shop/designer" element={<FurnitureDesignerPage />} />
+        <Route path="/orders" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <OrdersPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/order-bidding" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <OrderBiddingPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/orders" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminOrdersPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/products" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminProductsPage />
+          </ProtectedRoute>
+        } />
 
         <Route path="/bids" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <MyBids />
+            <MyBidsPage />
           </ProtectedRoute>
         } />
+        <Route path="/chat" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ChatPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat/:roomId" element={
+  <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+    <ChatPage />
+  </ProtectedRoute>
+} />
 
         <Route path="/admin/projects" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
@@ -119,6 +177,11 @@ function App() {
             <AdminUsersPage />
           </ProtectedRoute>
         } />
+        <Route path="/admin/all-users" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminAllUsersPage />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/AdminWithdrawalsPage" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminWithdrawalsPage />
@@ -129,6 +192,24 @@ function App() {
         <Route path="/admin/settings" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminSettingsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/chat" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ChatMonitoring />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
+            <ContractsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/contracts" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminContractsPage />
           </ProtectedRoute>
         } />
 

@@ -46,8 +46,19 @@ const ProjectDetailPageV2 = () => {
 
     const fetchProjectDetail = async () => {
         try {
-            const response = await api.get(`/projects/v2/${id}`);
-            setProjectData(response.data.data);
+            const [projRes, bidsRes] = await Promise.all([
+                api.get(`/projects/${id}`),
+                api.get(`/projects/${id}/bids`).catch(() => ({ data: { data: [] } })),
+            ]);
+            const raw = projRes.data.data || projRes.data;
+            setProjectData({
+                project: {
+                    ...raw,
+                    ownerName: raw.user?.fullName || raw.ownerName || 'Chủ dự án',
+                    ownerPhone: raw.user?.phoneNumber || raw.ownerPhone || '—',
+                },
+                bids: bidsRes.data.data || [],
+            });
         } catch (error) {
             toast.error('Không thể tải chi tiết dự án');
         } finally {

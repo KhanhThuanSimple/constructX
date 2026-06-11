@@ -18,27 +18,27 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor: xử lý đồng bộ sự kiện và chặn lỗi 401/403
+// Response interceptor: xử lý lỗi
 api.interceptors.response.use(
   (response) => {
-    // ĐÃ BỔ SUNG: Tự động bắt tất cả các hành động ghi/sửa dữ liệu thành công
     const method = response.config.method?.toUpperCase();
     if (['POST', 'PUT', 'DELETE'].includes(method)) {
-      // Phát đi một tín hiệu tàng hình trên toàn bộ trình duyệt
       const event = new CustomEvent('WALLET_DATA_CHANGED');
       window.dispatchEvent(event);
     }
     return response;
   },
   (error) => {
-    // Giữ nguyên logic xử lý 401/403 (token hết hạn hoặc không hợp lệ) của bạn
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      if (!window.location.pathname.includes('/login')) {
+    if (error.response?.status === 401) {
+      // Chỉ redirect khi thực sự token hết hạn (401 Unauthorized)
+      const token = localStorage.getItem('token');
+      if (token && !window.location.pathname.includes('/login')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
+    // 403 Forbidden: user không có quyền nhưng vẫn logged in — KHÔNG redirect
     return Promise.reject(error);
   }
 );

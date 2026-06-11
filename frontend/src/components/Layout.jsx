@@ -1,57 +1,62 @@
 import React from 'react';
-import { NavLink, useNavigate, Link } from 'react-router-dom';
+import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  PlusCircle,
-  Wallet,
-  Bell,
-  MessageCircle,
-  History,
-  LogOut,
-  Construction,
-  Image,
-  Shield,
-  User as UserIcon,
-  Camera,
-  Settings,
-  ClipboardCheck
+  LayoutDashboard, PlusCircle, Wallet, Bell, MessageCircle,
+  History, LogOut, Construction, Image, Shield, User as UserIcon,
+  Camera, Settings, ClipboardCheck, FileText, ShoppingBag,
+  Package, Ruler, ShoppingCart, Gavel, Users
 } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
+import { ChatFloatingButton } from './chat/ChatFloatingButton';
 
 const Sidebar = () => {
   const { logout, user } = useAuthStore();
   const navigate = useNavigate();
 
   const customerNav = [
-    { id: 'home', label: 'Trang chủ', icon: <Construction size={20} />, path: '/' },
-    { id: 'dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
-    { id: 'create-project', label: 'Tạo dự án', icon: <PlusCircle size={20} />, path: '/projects/new' },
-    { id: 'projects', label: 'Dự án của tôi', icon: <Construction size={20} />, path: '/projects' },
-    { id: 'wallet', label: 'Ví & Thanh toán', icon: <Wallet size={20} />, path: '/wallet' },
-    { id: 'notifications', label: 'Thông báo', icon: <Bell size={20} />, path: '/notifications' },
-    { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />, path: '/profile' },
+    { id: 'home',           label: 'Trang chủ',           icon: <Construction size={20} />,    path: '/' },
+    { id: 'shop',           label: 'Cửa hàng nội thất',   icon: <ShoppingBag size={20} />,     path: '/shop' },
+    { id: 'designer',       label: 'Thiết kế 2D',         icon: <Ruler size={20} />,           path: '/shop/designer' },
+    { id: 'orders',         label: 'Đơn hàng của tôi',    icon: <ShoppingCart size={20} />,    path: '/orders' },
+    { id: 'dashboard',      label: 'Tổng quan',           icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'create-project', label: 'Tạo dự án',           icon: <PlusCircle size={20} />,      path: '/projects/new' },
+    { id: 'projects',       label: 'Dự án của tôi',       icon: <Construction size={20} />,    path: '/projects' },
+    { id: 'contracts',      label: 'Hợp đồng',            icon: <FileText size={20} />,        path: '/contracts' },
+    { id: 'chat',           label: 'Tin nhắn',            icon: <MessageCircle size={20} />,   path: '/chat' },
+    { id: 'wallet',         label: 'Ví & Thanh toán',     icon: <Wallet size={20} />,          path: '/wallet' },
+    { id: 'notifications',  label: 'Thông báo',           icon: <Bell size={20} />,            path: '/notifications' },
+    { id: 'profile',        label: 'Cài đặt tài khoản',   icon: <UserIcon size={20} />,        path: '/profile' },
   ];
 
   const contractorNav = [
-    { id: 'home', label: 'Trang chủ', icon: <Construction size={20} />, path: '/' },
-    { id: 'dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
-    { id: 'marketplace', label: 'Tìm việc mới', icon: <PlusCircle size={20} />, path: '/projects/browse' },
-    { id: 'my-bids', label: 'Đấu thầu của tôi', icon: <History size={20} />, path: '/bids' },
-    { id: 'production-log', label: 'Nhật ký thi công', icon: <Camera size={20} />, path: '/production-log' },
-    { id: 'portfolio', label: 'Hồ sơ năng lực', icon: <Image size={20} />, path: '/portfolio' },
-    { id: 'wallet', label: 'Ví & Thu nhập', icon: <Wallet size={20} />, path: '/wallet' },
-    { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />, path: '/profile' },
+    { id: 'home',           label: 'Trang chủ',           icon: <Construction size={20} />,    path: '/' },
+    { id: 'shop',           label: 'Cửa hàng nội thất',   icon: <ShoppingBag size={20} />,     path: '/shop' },
+    { id: 'dashboard',      label: 'Bảng điều khiển',     icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
+    { id: 'order-bidding',  label: 'Đấu thầu đơn hàng',  icon: <Gavel size={20} />,           path: '/order-bidding' },
+    { id: 'marketplace',    label: 'Tìm dự án mới',       icon: <PlusCircle size={20} />,      path: '/projects/browse' },
+    { id: 'my-bids',        label: 'Đấu thầu dự án',      icon: <History size={20} />,         path: '/bids' },
+    { id: 'contracts',      label: 'Hợp đồng',            icon: <FileText size={20} />,        path: '/contracts' },
+    { id: 'production-log', label: 'Nhật ký thi công',    icon: <Camera size={20} />,          path: '/production-log' },
+    { id: 'portfolio',      label: 'Hồ sơ năng lực',      icon: <Image size={20} />,           path: '/portfolio' },
+    { id: 'chat',           label: 'Tin nhắn',            icon: <MessageCircle size={20} />,   path: '/chat' },
+    { id: 'wallet',         label: 'Ví & Thu nhập',       icon: <Wallet size={20} />,          path: '/wallet' },
+    { id: 'profile',        label: 'Cài đặt tài khoản',   icon: <UserIcon size={20} />,        path: '/profile' },
   ];
 
   const adminNav = [
-    { id: 'admin-dashboard', label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
-    { id: 'admin-projects', label: 'Duyệt dự án', icon: <ClipboardCheck size={20} />, path: '/admin/projects' },
-    { id: 'user-management', label: 'Phê duyệt đối tác', icon: <UserIcon size={20} />, path: '/admin/users' },
-    { id: 'disputes', label: 'Tranh chấp', icon: <Shield size={20} />, path: '/admin/disputes' },
-    { id: 'allowances', label: 'Duyệt tiền', icon: <Shield size={20} />, path: '/admin/AdminWithdrawalsPage' },
-    { id: 'settings', label: 'Cấu hình hệ thống', icon: <Settings size={20} />, path: '/admin/settings' },
-    { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />, path: '/profile' },
-    { id: 'notifications', label: 'Thông báo', icon: <Bell size={20} />, path: '/notifications' },
+    { id: 'admin-dashboard',  label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+    { id: 'admin-projects',   label: 'Duyệt dự án',        icon: <ClipboardCheck size={20} />,  path: '/admin/projects' },
+    { id: 'admin-contracts',  label: 'Quản lý hợp đồng',   icon: <FileText size={20} />,        path: '/admin/contracts' },
+    { id: 'admin-orders',     label: 'Quản lý đơn hàng',   icon: <ShoppingCart size={20} />,    path: '/admin/orders' },
+    { id: 'admin-products',   label: 'Sản phẩm Shop',      icon: <Package size={20} />,         path: '/admin/products' },
+    { id: 'user-management',  label: 'Phê duyệt đối tác',  icon: <UserIcon size={20} />,        path: '/admin/users' },
+    { id: 'all-users',        label: 'Quản lý người dùng', icon: <Users size={20} />,          path: '/admin/all-users' },
+    { id: 'disputes',         label: 'Tranh chấp',         icon: <Shield size={20} />,          path: '/admin/disputes' },
+    { id: 'allowances',       label: 'Duyệt tiền',         icon: <Wallet size={20} />,          path: '/admin/AdminWithdrawalsPage' },
+    { id: 'chat-monitor',     label: 'Giám sát chat',      icon: <MessageCircle size={20} />,   path: '/admin/chat' },
+    { id: 'settings',         label: 'Cấu hình hệ thống',  icon: <Settings size={20} />,        path: '/admin/settings' },
+    { id: 'profile',          label: 'Cài đặt tài khoản',  icon: <UserIcon size={20} />,        path: '/profile' },
+    { id: 'notifications',    label: 'Thông báo',          icon: <Bell size={20} />,            path: '/notifications' },
   ];
 
   const navItems =
@@ -68,12 +73,17 @@ const Sidebar = () => {
 
   return (
     <div className="w-64 bg-[#1a4f3a] text-white flex flex-col h-screen shrink-0">
-      <div className="p-6 border-b border-white/10">
-        <h1 className="text-xl font-bold tracking-tight font-display">ConstructX</h1>
-        <p className="text-[10px] uppercase tracking-widest text-white/50 mt-1">
-          Sàn thi công nội thất
-        </p>
-      </div>
+     <Link
+  to="/shop"
+  className="block p-6 border-b border-white/10 hover:bg-white/5 transition-colors"
+>
+  <h1 className="text-xl font-bold tracking-tight font-display">
+    ConstructX
+  </h1>
+  <p className="text-[10px] uppercase tracking-widest text-white/50 mt-1">
+    Sàn thi công nội thất
+  </p>
+</Link>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         <p className="text-[10px] uppercase tracking-widest text-white/30 px-3 py-2">
@@ -167,6 +177,9 @@ const Topbar = ({ title }) => {
 };
 
 const Layout = ({ children, title }) => {
+  const location = useLocation();
+  const isOnChatPage = location.pathname.startsWith('/chat');
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
@@ -174,10 +187,13 @@ const Layout = ({ children, title }) => {
       <div className="flex-1 flex flex-col min-w-0 bg-gray-50 overflow-hidden">
         <Topbar title={title} />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 min-h-0">
           {children}
         </main>
       </div>
+
+      {/* Floating AI Chatbot — ẩn khi đang ở trang Chat để tránh trùng */}
+      {!isOnChatPage && <ChatFloatingButton />}
     </div>
   );
 };

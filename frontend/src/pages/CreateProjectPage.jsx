@@ -1,222 +1,400 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
-import { 
-  Info, 
-  MapPin, 
-  Banknote, 
-  FileText, 
-  ChevronRight, 
-  ChevronLeft,
-  Upload,
-  X,
-  File
+import {
+  Info, MapPin, Banknote, FileText,
+  ChevronRight, ChevronLeft, Upload, X, File,
+  ShoppingBag, CheckCircle, Package, Plus
 } from 'lucide-react';
 
-const CreateProjectPage = () => {
+const STEPS = [
+  { id: 1, label: 'Thông tin cơ bản', icon: <Info size={16} /> },
+  { id: 2, label: 'Chọn sản phẩm mẫu', icon: <ShoppingBag size={16} /> },
+  { id: 3, label: 'Ngân sách',          icon: <Banknote size={16} /> },
+  { id: 4, label: 'Chi tiết & Tài liệu',icon: <FileText size={16} /> },
+];
+
+const CATEGORY_MAP = {
+  SOFA: 'Ghế sofa', TABLE: 'Bàn', CHAIR: 'Ghế',
+  BED: 'Giường ngủ', CABINET: 'Tủ kệ', DECOR: 'Trang trí',
+};
+
+const fmt = (n) =>
+  n == null ? '' :
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
+
+export default function CreateProjectPage() {
+  const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    city: '',
-    district: '',
-    street: '',
-    description: '',
-    budgetMin: 50000000,
-    budgetMax: 100000000,
-    bidType: 'OPEN'
+    name: '', address: '', city: '', district: '', street: '',
+    description: '', budgetMin: 50000000, budgetMax: 100000000, bidType: 'OPEN',
+    selectedProducts: [], customRequirements: '',
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef(null);
-  const navigate = useNavigate();
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles([...selectedFiles, ...files]);
+  // Sản phẩm mẫu từ admin
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+
+  useEffect(() => {
+    if (step === 2) fetchCatalog();
+  }, [step]);
+
+  const fetchCatalog = async () => {
+    setLoadingProducts(true);
+    try {
+      const res = await api.get('/public/products');
+      setCatalogProducts(res.data.data || []);
+    } catch { /* silent */ }
+    finally { setLoadingProducts(false); }
   };
 
-  const removeFile = (index) => {
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  const toggleProduct = (product) => {
+    setFormData(prev => {
+      const already = prev.selectedProducts.find(p => p.id === product.id);
+      return {
+        ...prev,
+        selectedProducts: already
+          ? prev.selectedProducts.filter(p => p.id !== product.id)
+          : [...prev.selectedProducts, { ...product, qty: 1, customNote: '' }],
+      };
+    });
+  };
+
+  const updateProductQty = (id, qty) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedProducts: prev.selectedProducts.map(p =>
+        p.id === id ? { ...p, qty: Math.max(1, qty) } : p
+      ),
+    }));
+  };
+
+  const filteredProducts = catalogProducts.filter(p => {
+    const matchSearch = !productSearch ||
+      p.name?.toLowerCase().includes(productSearch.toLowerCase());
+    const matchCat = !productCategory || p.category === productCategory;
+    return matchSearch && matchCat;
+  });
+
+  const handleFileSelect = (e) => {
+    setSelectedFiles(prev => [...prev, ...Array.from(e.target.files)]);
   };
 
   const handleSubmit = async () => {
+    if (!formData.name.trim()) { toast.error('Vui lòng nhập tên dự án'); setStep(1); return; }
     setLoading(true);
     try {
-      // Lưu ý: Trong thực tế, bạn sẽ dùng FormData để upload cả file
-      // Ở đây tôi đang gửi JSON thông tin dự án trước
-      await api.post('/projects', formData);
+      // Gộp description: thêm thông tin sản phẩm đã chọn
+      let desc = formData.description || '';
+      if (formData.selectedProducts.length > 0) {
+        desc += '\n\n--- SẢN PHẨM MẪU YÊU CẦU ---\n';
+        formData.selectedProducts.forEach(p => {
+          desc += `• ${p.name} (x${p.qty})${p.customNote ? ' — ' + p.customNote : ''}\n`;
+        });
+      }
+      if (formData.customRequirements) {
+        desc += '\n--- YÊU CẦU RIÊNG ---\n' + formData.customRequirements;
+      }
+
+      const payload = {
+        name: formData.name,
+        address: [formData.street, formData.district, formData.city].filter(Boolean).join(', '),
+        description: desc.trim(),
+        budgetMin: formData.budgetMin,
+        budgetMax: formData.budgetMax,
+        bidType: formData.bidType,
+      };
+      await api.post('/projects', payload);
       toast.success('Đăng dự án thành công!');
       navigate('/projects');
-    } catch (error) {
-      toast.error('Lỗi khi tạo dự án');
+    } catch {
+      toast.error('Lỗi khi tạo dự án, vui lòng thử lại');
     } finally {
       setLoading(false);
     }
   };
 
-  const steps = [
-    { id: 1, label: 'Thông tin cơ bản', icon: <Info size={16} /> },
-    { id: 2, label: 'Ngân sách & Đấu giá', icon: <Banknote size={16} /> },
-    { id: 3, label: 'Chi tiết & Tài liệu', icon: <FileText size={16} /> },
-  ];
+  const canProceed = () => {
+    if (step === 1) return formData.name.trim().length > 0;
+    return true;
+  };
 
   return (
     <Layout title="Tạo dự án mới">
       <div className="max-w-3xl mx-auto">
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between mb-8 px-4">
-          {steps.map((s, index) => (
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-between mb-8 px-2">
+          {STEPS.map((s, i) => (
             <React.Fragment key={s.id}>
-              <div className="flex flex-col items-center gap-2">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-                  step >= s.id ? 'bg-[#1a4f3a] border-[#1a4f3a] text-white' : 'bg-white border-gray-200 text-gray-300'
+              <button
+                onClick={() => s.id < step && setStep(s.id)}
+                className="flex flex-col items-center gap-1.5 group"
+              >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all ${
+                  step > s.id  ? 'bg-primary border-primary text-white'
+                  : step === s.id ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30'
+                  : 'bg-white border-gray-200 text-gray-300'
                 }`}>
-                  {s.icon}
+                  {step > s.id ? <CheckCircle size={16} /> : s.icon}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                  step >= s.id ? 'text-[#1a4f3a]' : 'text-gray-300'
+                <span className={`text-[9px] font-bold uppercase tracking-widest hidden sm:block ${
+                  step >= s.id ? 'text-primary' : 'text-gray-300'
                 }`}>{s.label}</span>
-              </div>
-              {index < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-4 ${step > s.id ? 'bg-[#1a4f3a]' : 'bg-gray-200'}`}></div>
+              </button>
+              {i < STEPS.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-2 transition-all ${step > s.id ? 'bg-primary' : 'bg-gray-200'}`} />
               )}
             </React.Fragment>
           ))}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
+
+          {/* ── Step 1: Thông tin cơ bản ── */}
           {step === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-5">
+              <h2 className="font-display font-bold text-lg text-gray-900 mb-1">Thông tin cơ bản</h2>
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Tên dự án</label>
-                <input 
-                  type="text" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="Ví dụ: Nội thất phòng khách chung cư Vinhomes"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#1a4f3a] focus:bg-white transition-all"
-                />
+                <label className="field-label">Tên dự án *</label>
+                <input type="text" value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="VD: Nội thất phòng khách chung cư Vinhomes"
+                  className="field" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Tỉnh / Thành phố</label>
-                  <input 
-                    type="text" 
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    placeholder="Ví dụ: TP. Hồ Chí Minh"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary focus:bg-white"
-                  />
+                  <label className="field-label">Tỉnh / Thành phố</label>
+                  <input type="text" value={formData.city}
+                    onChange={e => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="VD: TP. Hồ Chí Minh" className="field" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Quận / Huyện</label>
-                  <input 
-                    type="text" 
-                    value={formData.district}
-                    onChange={(e) => setFormData({...formData, district: e.target.value})}
-                    placeholder="Ví dụ: Quận 1"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary focus:bg-white"
-                  />
+                  <label className="field-label">Quận / Huyện</label>
+                  <input type="text" value={formData.district}
+                    onChange={e => setFormData({ ...formData, district: e.target.value })}
+                    placeholder="VD: Quận 1" className="field" />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Địa chỉ chi tiết (Số nhà, Tên đường...)</label>
+                <label className="field-label">Địa chỉ chi tiết</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-3 text-gray-400"><MapPin size={18} /></span>
-                  <input 
-                    type="text" 
-                    value={formData.street}
-                    onChange={(e) => setFormData({...formData, street: e.target.value})}
-                    placeholder="Ví dụ: 123 Đường Lê Lợi, Phường Bến Thành"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary focus:bg-white"
-                  />
+                  <MapPin className="absolute left-3 top-3 text-gray-400" size={16} />
+                  <input type="text" value={formData.street}
+                    onChange={e => setFormData({ ...formData, street: e.target.value })}
+                    placeholder="Số nhà, tên đường..." className="field pl-9" />
                 </div>
               </div>
             </div>
           )}
 
+          {/* ── Step 2: Chọn sản phẩm mẫu ── */}
           {step === 2 && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Ngân sách tối thiểu (VNĐ)</label>
-                  <input 
-                    type="number" 
-                    value={formData.budgetMin}
-                    onChange={(e) => setFormData({...formData, budgetMin: Number(e.target.value)})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Ngân sách tối đa (VNĐ)</label>
-                  <input 
-                    type="number" 
-                    value={formData.budgetMax}
-                    onChange={(e) => setFormData({...formData, budgetMax: Number(e.target.value)})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:bg-white"
-                  />
-                </div>
+            <div>
+              <div className="mb-5">
+                <h2 className="font-display font-bold text-lg text-gray-900 mb-1">Chọn sản phẩm mẫu</h2>
+                <p className="text-sm text-gray-500">
+                  Chọn từ kho sản phẩm mà bạn muốn thi công. Nhà thầu sẽ dựa vào đây để báo giá chính xác hơn.
+                </p>
               </div>
-              <p className="text-[10px] text-gray-400 italic">* Lưu ý: Dự án của bạn sẽ được công khai để tất cả nhà thầu có thể gửi báo giá cạnh tranh.</p>
-            </div>
-          )}
 
-          {step === 3 && (
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Mô tả chi tiết yêu cầu</label>
-                <textarea 
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows="5"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#1a4f3a] focus:bg-white transition-all resize-none"
-                  placeholder="Mô tả về vật liệu, phong cách, thời gian mong muốn..."
-                ></textarea>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Tải lên mặt bằng / Ảnh mẫu</label>
-                
-                {/* File Input Ẩn */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  multiple
-                  className="hidden"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                />
-
-                <div 
-                  onClick={() => fileInputRef.current.click()}
-                  className="border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center gap-2 bg-gray-50 hover:bg-gray-100 hover:border-[#1a4f3a]/30 transition-all cursor-pointer"
-                >
-                  <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400">
-                    <Upload size={24} />
-                  </div>
-                  <p className="text-sm font-medium text-gray-600">Nhấn để chọn hoặc kéo thả file</p>
-                  <p className="text-[10px] text-gray-400">PDF, PNG, JPG lên đến 10MB</p>
-                </div>
-
-                {/* Danh sách file đã chọn */}
-                {selectedFiles.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white rounded-lg text-primary"><File size={16} /></div>
+              {/* Selected products */}
+              {formData.selectedProducts.length > 0 && (
+                <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-2xl">
+                  <p className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <CheckCircle size={13} /> {formData.selectedProducts.length} sản phẩm đã chọn
+                  </p>
+                  <div className="space-y-2">
+                    {formData.selectedProducts.map(p => (
+                      <div key={p.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-green-100">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {p.imageUrl
+                            ? <img src={p.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                            : <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-400" /></div>
+                          }
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
-                            <p className="text-[10px] text-gray-400">{(file.size / 1024).toFixed(0)} KB</p>
+                            <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
+                            <p className="text-[10px] text-green-600 font-medium">{fmt(p.price)}</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                          className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
-                        >
-                          <X size={18} />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateProductQty(p.id, p.qty - 1)}
+                              className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-xs font-bold">−</button>
+                            <span className="w-7 text-center text-xs font-bold">{p.qty}</span>
+                            <button onClick={() => updateProductQty(p.id, p.qty + 1)}
+                              className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-xs font-bold">+</button>
+                          </div>
+                          <button onClick={() => toggleProduct(p)} className="text-red-400 hover:text-red-600 p-1">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Filters */}
+              <div className="flex gap-2 mb-4">
+                <input type="text" placeholder="Tìm sản phẩm..." value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                  className="flex-1 field text-xs py-2" />
+                <select value={productCategory} onChange={e => setProductCategory(e.target.value)}
+                  className="field text-xs py-2 w-36">
+                  <option value="">Tất cả</option>
+                  {Object.entries(CATEGORY_MAP).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Grid */}
+              {loadingProducts ? (
+                <div className="text-center py-10 text-gray-400 text-sm">Đang tải sản phẩm...</div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-10">
+                  <Package size={36} className="mx-auto text-gray-200 mb-2" />
+                  <p className="text-gray-400 text-sm">Không có sản phẩm nào</p>
+                  <p className="text-gray-300 text-xs mt-1">Bạn có thể nhập yêu cầu tùy chỉnh bên dưới</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
+                  {filteredProducts.map(p => {
+                    const selected = formData.selectedProducts.find(s => s.id === p.id);
+                    return (
+                      <button key={p.id} onClick={() => toggleProduct(p)}
+                        className={`text-left rounded-xl border-2 p-3 transition-all ${
+                          selected
+                            ? 'border-primary bg-primary-bg shadow-md shadow-primary/10'
+                            : 'border-gray-200 bg-white hover:border-primary/40'
+                        }`}
+                      >
+                        <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 mb-2">
+                          {p.imageUrl
+                            ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><Package size={20} className="text-gray-300" /></div>
+                          }
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{p.name}</p>
+                        <p className="text-xs font-bold text-primary mt-1">{fmt(p.price)}</p>
+                        {selected && (
+                          <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-primary">
+                            <CheckCircle size={11} /> Đã chọn
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Custom requirement */}
+              <div className="mt-5">
+                <label className="field-label">Hoặc nhập yêu cầu thiết kế riêng</label>
+                <textarea rows={3} value={formData.customRequirements}
+                  onChange={e => setFormData({ ...formData, customRequirements: e.target.value })}
+                  placeholder="VD: Sofa góc L màu xám, chất liệu da tổng hợp, kích thước 2.5m x 1.8m..."
+                  className="field resize-none text-sm" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Ngân sách ── */}
+          {step === 3 && (
+            <div className="space-y-5">
+              <h2 className="font-display font-bold text-lg text-gray-900 mb-1">Ngân sách dự án</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="field-label">Ngân sách tối thiểu (VNĐ)</label>
+                  <input type="number" value={formData.budgetMin}
+                    onChange={e => setFormData({ ...formData, budgetMin: Number(e.target.value) })}
+                    className="field font-bold" />
+                  <p className="text-xs text-gray-400 mt-1">{fmt(formData.budgetMin)}</p>
+                </div>
+                <div>
+                  <label className="field-label">Ngân sách tối đa (VNĐ)</label>
+                  <input type="number" value={formData.budgetMax}
+                    onChange={e => setFormData({ ...formData, budgetMax: Number(e.target.value) })}
+                    className="field font-bold" />
+                  <p className="text-xs text-gray-400 mt-1">{fmt(formData.budgetMax)}</p>
+                </div>
+              </div>
+
+              {/* Summary */}
+              {formData.selectedProducts.length > 0 && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm">
+                  <p className="font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+                    <ShoppingBag size={14} /> Sản phẩm đã chọn ({formData.selectedProducts.length})
+                  </p>
+                  <div className="space-y-1">
+                    {formData.selectedProducts.map(p => (
+                      <div key={p.id} className="flex justify-between text-blue-700 text-xs">
+                        <span>{p.name} × {p.qty}</span>
+                        <span className="font-semibold">{fmt(p.price * p.qty)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-blue-200 mt-1 pt-1 flex justify-between font-bold text-blue-900">
+                      <span>Tham khảo sản phẩm:</span>
+                      <span>{fmt(formData.selectedProducts.reduce((s, p) => s + p.price * p.qty, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 italic bg-gray-50 rounded-xl p-3">
+                * Nhà thầu sẽ gửi báo giá cạnh tranh dựa trên ngân sách và yêu cầu của bạn.
+                Hệ thống <strong>đấu thầu bảo mật</strong> — nhà thầu không xem được giá của đối thủ.
+              </p>
+            </div>
+          )}
+
+          {/* ── Step 4: Chi tiết & Tài liệu ── */}
+          {step === 4 && (
+            <div className="space-y-5">
+              <h2 className="font-display font-bold text-lg text-gray-900 mb-1">Mô tả & Tài liệu</h2>
+              <div>
+                <label className="field-label">Mô tả yêu cầu chi tiết</label>
+                <textarea rows={5} value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Mô tả về phong cách, vật liệu ưu thích, thời gian mong muốn hoàn thành..."
+                  className="field resize-none" />
+              </div>
+              <div>
+                <label className="field-label">Tải lên mặt bằng / Ảnh tham khảo</label>
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect}
+                  multiple className="hidden" accept=".pdf,.png,.jpg,.jpeg" />
+                <div onClick={() => fileInputRef.current.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center gap-2 bg-gray-50 hover:bg-gray-100 hover:border-primary/30 transition-all cursor-pointer">
+                  <div className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400">
+                    <Upload size={20} />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600">Nhấn để chọn hoặc kéo thả file</p>
+                  <p className="text-xs text-gray-400">PDF, PNG, JPG — tối đa 10MB</p>
+                </div>
+                {selectedFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {selectedFiles.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-white rounded-lg text-primary"><File size={14} /></div>
+                          <div>
+                            <p className="text-xs font-medium truncate max-w-[180px]">{f.name}</p>
+                            <p className="text-[10px] text-gray-400">{(f.size / 1024).toFixed(0)} KB</p>
+                          </div>
+                        </div>
+                        <button onClick={() => setSelectedFiles(prev => prev.filter((_, j) => j !== i))}
+                          className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg">
+                          <X size={15} />
                         </button>
                       </div>
                     ))}
@@ -227,35 +405,34 @@ const CreateProjectPage = () => {
           )}
         </div>
 
-        <div className="flex items-center justify-between px-4">
-          <button 
-            onClick={() => setStep(s => s - 1)}
-            disabled={step === 1}
-            className={`flex items-center gap-2 text-sm font-bold ${step === 1 ? 'text-gray-300' : 'text-gray-500 hover:text-gray-800'}`}
-          >
+        {/* Navigation */}
+        <div className="flex items-center justify-between px-2">
+          <button onClick={() => setStep(s => s - 1)} disabled={step === 1}
+            className={`flex items-center gap-2 text-sm font-bold transition-colors ${
+              step === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-800'
+            }`}>
             <ChevronLeft size={18} /> Quay lại
           </button>
-          
-          {step < 3 ? (
-            <button 
-              onClick={() => setStep(s => s + 1)}
-              className="btn btn-primary px-8 py-3 flex items-center gap-2 shadow-lg shadow-[#1a4f3a]/20"
-            >
+
+          {step < STEPS.length ? (
+            <button onClick={() => setStep(s => s + 1)} disabled={!canProceed()}
+              className="btn btn-primary px-8 py-3 flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-40">
               Tiếp theo <ChevronRight size={18} />
             </button>
           ) : (
-            <button 
-              onClick={handleSubmit}
-              disabled={loading}
-              className="btn btn-primary px-10 py-3 shadow-lg shadow-[#1a4f3a]/20"
-            >
-              {loading ? 'Đang đăng bài...' : 'Đăng dự án ngay'}
+            <button onClick={handleSubmit} disabled={loading}
+              className="btn btn-primary px-10 py-3 shadow-lg shadow-primary/20 disabled:opacity-40">
+              {loading ? 'Đang đăng...' : 'Đăng dự án ngay 🚀'}
             </button>
           )}
         </div>
       </div>
+
+      <style>{`
+        .field-label { display:block; font-size:.7rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+        .field { width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; font-size:.875rem; outline:none; background:#fafafa; transition:border-color .15s; }
+        .field:focus { border-color:#1a4f3a; background:white; }
+      `}</style>
     </Layout>
   );
-};
-
-export default CreateProjectPage;
+}

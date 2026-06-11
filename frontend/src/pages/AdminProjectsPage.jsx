@@ -43,10 +43,10 @@ const AdminProjectsPage = () => {
 
   const fetchProjects = async () => {
     setLoading(true);
-
     try {
       const response = await api.get(`/admin/projects?status=${filter}`);
-      setProjects(response.data.data || []);
+      const data = response.data.data || response.data || [];
+      setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching projects:', error);
       toast.error(error.response?.data?.message || 'Không thể tải danh sách dự án');
