@@ -1,5 +1,8 @@
 package com.constructx.backend.features.order.service;
 
+import com.constructx.backend.features.constructor.entity.Contract;
+import com.constructx.backend.features.constructor.entity.ContractStage;
+import com.constructx.backend.features.constructor.repository.ContractRepository;
 import com.constructx.backend.features.notification.entity.Notification;
 import com.constructx.backend.features.notification.service.NotificationService;
 import com.constructx.backend.features.order.dto.OrderBidRequest;
@@ -18,8 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +38,7 @@ public class OrderBidService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final OrderService orderService;
+    private final ContractRepository contractRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -190,7 +198,7 @@ public class OrderBidService {
                 .collect(Collectors.toList());
     }
 
-    // ── OWNER: Chọn nhà thầu (accept bid) ───────────────────────────
+    // ── OWNER: Chọn nhà thầu (accept bid) → tự động tạo hợp đồng ──────────────
 
     @Transactional
     public OrderBidResponse acceptBid(Long orderId, Long bidId) {
@@ -215,44 +223,106 @@ public class OrderBidService {
         // Reject tất cả bids còn lại
         orderBidRepository.rejectOtherBids(orderId, bidId);
 
-        // Cập nhật order: tổng tiền = giá bid được chọn
+        // Cập nhật order
         order.setStatus(Order.Status.BIDDING_CLOSED);
         order.setAssignedContractor(bid.getContractor());
         order.setSelectedBidId(bidId);
-        order.setConfirmedAt(java.time.LocalDateTime.now());
+        order.setConfirmedAt(LocalDateTime.now());
         if (bid.getQuotedPrice() != null) {
             order.setTotalAmount(bid.getQuotedPrice());
         }
         orderRepository.save(order);
 
+        // ── Tự động tạo Hợp đồng ──────────────────────────────────────────────
+        Contract contract = createContractFromOrderBid(order, bid, user);
+
         // Notify nhà thầu được chọn
         notificationService.createNotification(
-                bid.getContractor(),
-                Notification.NotifType.SYSTEM,
-                String.format("🎉 Chúc mừng! Báo giá của bạn cho đơn %s đã được khách hàng chấp nhận. Admin sẽ liên hệ để ký kết hợp đồng.",
-                        order.getOrderCode())
-        );
+                bid.getContractor(), Notification.NotifType.SYSTEM,
+                String.format("🎉 Báo giá của bạn cho đơn %s đã được chấp nhận! Hợp đồng %s đã được tạo, chờ Admin phê duyệt.",
+                        order.getOrderCode(), contract.getContractNumber()));
 
         // Notify các nhà thầu không được chọn
         orderBidRepository.findByOrderIdWithItems(orderId).stream()
                 .filter(b -> b.getStatus() == OrderBid.Status.REJECTED)
                 .forEach(b -> notificationService.createNotification(
-                        b.getContractor(),
-                        Notification.NotifType.SYSTEM,
+                        b.getContractor(), Notification.NotifType.SYSTEM,
                         String.format("Cảm ơn bạn đã tham gia đấu giá đơn %s. Khách hàng đã chọn nhà thầu khác.",
-                                order.getOrderCode())
-                ));
+                                order.getOrderCode())));
 
         // Notify admin
         notificationService.createNotificationForAdmins(
                 Notification.NotifType.SYSTEM,
-                String.format("Đơn %s đã chọn nhà thầu: %s — %s. Cần ký kết hợp đồng.",
-                        order.getOrderCode(),
+                String.format("📋 Hợp đồng %s từ đơn %s cần phê duyệt: %s — %s",
+                        contract.getContractNumber(), order.getOrderCode(),
                         bid.getContractor().getFullName(),
-                        bid.getQuotedPrice() != null ? formatPrice(bid.getQuotedPrice()) : "Chưa xác định")
-        );
+                        bid.getQuotedPrice() != null ? formatPrice(bid.getQuotedPrice()) : "Chưa xác định"));
 
         return toResponse(bid, true);
+    }
+
+    /** Tạo Contract tự động từ OrderBid được chấp nhận */
+    private Contract createContractFromOrderBid(Order order, OrderBid bid, User customer) {
+        // Mô tả sản phẩm đơn hàng để đưa vào điều khoản
+        String itemsSummary = order.getItems().stream()
+                .map(i -> String.format("- %s × %d", i.getItemName(), i.getQuantity()))
+                .collect(Collectors.joining("\n"));
+
+        long agreedPrice = bid.getQuotedPrice() != null ? bid.getQuotedPrice().longValue() : 0L;
+        long contractorDeposit = Math.round(agreedPrice * 0.05);
+        String fmtPrice = formatPriceLong(agreedPrice);
+
+        String terms = String.format(
+                "HOP DONG CUNG UNG SAN PHAM / THI CONG NOI THAT\n\n" +
+                "Loai don: %s\n" +
+                "Ma don hang: %s\n\n" +
+                "Danh sach san pham:\n%s\n\n" +
+                "Gia tri hop dong: %s\n" +
+                "Thoi gian thuc hien: %s\n" +
+                "Dia chi giao hang: %s\n\n" +
+                "Yeu cau cu the:\n%s\n\n" +
+                "Dieu kien thanh toan: Theo quy dinh san ConstructX.\n" +
+                "Bao hanh: %s\n",
+                order.getType() == Order.OrderType.CUSTOM ? "San pham tuy chinh" : "San pham co san",
+                order.getOrderCode(),
+                itemsSummary,
+                fmtPrice,
+                bid.getEstimatedDays() != null ? bid.getEstimatedDays() + " ngay" : "Theo thoa thuan",
+                order.getDeliveryAddress(),
+                order.getCustomRequirements() != null ? order.getCustomRequirements() : "Theo mo ta don hang",
+                bid.getProposal() != null ? bid.getProposal() : "Theo quy dinh nha thau"
+        );
+
+        String contractNum = "CTR-ORD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + "-" + order.getId();
+
+        Contract contract = Contract.builder()
+                .project(null)          // hợp đồng từ Order không có Project
+                .bid(null)              // không có constructor Bid
+                .sourceOrder(order)
+                .client(customer)
+                .contractor(bid.getContractor())
+                .contractNumber(contractNum)
+                .agreedPrice(agreedPrice)
+                .originalAgreedPrice(agreedPrice)
+                .estimatedDays(bid.getEstimatedDays())
+                .terms(terms)
+                .status(Contract.Status.PENDING_REVIEW)
+                .customerDepositAmount(0L)
+                .customerDepositLocked(false)
+                .contractorDepositAmount(contractorDeposit)
+                .contractorDepositLocked(false)
+                .build();
+
+        contract.getStages().add(ContractStage.builder()
+                .contract(contract)
+                .stage(Contract.Status.PENDING_REVIEW)
+                .note(String.format("Hop dong duoc tao tu don hang %s. Khach hang chon nha thau %s — %s. Cho Admin phe duyet.",
+                        order.getOrderCode(), bid.getContractor().getFullName(), fmtPrice))
+                .performedBy(customer.getFullName())
+                .build());
+
+        return contractRepository.save(contract);
     }
 
     // ── ADMIN: Duyệt đơn → mở đấu giá ──────────────────────────────
@@ -355,6 +425,12 @@ public class OrderBidService {
         if (val >= 1_000_000_000) return String.format("%.1f tỷ đ", val / 1_000_000_000.0);
         if (val >= 1_000_000) return String.format("%.0f triệu đ", val / 1_000_000.0);
         return String.format("%,dđ", val);
+    }
+
+    private String formatPriceLong(long val) {
+        if (val >= 1_000_000_000) return String.format("%.1f ty d", val / 1_000_000_000.0);
+        if (val >= 1_000_000) return String.format("%.0f trieu d", val / 1_000_000.0);
+        return NumberFormat.getNumberInstance(new Locale("vi", "VN")).format(val) + " VND";
     }
 
     private String truncate(String s, int maxLen) {

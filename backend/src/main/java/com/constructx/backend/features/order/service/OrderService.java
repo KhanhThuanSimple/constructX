@@ -39,6 +39,7 @@ public class OrderService {
         Order.Status.CONFIRMED,      "Đã xác nhận – Đang xử lý",
         Order.Status.DEPOSIT_PAID,   "Đã cọc – Đang sản xuất",
         Order.Status.OPEN_BIDDING,   "Đang mở đấu giá",
+        Order.Status.BIDDING,        "Đã chọn nhà thầu",
         Order.Status.BIDDING_CLOSED, "Đã chọn nhà thầu",
         Order.Status.PROCESSING,     "Đang sản xuất / thi công",
         Order.Status.SHIPPED,        "Đang giao hàng",
@@ -122,15 +123,12 @@ public class OrderService {
         saved.setOrderCode("ORD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-" + saved.getId());
         orderRepository.save(saved);
 
-        // ── Mini-Escrow: Lock 60% tiền cọc ngay khi đặt hàng CATALOG ──
-        if (orderType == Order.OrderType.CATALOG && total.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            orderPaymentService.lockDepositForOrder(saved, customer);
-        }
+        // ── Tất cả đơn hàng đều về PENDING, chờ Admin duyệt & mở đấu giá ──
+        // (Không còn lock cọc ngay — tiền chỉ lock sau khi Customer chọn nhà thầu)
 
         // Notify admin
-        String adminMsg = orderType == Order.OrderType.CUSTOM
-            ? String.format("📦 Đơn tùy chỉnh mới từ %s — %s. Cần phê duyệt để mở đấu giá.", customer.getFullName(), saved.getOrderCode())
-            : String.format("🛒 Đơn catalog mới từ %s — %s. Cần xác nhận.", customer.getFullName(), saved.getOrderCode());
+        String adminMsg = String.format("📦 Đơn hàng mới từ %s — %s. Cần phê duyệt & mở đấu giá.", customer.getFullName(), saved.getOrderCode());
+        notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM, adminMsg);
         notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM, adminMsg);
 
         // Notify customer
@@ -174,7 +172,6 @@ public class OrderService {
                 && order.getStatus() != Order.Status.DEPOSIT_PAID) {
             throw new RuntimeException("Chỉ có thể hủy đơn đang ở trạng thái Chờ xét duyệt, Đã xác nhận hoặc Đã cọc");
         }
-
         // ── Mini-Escrow: Hoàn tiền cọc nếu đã lock ──────────────
         orderPaymentService.refundDepositOnCancel(order);
 

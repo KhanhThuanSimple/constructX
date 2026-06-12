@@ -57,6 +57,12 @@ public class Project {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (approvalStatus == null) approvalStatus = ApprovalStatus.PENDING;
+    }
+
     public enum Status {
         DRAFT,
         OPEN,

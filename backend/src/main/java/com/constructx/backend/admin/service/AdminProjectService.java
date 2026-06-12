@@ -25,7 +25,7 @@ public class AdminProjectService {
 
     @Transactional(readOnly = true)
     public List<AdminProjectResponse> getProjects(String approvalStatus) {
-        return projectRepository.findAllByOrderByCreatedAtDesc()
+        return projectRepository.findAllWithUserOrderByCreatedAtDesc()
                 .stream()
                 .filter(project -> matchesApprovalStatus(project, approvalStatus))
                 .map(this::toResponse)

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, PlusCircle, Wallet, Bell, MessageCircle,
   History, LogOut, Construction, Image, Shield, User as UserIcon,
   Camera, Settings, ClipboardCheck, FileText, ShoppingBag,
-  Package, Ruler, ShoppingCart, Gavel, Users
+  Package, Ruler, ShoppingCart, Gavel, Users, AlertCircle, CheckCircle
 } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 import { ChatFloatingButton } from './chat/ChatFloatingButton';
@@ -13,58 +13,111 @@ const Sidebar = () => {
   const { logout, user } = useAuthStore();
   const navigate = useNavigate();
 
-  const customerNav = [
-    { id: 'home',           label: 'Trang chủ',           icon: <Construction size={20} />,    path: '/' },
-    { id: 'shop',           label: 'Cửa hàng nội thất',   icon: <ShoppingBag size={20} />,     path: '/shop' },
-    { id: 'designer',       label: 'Thiết kế 2D',         icon: <Ruler size={20} />,           path: '/shop/designer' },
-    { id: 'orders',         label: 'Đơn hàng của tôi',    icon: <ShoppingCart size={20} />,    path: '/orders' },
-    { id: 'dashboard',      label: 'Tổng quan',           icon: <LayoutDashboard size={20} />, path: '/dashboard' },
-    { id: 'create-project', label: 'Tạo dự án',           icon: <PlusCircle size={20} />,      path: '/projects/new' },
-    { id: 'projects',       label: 'Dự án của tôi',       icon: <Construction size={20} />,    path: '/projects' },
-    { id: 'contracts',      label: 'Hợp đồng',            icon: <FileText size={20} />,        path: '/contracts' },
-    { id: 'chat',           label: 'Tin nhắn',            icon: <MessageCircle size={20} />,   path: '/chat' },
-    { id: 'wallet',         label: 'Ví & Thanh toán',     icon: <Wallet size={20} />,          path: '/wallet' },
-    { id: 'notifications',  label: 'Thông báo',           icon: <Bell size={20} />,            path: '/notifications' },
-    { id: 'profile',        label: 'Cài đặt tài khoản',   icon: <UserIcon size={20} />,        path: '/profile' },
+  // Nav dạng nhóm: mỗi phần tử có { group, items[] }
+  const customerNavGroups = [
+    {
+      group: 'Khám phá & Lên ý tưởng',
+      items: [
+        { id: 'home',     label: 'Trang chủ',         icon: <Construction size={20} />, path: '/' },
+        { id: 'shop',     label: 'Cửa hàng nội thất', icon: <ShoppingBag size={20} />,  path: '/shop' },
+        { id: 'designer', label: 'Thiết kế 2D',       icon: <Ruler size={20} />,        path: '/shop/designer' },
+      ],
+    },
+    {
+      group: 'Quản lý Đơn hàng',
+      items: [
+        { id: 'orders',    label: 'Đơn hàng của tôi', icon: <ShoppingCart size={20} />, path: '/orders' },
+        { id: 'contracts', label: 'Hợp đồng',         icon: <FileText size={20} />,     path: '/contracts' },
+      ],
+    },
+    {
+      group: 'Tương tác & Cá nhân',
+      items: [
+        { id: 'chat',          label: 'Tin nhắn',          icon: <MessageCircle size={20} />, path: '/chat' },
+        { id: 'notifications', label: 'Thông báo',         icon: <Bell size={20} />,          path: '/notifications' },
+        { id: 'wallet',        label: 'Ví & Thanh toán',   icon: <Wallet size={20} />,        path: '/wallet' },
+        { id: 'profile',       label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />,      path: '/profile' },
+      ],
+    },
   ];
 
-  const contractorNav = [
-    { id: 'home',           label: 'Trang chủ',           icon: <Construction size={20} />,    path: '/' },
-    { id: 'shop',           label: 'Cửa hàng nội thất',   icon: <ShoppingBag size={20} />,     path: '/shop' },
-    { id: 'dashboard',      label: 'Bảng điều khiển',     icon: <LayoutDashboard size={20} />, path: '/contractor/dashboard' },
-    { id: 'order-bidding',  label: 'Đấu thầu đơn hàng',  icon: <Gavel size={20} />,           path: '/order-bidding' },
-    { id: 'marketplace',    label: 'Tìm dự án mới',       icon: <PlusCircle size={20} />,      path: '/projects/browse' },
-    { id: 'my-bids',        label: 'Đấu thầu dự án',      icon: <History size={20} />,         path: '/bids' },
-    { id: 'contracts',      label: 'Hợp đồng',            icon: <FileText size={20} />,        path: '/contracts' },
-    { id: 'production-log', label: 'Nhật ký thi công',    icon: <Camera size={20} />,          path: '/production-log' },
-    { id: 'portfolio',      label: 'Hồ sơ năng lực',      icon: <Image size={20} />,           path: '/portfolio' },
-    { id: 'chat',           label: 'Tin nhắn',            icon: <MessageCircle size={20} />,   path: '/chat' },
-    { id: 'wallet',         label: 'Ví & Thu nhập',       icon: <Wallet size={20} />,          path: '/wallet' },
-    { id: 'profile',        label: 'Cài đặt tài khoản',   icon: <UserIcon size={20} />,        path: '/profile' },
+  const contractorNavGroups = [
+    {
+      group: 'Tổng quan',
+      items: [
+        { id: 'overview', label: 'Tổng quan', icon: <LayoutDashboard size={20} />, path: '/' },
+      ],
+    },
+    {
+      group: 'Công việc & Dự án',
+      items: [
+        { id: 'order-bidding', label: 'Đấu thầu đơn hàng',    icon: <Gavel size={20} />,    path: '/order-bidding' },
+        { id: 'contracts',     label: 'Hợp đồng & Thi công',  icon: <FileText size={20} />, path: '/contracts' },
+      ],
+    },
+    {
+      group: 'Quản lý',
+      items: [
+        { id: 'portfolio', label: 'Hồ sơ năng lực', icon: <Image size={20} />,  path: '/portfolio' },
+        { id: 'wallet',    label: 'Ví & Thu nhập',   icon: <Wallet size={20} />, path: '/wallet' },
+      ],
+    },
+    {
+      group: 'Cá nhân',
+      items: [
+        { id: 'chat',    label: 'Tin nhắn',          icon: <MessageCircle size={20} />, path: '/chat' },
+        { id: 'profile', label: 'Cài đặt tài khoản', icon: <UserIcon size={20} />,      path: '/profile' },
+      ],
+    },
   ];
 
-  const adminNav = [
-    { id: 'admin-dashboard',  label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
-    { id: 'admin-projects',   label: 'Duyệt dự án',        icon: <ClipboardCheck size={20} />,  path: '/admin/projects' },
-    { id: 'admin-contracts',  label: 'Quản lý hợp đồng',   icon: <FileText size={20} />,        path: '/admin/contracts' },
-    { id: 'admin-orders',     label: 'Quản lý đơn hàng',   icon: <ShoppingCart size={20} />,    path: '/admin/orders' },
-    { id: 'admin-products',   label: 'Sản phẩm Shop',      icon: <Package size={20} />,         path: '/admin/products' },
-    { id: 'user-management',  label: 'Phê duyệt đối tác',  icon: <UserIcon size={20} />,        path: '/admin/users' },
-    { id: 'all-users',        label: 'Quản lý người dùng', icon: <Users size={20} />,          path: '/admin/all-users' },
-    { id: 'disputes',         label: 'Tranh chấp',         icon: <Shield size={20} />,          path: '/admin/disputes' },
-    { id: 'allowances',       label: 'Duyệt tiền',         icon: <Wallet size={20} />,          path: '/admin/AdminWithdrawalsPage' },
-    { id: 'chat-monitor',     label: 'Giám sát chat',      icon: <MessageCircle size={20} />,   path: '/admin/chat' },
-    { id: 'settings',         label: 'Cấu hình hệ thống',  icon: <Settings size={20} />,        path: '/admin/settings' },
-    { id: 'profile',          label: 'Cài đặt tài khoản',  icon: <UserIcon size={20} />,        path: '/profile' },
-    { id: 'notifications',    label: 'Thông báo',          icon: <Bell size={20} />,            path: '/notifications' },
+  const adminNavGroups = [
+    {
+      group: 'Tổng quan & Báo cáo',
+      items: [
+        { id: 'admin-dashboard', label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+      ],
+    },
+    {
+      group: 'Quản lý Kinh doanh & Vận hành',
+      items: [
+        { id: 'admin-projects',  label: 'Duyệt dự án',       icon: <ClipboardCheck size={20} />, path: '/admin/projects' },
+        { id: 'admin-contracts', label: 'Quản lý hợp đồng',  icon: <FileText size={20} />,       path: '/admin/contracts' },
+        { id: 'admin-orders',    label: 'Quản lý đơn hàng',  icon: <ShoppingCart size={20} />,   path: '/admin/orders' },
+        { id: 'admin-products',  label: 'Sản phẩm Shop',     icon: <Package size={20} />,        path: '/admin/products' },
+      ],
+    },
+    {
+      group: 'Quản lý Người dùng & Đối tác',
+      items: [
+        { id: 'user-management', label: 'Phê duyệt đối tác',  icon: <UserIcon size={20} />, path: '/admin/users' },
+        { id: 'all-users',       label: 'Quản lý người dùng', icon: <Users size={20} />,    path: '/admin/all-users' },
+      ],
+    },
+    {
+      group: 'Hỗ trợ & Kiểm soát',
+      items: [
+        { id: 'disputes',     label: 'Tranh chấp',    icon: <Shield size={20} />,        path: '/admin/disputes' },
+        { id: 'allowances',   label: 'Duyệt tiền',    icon: <Wallet size={20} />,        path: '/admin/AdminWithdrawalsPage' },
+        { id: 'chat-monitor', label: 'Giám sát chat', icon: <MessageCircle size={20} />, path: '/admin/chat' },
+      ],
+    },
+    {
+      group: 'Cài đặt & Hệ thống',
+      items: [
+        { id: 'settings',      label: 'Cấu hình hệ thống',  icon: <Settings size={20} />,  path: '/admin/settings' },
+        { id: 'notifications', label: 'Thông báo',          icon: <Bell size={20} />,      path: '/notifications' },
+        { id: 'profile',       label: 'Cài đặt tài khoản',  icon: <UserIcon size={20} />,  path: '/profile' },
+      ],
+    },
   ];
 
-  const navItems =
+  const navGroups =
     user?.role === 'ADMIN'
-      ? adminNav
+      ? adminNavGroups
       : user?.role === 'CONTRACTOR'
-        ? contractorNav
-        : customerNav;
+        ? contractorNavGroups
+        : customerNavGroups;
 
   const handleLogout = () => {
     logout();
@@ -85,8 +138,8 @@ const Sidebar = () => {
   </p>
 </Link>
 
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        <p className="text-[10px] uppercase tracking-widest text-white/30 px-3 py-2">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-4">
+        <p className="text-[10px] uppercase tracking-widest text-white/30 px-3 py-1">
           {user?.role === 'ADMIN'
             ? 'Quản trị viên'
             : user?.role === 'CONTRACTOR'
@@ -94,21 +147,30 @@ const Sidebar = () => {
               : 'Khách hàng'}
         </p>
 
-        {navItems.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                isActive
-                  ? 'bg-white/15 text-white font-medium'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            {item.icon}
-            <span className="text-sm">{item.label}</span>
-          </NavLink>
+        {navGroups.map((section) => (
+          <div key={section.group}>
+            <p className="text-[9px] uppercase tracking-widest text-white/25 px-3 pt-2 pb-1 font-semibold">
+              {section.group}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.id}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-white/15 text-white font-medium'
+                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  {item.icon}
+                  <span className="text-sm">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -178,7 +240,11 @@ const Topbar = ({ title }) => {
 
 const Layout = ({ children, title }) => {
   const location = useLocation();
+  const { user } = useAuthStore();
   const isOnChatPage = location.pathname.startsWith('/chat');
+
+  const showPendingBanner = user?.role === 'CONTRACTOR' && user?.approvalStatus === 'PENDING';
+  const showRejectedBanner = user?.role === 'CONTRACTOR' && user?.approvalStatus === 'REJECTED';
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -186,6 +252,24 @@ const Layout = ({ children, title }) => {
 
       <div className="flex-1 flex flex-col min-w-0 bg-gray-50 overflow-hidden">
         <Topbar title={title} />
+
+        {/* Banner trạng thái tài khoản contractor */}
+        {showPendingBanner && (
+          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-sm text-amber-800">
+            <AlertCircle size={16} className="shrink-0 text-amber-500"/>
+            <span>
+              <strong>Tài khoản đang chờ phê duyệt.</strong> Bạn có thể xem dự án và chuẩn bị hồ sơ, nhưng chưa thể gửi báo giá cho đến khi Admin duyệt.
+            </span>
+          </div>
+        )}
+        {showRejectedBanner && (
+          <div className="flex items-center gap-3 bg-red-50 border-b border-red-200 px-6 py-2.5 text-sm text-red-700">
+            <AlertCircle size={16} className="shrink-0 text-red-500"/>
+            <span>
+              <strong>Tài khoản đã bị từ chối.</strong> Vui lòng liên hệ Admin qua chat để được hỗ trợ.
+            </span>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-6 min-h-0">
           {children}

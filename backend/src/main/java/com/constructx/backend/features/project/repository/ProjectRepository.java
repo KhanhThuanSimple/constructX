@@ -12,6 +12,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Project> findByStatusOrderByCreatedAtDesc(Project.Status status);
     List<Project> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT p FROM Project p JOIN FETCH p.user ORDER BY p.createdAt DESC NULLS LAST")
+    List<Project> findAllWithUserOrderByCreatedAtDesc();
     long countByApprovalStatus(Project.ApprovalStatus approvalStatus);
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.createdAt >= :from AND p.createdAt < :to")

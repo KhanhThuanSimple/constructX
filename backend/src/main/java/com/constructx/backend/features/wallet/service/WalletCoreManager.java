@@ -137,6 +137,26 @@ public class WalletCoreManager {
     }
 
     /**
+     * GHI AUDIT LOG TRANSACTION (không thay đổi số dư — chỉ lưu record)
+     * Dùng khi balance đã được cập nhật thủ công trước đó.
+     */
+    @Transactional
+    public void recordTransaction(Wallet wallet, Long amount, Transaction.Type type,
+                                   String gateway, String orderId, String description) {
+        Transaction transaction = Transaction.builder()
+                .wallet(wallet)
+                .amount(amount)
+                .type(type)
+                .status(Transaction.Status.SUCCESS)
+                .paymentGateway(gateway)
+                .gatewayOrderId(orderId)
+                .description(description)
+                .createdAt(LocalDateTime.now())
+                .build();
+        transactionRepository.save(transaction);
+    }
+
+    /**
      * PHÂN CHIA TIỀN TRANH CHẤP THEO PHẦN TRĂM GIỮA NGƯỜI DÙNG VÀ NHÀ THẦU
      */
     @Transactional

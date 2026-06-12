@@ -233,7 +233,7 @@ const AdminProjectsPage = () => {
 
                       <p className="flex items-center gap-2">
                         <Calendar size={16} />
-                        Tạo ngày: {project.createdAt ? new Date(project.createdAt).toLocaleDateString('vi-VN') : '-'}
+                        Tạo ngày: {project.createdAt ? new Date(project.createdAt).toLocaleDateString('vi-VN') : '—'}
                       </p>
                     </div>
 

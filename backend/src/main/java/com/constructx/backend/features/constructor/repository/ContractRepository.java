@@ -11,15 +11,73 @@ import java.util.Optional;
 
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
-    Optional<Contract> findByProjectId(Long projectId);
+    // Tìm theo project (Luồng A — hợp đồng từ Project)
+    @Query("""
+        SELECT c FROM Contract c
+        LEFT JOIN FETCH c.project
+        LEFT JOIN FETCH c.bid
+        LEFT JOIN FETCH c.sourceOrder
+        JOIN FETCH c.client
+        JOIN FETCH c.contractor
+        LEFT JOIN FETCH c.stages
+        WHERE c.project.id = :projectId
+        """)
+    Optional<Contract> findByProjectId(@Param("projectId") Long projectId);
 
-    List<Contract> findByClientIdOrderByCreatedAtDesc(Long clientId);
+    // Tìm theo client — bao gồm cả hợp đồng từ Project lẫn từ Order
+    @Query("""
+        SELECT DISTINCT c FROM Contract c
+        LEFT JOIN FETCH c.project
+        LEFT JOIN FETCH c.bid
+        LEFT JOIN FETCH c.sourceOrder
+        JOIN FETCH c.client
+        JOIN FETCH c.contractor
+        LEFT JOIN FETCH c.stages
+        WHERE c.client.id = :clientId
+        ORDER BY c.createdAt DESC
+        """)
+    List<Contract> findByClientIdOrderByCreatedAtDesc(@Param("clientId") Long clientId);
 
-    List<Contract> findByContractorIdOrderByCreatedAtDesc(Long contractorId);
+    // Tìm theo contractor — bao gồm cả hợp đồng từ Project lẫn từ Order
+    @Query("""
+        SELECT DISTINCT c FROM Contract c
+        LEFT JOIN FETCH c.project
+        LEFT JOIN FETCH c.bid
+        LEFT JOIN FETCH c.sourceOrder
+        JOIN FETCH c.client
+        JOIN FETCH c.contractor
+        LEFT JOIN FETCH c.stages
+        WHERE c.contractor.id = :contractorId
+        ORDER BY c.createdAt DESC
+        """)
+    List<Contract> findByContractorIdOrderByCreatedAtDesc(@Param("contractorId") Long contractorId);
 
+    // Admin: tất cả hợp đồng — bao gồm cả từ Project lẫn từ Order
+    @Query("""
+        SELECT DISTINCT c FROM Contract c
+        LEFT JOIN FETCH c.project
+        LEFT JOIN FETCH c.bid
+        LEFT JOIN FETCH c.sourceOrder
+        JOIN FETCH c.client
+        JOIN FETCH c.contractor
+        LEFT JOIN FETCH c.stages
+        ORDER BY c.createdAt DESC
+        """)
     List<Contract> findAllByOrderByCreatedAtDesc();
 
-    List<Contract> findByStatusOrderByCreatedAtDesc(Contract.Status status);
+    // Admin: lọc theo status — bao gồm cả từ Project lẫn từ Order
+    @Query("""
+        SELECT DISTINCT c FROM Contract c
+        LEFT JOIN FETCH c.project
+        LEFT JOIN FETCH c.bid
+        LEFT JOIN FETCH c.sourceOrder
+        JOIN FETCH c.client
+        JOIN FETCH c.contractor
+        LEFT JOIN FETCH c.stages
+        WHERE c.status = :status
+        ORDER BY c.createdAt DESC
+        """)
+    List<Contract> findByStatusOrderByCreatedAtDesc(@Param("status") Contract.Status status);
 
     long countByStatus(Contract.Status status);
 

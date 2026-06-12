@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import {
   Package, Search, ChevronDown, ChevronUp, AlertCircle,
-  CheckCircle, Truck, XCircle, Clock, Gavel, Users,
-  Eye, ExternalLink
+  Gavel, Users, ExternalLink
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -13,14 +12,12 @@ const fmt = (n) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
 
 const STATUS_CFG = {
-  PENDING:        { label: 'Chờ duyệt',       cls: 'badge-amber', next: 'OPEN_BIDDING',   nextLabel: '✅ Duyệt & Mở đấu giá' },
-  CONFIRMED:      { label: 'Đã xác nhận',     cls: 'badge-blue',  next: 'PROCESSING',    nextLabel: 'Bắt đầu sản xuất' },
-  OPEN_BIDDING:   { label: 'Đang đấu giá',    cls: 'badge-blue',  next: null,             nextLabel: null },
-  BIDDING_CLOSED: { label: 'Đã chọn nhà thầu',cls: 'badge-blue',  next: 'PROCESSING',    nextLabel: 'Bắt đầu sản xuất' },
-  PROCESSING:     { label: 'Đang sản xuất',   cls: 'badge-blue',  next: 'SHIPPED',        nextLabel: '🚚 Đánh dấu đang giao' },
-  SHIPPED:        { label: 'Đang giao',        cls: 'badge-blue',  next: 'DELIVERED',      nextLabel: '✅ Xác nhận đã giao' },
-  DELIVERED:      { label: 'Đã giao',          cls: 'badge-green', next: null,             nextLabel: null },
-  CANCELLED:      { label: 'Đã hủy',           cls: 'badge-red',   next: null,             nextLabel: null },
+  PENDING:        { label: 'Chờ duyệt',        cls: 'badge-amber',  next: null, nextLabel: null },
+  OPEN_BIDDING:   { label: 'Đang đấu giá',     cls: 'badge-blue',   next: null, nextLabel: null },
+  BIDDING_CLOSED: { label: 'Đã chọn nhà thầu', cls: 'badge-purple', next: null, nextLabel: null },
+  PROCESSING:     { label: 'Đang thi công',    cls: 'badge-indigo', next: null, nextLabel: null },
+  DELIVERED:      { label: 'Đã hoàn thành',    cls: 'badge-green',  next: null, nextLabel: null },
+  CANCELLED:      { label: 'Đã hủy',            cls: 'badge-red',    next: null, nextLabel: null },
 };
 
 export default function AdminOrdersPage() {
@@ -172,8 +169,8 @@ export default function AdminOrdersPage() {
                           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800">
                           {isExp ? <><ChevronUp size={14}/> Ẩn</> : <><ChevronDown size={14}/> Chi tiết</>}
                         </button>
-                        {/* Xem báo giá (chỉ với đơn đang/đã đấu giá) */}
-                        {['OPEN_BIDDING','BIDDING_CLOSED','PROCESSING','DELIVERED'].includes(o.status) && o.type === 'CUSTOM' && (
+                        {/* Xem báo giá (khi đang/đã đấu giá) */}
+                        {['OPEN_BIDDING','BIDDING_CLOSED','PROCESSING','DELIVERED'].includes(o.status) && (
                           <button onClick={() => openBids(o.id)}
                             className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                             <Users size={13}/> Xem báo giá
@@ -182,7 +179,8 @@ export default function AdminOrdersPage() {
                       </div>
 
                       <div className="flex gap-2">
-                        {o.status === 'PENDING' && o.type === 'CUSTOM' && (
+                        {/* PENDING — tất cả đều Duyệt & Mở đấu giá */}
+                        {o.status === 'PENDING' && (
                           <>
                             <button onClick={() => handleUpdateStatus(o.id, 'CANCELLED')} disabled={processing === o.id}
                               className="text-xs font-bold border-2 border-red-200 text-red-500 px-3 py-1.5 rounded-xl hover:bg-red-50 disabled:opacity-50">
@@ -190,27 +188,9 @@ export default function AdminOrdersPage() {
                             </button>
                             <button onClick={() => setNoteModal({ id: o.id, action: 'approve' })}
                               className="text-xs font-bold bg-primary text-white px-4 py-1.5 rounded-xl hover:bg-primary-light flex items-center gap-1.5">
-                              <CheckCircle size={13}/> Duyệt & Mở đấu giá
+                              <Gavel size={13}/> Duyệt & Mở đấu giá
                             </button>
                           </>
-                        )}
-                        {o.status === 'PENDING' && o.type !== 'CUSTOM' && (
-                          <>
-                            <button onClick={() => handleUpdateStatus(o.id, 'CANCELLED')} disabled={processing === o.id}
-                              className="text-xs font-bold border-2 border-red-200 text-red-500 px-3 py-1.5 rounded-xl hover:bg-red-50 disabled:opacity-50">
-                              Hủy đơn
-                            </button>
-                            <button onClick={() => setNoteModal({ id: o.id, action: 'confirm' })}
-                              className="text-xs font-bold bg-primary text-white px-4 py-1.5 rounded-xl hover:bg-primary-light flex items-center gap-1.5">
-                              <CheckCircle size={13}/> Xác nhận đơn
-                            </button>
-                          </>
-                        )}
-                        {st.next && o.status !== 'PENDING' && (
-                          <button onClick={() => setNoteModal({ id: o.id, action: 'status', nextStatus: st.next })}
-                            className="text-xs font-bold bg-primary text-white px-4 py-1.5 rounded-xl hover:bg-primary-light">
-                            {st.nextLabel}
-                          </button>
                         )}
                       </div>
                     </div>
@@ -274,14 +254,10 @@ export default function AdminOrdersPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="font-bold text-gray-900 mb-1">
               {noteModal.action === 'approve' ? '✅ Duyệt đơn & Mở đấu giá'
-               : noteModal.action === 'confirm' ? '✅ Xác nhận đơn hàng'
                : STATUS_CFG[noteModal.nextStatus]?.nextLabel}
             </h3>
             {noteModal.action === 'approve' && (
-              <p className="text-sm text-gray-500 mb-3">Toàn bộ nhà thầu đã được phê duyệt sẽ nhận thông báo.</p>
-            )}
-            {noteModal.action === 'confirm' && (
-              <p className="text-sm text-gray-500 mb-3">Xác nhận đơn hàng catalog. Admin sẽ xử lý giao hàng.</p>
+              <p className="text-sm text-gray-500 mb-3">Toàn bộ nhà thầu đã được phê duyệt sẽ nhận thông báo để đặt báo giá.</p>
             )}
             <textarea rows={3} value={noteValue} onChange={e => setNoteValue(e.target.value)}
               placeholder="Ghi chú cho khách hàng (không bắt buộc)..."
@@ -290,9 +266,10 @@ export default function AdminOrdersPage() {
               <button onClick={() => { setNoteModal(null); setNoteValue(''); }}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50">Hủy</button>
               <button
-                onClick={() => noteModal.action === 'approve'
-                  ? handleApproveForBidding(noteModal.id)
-                  : handleUpdateStatus(noteModal.id, noteModal.nextStatus)}
+                onClick={() => {
+                  if (noteModal.action === 'approve') handleApproveForBidding(noteModal.id);
+                  else handleUpdateStatus(noteModal.id, noteModal.nextStatus);
+                }}
                 disabled={processing === noteModal.id}
                 className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-light disabled:opacity-60">
                 {processing === noteModal.id ? 'Đang xử lý...' : 'Xác nhận'}

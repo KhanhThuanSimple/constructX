@@ -11,16 +11,46 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.customer.id = :customerId ORDER BY o.createdAt DESC")
-    List<Order> findByCustomerIdWithItems(@Param("customerId") Long customerId);
-
-    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product ORDER BY o.createdAt DESC")
+    @Query("""
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.items i
+        LEFT JOIN FETCH i.product
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.assignedContractor
+        ORDER BY o.createdAt DESC
+        """)
     List<Order> findAllWithItems();
 
-    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.status = :status ORDER BY o.createdAt DESC")
+    @Query("""
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.items i
+        LEFT JOIN FETCH i.product
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.assignedContractor
+        WHERE o.status = :status
+        ORDER BY o.createdAt DESC
+        """)
     List<Order> findByStatusWithItems(@Param("status") Order.Status status);
 
-    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.id = :id")
+    @Query("""
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.items i
+        LEFT JOIN FETCH i.product
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.assignedContractor
+        WHERE o.customer.id = :customerId
+        ORDER BY o.createdAt DESC
+        """)
+    List<Order> findByCustomerIdWithItems(@Param("customerId") Long customerId);
+
+    @Query("""
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.items i
+        LEFT JOIN FETCH i.product
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.assignedContractor
+        WHERE o.id = :id
+        """)
     Optional<Order> findByIdWithItems(@Param("id") Long id);
 
     Optional<Order> findByOrderCode(String orderCode);

@@ -25,7 +25,7 @@ const ORDER_STATUS_CFG = {
 };
 
 export default function OrderBiddingPage() {
-  const { user } = useAuthStore();
+  const { user, refreshUser } = useAuthStore();
 
   // ── Tab: open | mybids | assigned
   const [activeTab, setActiveTab] = useState('open');
@@ -58,6 +58,7 @@ export default function OrderBiddingPage() {
   const [markingDone, setMarkingDone] = useState(false);
 
   useEffect(() => {
+    refreshUser(); // Cập nhật approvalStatus mới nhất từ server
     fetchOpenOrders();
     fetchMyBids();
   }, []);

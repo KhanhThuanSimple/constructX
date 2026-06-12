@@ -5,8 +5,7 @@ spring:
     password:
   sql:
     init:
-      mode: always
-      schema-locations: classpath:schema-patch.sql
+      mode: never
   jpa:
     defer-datasource-initialization: true
     hibernate:
@@ -41,7 +40,7 @@ jwt:
 # Grok AI Chatbot (xAI API)
 grok:
   api:
-    key: ${GROK_API_KEY}        # Đặt XAI_API_KEY của bạn ở đây hoặc qua env var GROK_API_KEY
+    key: "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"
     url: "https://api.x.ai/v1/chat/completions"
   model: "grok-3-mini"
 file:

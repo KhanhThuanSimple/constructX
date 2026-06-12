@@ -4,18 +4,14 @@ import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/useAuthStore';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
 import WalletPage from './pages/WalletPage';
-import CreateProjectPage from './pages/CreateProjectPage';
 import HomePage from './pages/HomePage';
 import CustomerHomePage from './pages/CustomerHomePage';
 import ContractorHomePage from './pages/ContractorHomePage';
 import ShopPage from './pages/shop/ShopPage';
 import ShopProductDetailPage from './pages/shop/ShopProductDetailPage';
 import AdminProductsPage from './pages/AdminProductsPage';
-import ProjectListPage from './pages/ProjectListPage';
 import ProfilePage from './pages/ProfilePage';
-import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
 import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
@@ -23,10 +19,6 @@ import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import ProjectDetailPageV2 from './pages/ProjectDetailPageV2';
-import DashboardContractorPage from './pages/DashboardContractorPage';
-import ProductionLogDetailPage from './pages/ProductionLogDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ChatPage from './pages/ChatPage';
 import { ChatMonitoring } from './pages/ChatMonitoring';
@@ -37,8 +29,8 @@ import OrdersPage from './pages/OrdersPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import FurnitureDesignerPage from './pages/shop/FurnitureDesignerPage';
 import OrderBiddingPage from './pages/OrderBiddingPage';
-import MyBidsPage from './pages/MyBidsPage';
 import AdminAllUsersPage from './pages/AdminAllUsersPage';
+import ContractProgressPage from './pages/ContractProgressPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -75,34 +67,11 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER', 'ADMIN']}>
-            <DashboardPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
-            <ProjectListPage />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/projects/new" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER']}>
-            <CreateProjectPage />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/projects/:id" element={
-          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
-            <ProjectDetailPage />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/projects/browse" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <ProjectMarketplacePage />
-          </ProtectedRoute>
-        } />
+        <Route path="/dashboard" element={<Navigate to="/" />} />
+        <Route path="/projects" element={<Navigate to="/" />} />
+        <Route path="/projects/new" element={<Navigate to="/" />} />
+        <Route path="/projects/:id" element={<Navigate to="/" />} />
+        <Route path="/projects/browse" element={<Navigate to="/" />} />
 
         <Route path="/production-log" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
@@ -144,11 +113,7 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/bids" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <MyBidsPage />
-          </ProtectedRoute>
-        } />
+        <Route path="/bids" element={<Navigate to="/contracts" />} />
         <Route path="/chat" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ChatPage />
@@ -207,6 +172,12 @@ function App() {
           </ProtectedRoute>
         } />
 
+        <Route path="/contracts/:contractId/progress" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractProgressPage />
+          </ProtectedRoute>
+        } />
+
         <Route path="/admin/contracts" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminContractsPage />
@@ -231,23 +202,10 @@ function App() {
           </ProtectedRoute>
         } />
         {/* contractor only */}
-        <Route path="/projectsv2/:id" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <ProjectDetailPageV2 />
-          </ProtectedRoute>
-        } />
 
-        <Route path="/contractor/dashboard" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <DashboardContractorPage />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/production-log/:jobId" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <ProductionLogDetailPage />
-          </ProtectedRoute>
-        } />
+        <Route path="/production-log/:jobId" element={<Navigate to="/contracts" />} />
+        <Route path="/bids" element={<Navigate to="/contracts" />} />
+        <Route path="/contractor/dashboard" element={<Navigate to="/contracts" />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

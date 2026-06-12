@@ -1,11 +1,11 @@
 import { create } from 'zustand';
+import api from '../services/api';
 
 const getInitialUser = () => {
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return null;
     const user = JSON.parse(raw);
-    // Đảm bảo luôn có field `id` (backend trả userId, không phải id)
     if (user && user.id == null && user.userId != null) {
       user.id = Number(user.userId);
     } else if (user && user.id != null) {
@@ -17,12 +17,11 @@ const getInitialUser = () => {
   }
 };
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: getInitialUser(),
   token: localStorage.getItem('token') || null,
 
   setAuth: (userData, token) => {
-    // Chuẩn hoá: map userId → id để toàn app dùng user.id nhất quán
     const normalized = {
       ...userData,
       id: Number(userData.userId ?? userData.id),
@@ -39,6 +38,29 @@ const useAuthStore = create((set) => ({
   },
 
   isAuthenticated: () => !!localStorage.getItem('token'),
+
+  /**
+   * Refresh user data từ server — gọi sau khi Admin có thể đã thay đổi trạng thái
+   * (approvalStatus, role, v.v.). Silent: không toast lỗi.
+   */
+  refreshUser: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const res = await api.get('/users/me');
+      const userData = res.data.data;
+      if (userData) {
+        const normalized = {
+          ...userData,
+          id: Number(userData.userId ?? userData.id),
+        };
+        localStorage.setItem('user', JSON.stringify(normalized));
+        set({ user: normalized });
+      }
+    } catch {
+      // Silent — không làm gián đoạn UI
+    }
+  },
 }));
 
 export default useAuthStore;

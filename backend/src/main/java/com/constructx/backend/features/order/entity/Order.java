@@ -133,9 +133,10 @@ public class Order {
 
     public enum Status {
         PENDING,        // Chờ Admin xem xét
-        CONFIRMED,      // Admin đã xác nhận (CATALOG order, alias của PROCESSING)
+        CONFIRMED,      // Admin đã xác nhận (CATALOG order)
         DEPOSIT_PAID,   // Khách đã cọc 60%, chờ nhà thầu sản xuất
         OPEN_BIDDING,   // Admin đã duyệt → mở đấu giá công khai cho nhà thầu (CUSTOM)
+        BIDDING,        // Legacy alias = BIDDING_CLOSED (dữ liệu cũ trong DB)
         BIDDING_CLOSED, // Đã chọn nhà thầu, đang ký hợp đồng
         PROCESSING,     // Đang thi công / sản xuất
         SHIPPED,        // Đang giao hàng

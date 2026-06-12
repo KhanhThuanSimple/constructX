@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
 import {
-  ShoppingBag, Package, CheckCircle, Truck, XCircle, Clock,
+  ShoppingBag, Package, CheckCircle, XCircle, Clock,
   ChevronDown, ChevronUp, AlertCircle, Plus, Gavel,
-  Users, EyeOff, Eye, Send, Star
+  EyeOff, Eye, Send, Star, Users
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -15,17 +15,15 @@ const fmt = (n) =>
 
 const STATUS_CFG = {
   PENDING:        { label: 'Chờ Admin duyệt',  cls: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400 animate-pulse', icon: <Clock size={12}/> },
-  CONFIRMED:      { label: 'Đã xác nhận',      cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400',               icon: <CheckCircle size={12}/> },
   OPEN_BIDDING:   { label: 'Đang đấu giá',     cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400 animate-pulse', icon: <Gavel size={12}/> },
   BIDDING_CLOSED: { label: 'Đã chọn nhà thầu', cls: 'bg-purple-100 text-purple-700',dot: 'bg-purple-400',             icon: <CheckCircle size={12}/> },
-  PROCESSING:     { label: 'Đang sản xuất',    cls: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-400',             icon: <Package size={12}/> },
-  SHIPPED:        { label: 'Đang giao',         cls: 'bg-cyan-100 text-cyan-700',    dot: 'bg-cyan-400',               icon: <Truck size={12}/> },
+  PROCESSING:     { label: 'Đang thi công',    cls: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-400',             icon: <Package size={12}/> },
   DELIVERED:      { label: 'Đã hoàn thành',    cls: 'bg-green-100 text-green-700',  dot: 'bg-green-500',              icon: <CheckCircle size={12}/> },
   CANCELLED:      { label: 'Đã hủy',            cls: 'bg-red-100 text-red-600',      dot: 'bg-red-400',                icon: <XCircle size={12}/> },
 };
 
-const STEPS_CATALOG   = ['PENDING','CONFIRMED','PROCESSING','SHIPPED','DELIVERED'];
-const STEPS_CUSTOM    = ['PENDING','OPEN_BIDDING','BIDDING_CLOSED','PROCESSING','DELIVERED'];
+// Luồng duy nhất: tất cả đơn đều qua đấu giá công khai
+const STEPS_UNIFIED = ['PENDING','OPEN_BIDDING','BIDDING_CLOSED','PROCESSING','DELIVERED'];
 
 export default function OrdersPage() {
   const navigate = useNavigate();
@@ -166,11 +164,11 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {filtered.map(o => {
               const st = STATUS_CFG[o.status] || STATUS_CFG.PENDING;
-              const isCustom = o.type === 'CUSTOM';
-              const steps = isCustom ? STEPS_CUSTOM : STEPS_CATALOG;
+              const steps = STEPS_UNIFIED;
               const curStep = steps.indexOf(o.status);
               const isExp = expanded === o.id;
-              const showBidsBtn = isCustom && ['OPEN_BIDDING','BIDDING_CLOSED'].includes(o.status);
+              // Nút xem báo giá hiện khi đang đấu giá hoặc đã chọn nhà thầu
+              const showBidsBtn = ['OPEN_BIDDING','BIDDING_CLOSED'].includes(o.status);
 
               return (
                 <div key={o.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -183,9 +181,14 @@ export default function OrdersPage() {
                             <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>
                             {st.icon} {st.label}
                           </span>
-                          {isCustom && (
+                          {o.type === 'CATALOG' && (
+                            <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              Catalog
+                            </span>
+                          )}
+                          {o.type === 'CUSTOM' && (
                             <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Gavel size={10}/> Đấu giá tùy chỉnh
+                              <Gavel size={10}/> Custom
                             </span>
                           )}
                         </div>
@@ -195,7 +198,9 @@ export default function OrdersPage() {
                       <div className="text-right">
                         <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Tổng tiền</p>
                         <p className="text-xl font-bold text-primary">
-                          {isCustom && o.status === 'PENDING' ? 'Chờ báo giá' : fmt(o.totalAmount)}
+                          {o.status === 'PENDING' || o.status === 'OPEN_BIDDING'
+                            ? 'Chờ báo giá'
+                            : fmt(o.totalAmount)}
                         </p>
                       </div>
                     </div>
@@ -228,13 +233,24 @@ export default function OrdersPage() {
                       </div>
                     )}
 
-                    {/* Alert: đang đấu giá */}
+                    {/* Alert: đang đấu giá — hiện cho mọi loại đơn */}
                     {o.status === 'OPEN_BIDDING' && (
                       <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-xs text-blue-800 mb-3">
                         <Gavel size={14} className="mt-0.5 shrink-0"/>
                         <div>
                           <strong>Đơn đang mở đấu giá!</strong> Các nhà thầu đang gửi báo giá.
                           Nhấn "Xem báo giá" để xem chi tiết và chọn nhà thầu phù hợp.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Alert: đã chọn nhà thầu, chờ ký hợp đồng */}
+                    {o.status === 'BIDDING_CLOSED' && (
+                      <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-xs text-purple-800 mb-3">
+                        <CheckCircle size={14} className="mt-0.5 shrink-0"/>
+                        <div>
+                          <strong>Đã chọn nhà thầu!</strong> Hợp đồng đang được tạo và chờ Admin phê duyệt.
+                          Theo dõi tiến độ tại trang <span className="font-bold">Hợp đồng</span>.
                         </div>
                       </div>
                     )}

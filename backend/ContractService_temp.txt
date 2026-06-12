@@ -1,0 +1,153 @@
+﻿package com.constructx.backend.features.constructor.service;
+
+import com.constructx.backend.features.constructor.dto.BidResponse;
+import com.constructx.backend.features.constructor.dto.ContractResponse;
+import com.constructx.backend.features.constructor.entity.*;
+import com.constructx.backend.features.constructor.repository.BidRepository;
+import com.constructx.backend.features.constructor.repository.ContractRepository;
+import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.service.NotificationService;
+import com.constructx.backend.features.project.entity.Project;
+import com.constructx.backend.features.project.repository.ProjectRepository;
+import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.user.repository.UserRepository;
+import com.constructx.backend.features.wallet.entity.Transaction;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.service.WalletCoreManager;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service @RequiredArgsConstructor @Slf4j
+public class ContractService {
+    private static final double CUSTOMER_DEPOSIT_RATE   = 0.10;
+    private static final double CONTRACTOR_DEPOSIT_RATE = 0.05;
+    private static final double CANCEL_CONTRACTOR_SHARE = 0.70;
+    private static final double MAX_PRICE_CHANGE_RATIO  = 0.10;
+    private static final int    REPUTATION_PENALTY      = 20;
+
+    private final ContractRepository contractRepository;
+    private final BidRepository bidRepository;
+    private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
+    private final WalletCoreManager walletCoreManager;
+    private final NotificationService notificationService;
+    private final BidService bidService;
+
+    private User getCurrentUser() {
+        return userRepository.findByEmail(SecurityContextHolder.getContext().getAuthentication().getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<BidResponse> getProjectBids(Long projectId) {
+        User user = getCurrentUser();
+        Project project = projectRepository.findById(projectId).orElseThrow(() -> new RuntimeException("Project not found"));
+        boolean isOwner = project.getUser().getEmail().equals(user.getEmail());
+        if (!isOwner && user.getRole() != User.Role.ADMIN) throw new RuntimeException("Ban khong co quyen xem bao gia");
+        return bidRepository.findProjectBids(projectId).stream().map(this::mapBidResponse).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ContractResponse acceptBid(Long projectId, Long bidId) {
+        User customer = getCurrentUser();
+        Project project = projectRepository.findById(projectId).orElseThrow(() -> new RuntimeException("Project not found"));
+        if (!project.getUser().getEmail().equals(customer.getEmail())) throw new RuntimeException("Ban khong co quyen");
+        if (project.getStatus() != Project.Status.OPEN) throw new RuntimeException("Du an khong con nhan thau");
+        if (contractRepository.findByProjectId(projectId).isPresent()) throw new RuntimeException("Du an da co hop dong");
+        Bid bid = bidRepository.findById(bidId).orElseThrow(() -> new RuntimeException("Bid not found"));
+        if (!bid.getProject().getId().equals(projectId)) throw new RuntimeException("Bid khong thuoc du an nay");
+
+        long depositAmt = Math.round(bid.getTotalPrice() * CUSTOMER_DEPOSIT_RATE);
+        var customerWallet = walletRepository.findByUserIdForUpdate(customer.getId())
+                .orElseThrow(() -> new RuntimeException("Vi khach hang khong ton tai"));
+        if (customerWallet.getAvailableBalance() < depositAmt)
+            throw new RuntimeException(String.format("So du vi khong du dat coc 10%% (%s). Hien co %s.",
+                    fmtVnd(depositAmt), fmtVnd(customerWallet.getAvailableBalance())));
+        walletCoreManager.executeLockForOrder(customerWallet, depositAmt, Transaction.Type.LOCK,
+                "CONSTRUCTX_ESCROW", "CTR-DEPOSIT-" + projectId + "-" + bidId);
+
+        bid.setStatus(Bid.Status.ACCEPTED);
+        bidRepository.rejectOtherBids(projectId, bidId);
+        project.setStatus(Project.Status.IN_PROGRESS);
+        projectRepository.save(project);
+
+        long kyQuyAmt = Math.round(bid.getTotalPrice() * CONTRACTOR_DEPOSIT_RATE);
+        String contractNum = "CTR-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-" + projectId;
+        Contract contract = Contract.builder().project(project).bid(bid).client(customer).contractor(bid.getContractor())
+                .contractNumber(contractNum).agreedPrice(bid.getTotalPrice()).originalAgreedPrice(bid.getTotalPrice())
+                .estimatedDays(bid.getEstimatedDays()).terms(buildDefaultTerms(project, bid))
+                .status(Contract.Status.PENDING_REVIEW)
+                .customerDepositAmount(depositAmt).customerDepositLocked(true)
+                .contractorDepositAmount(kyQuyAmt).contractorDepositLocked(false).build();
+        contract.getStages().add(ContractStage.builder().contract(contract).stage(Contract.Status.PENDING_REVIEW)
+                .note("Customer chap nhan bao gia. Da lock coc " + fmtVnd(depositAmt) + " (10%%). Cho Admin duyet.")
+                .performedBy(customer.getFullName()).build());
+        Contract saved = contractRepository.save(contract);
+
+        notificationService.createNotification(customer, Notification.NotifType.SYSTEM,
+                "Da lock coc " + fmtVnd(depositAmt) + " (10%%). HD " + contractNum + " cho Admin duyet.");
+        notificationService.createNotification(bid.getContractor(), Notification.NotifType.SYSTEM,
+                "Bao gia duoc chon (du an: " + project.getName() + ", " + fmtVnd(bid.getTotalPrice()) + ")! Cho Admin duyet HD.");
+        notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM,
+                "HD moi can duyet: " + contractNum + " - " + fmtVnd(bid.getTotalPrice()) + ". Customer da coc " + fmtVnd(depositAmt));
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public ContractResponse approveContract(Long contractId, String adminNote) {
+        User admin = getCurrentUser();
+        Contract c = getContract(contractId);
+        c.setStatus(Contract.Status.WAITING_SIGNATURE); c.setAdmin(admin); c.setAdminNote(adminNote); c.setApprovedAt(LocalDateTime.now());
+        c.getStages().add(stage(c, Contract.Status.WAITING_SIGNATURE, adminNote != null ? adminNote : "Admin phe duyet. Cho hai ben ky.", admin.getFullName()));
+        contractRepository.save(c);
+        notificationService.createNotification(c.getClient(), Notification.NotifType.SYSTEM, "HD " + c.getContractNumber() + " duoc duyet! Vao trang Hop dong de ky xac nhan.");
+        notificationService.createNotification(c.getContractor(), Notification.NotifType.SYSTEM, "HD " + c.getContractNumber() + " duoc duyet! Khi ky HD can ky quy " + fmtVnd(c.getContractorDepositAmount() != null ? c.getContractorDepositAmount() : 0L) + " (5%%).");
+        return toResponse(c);
+    }
+
+    @Transactional
+    public ContractResponse rejectContract(Long contractId, String adminNote) {
+        User admin = getCurrentUser();
+        Contract c = getContract(contractId);
+        c.setStatus(Contract.Status.CANCELLED); c.setAdmin(admin); c.setAdminNote(adminNote);
+        c.getStages().add(stage(c, Contract.Status.CANCELLED, adminNote != null ? adminNote : "Admin tu choi.", admin.getFullName()));
+        if (Boolean.TRUE.equals(c.getCustomerDepositLocked()) && c.getCustomerDepositAmount() != null) unlockCustomerDeposit(c, "Admin tu choi HD");
+        contractRepository.save(c);
+        notificationService.createNotification(c.getClient(), Notification.NotifType.SYSTEM, "HD " + c.getContractNumber() + " bi tu choi. Da hoan " + fmtVnd(c.getCustomerDepositAmount() != null ? c.getCustomerDepositAmount() : 0L) + " coc ve vi.");
+        return toResponse(c);
+    }
+
+    @Transactional
+    public ContractResponse updateTerms(Long contractId, String terms, String adminNote) {
+        User admin = getCurrentUser();
+        Contract c = getContract(contractId);
+        c.setTerms(terms); if (adminNote != null) c.setAdminNote(adminNote);
+        c.getStages().add(stage(c, c.getStatus(), "Admin cap nhat dieu khoan hop dong.", admin.getFullName()));
+        contractRepository.save(c);
+        return toResponse(c);
+    }
+
+    @Transactional
+    public ContractResponse updatePrice(Long contractId, Long newPrice, String adminNote) {
+        User admin = getCurrentUser();
+        Contract c = getContract(contractId);
+        Long original = c.getOriginalAgreedPrice() != null ? c.getOriginalAgreedPrice() : c.getAgreedPrice();
+        double deviation = Math.abs((double)(newPrice - original) / original);
+        if (deviation > MAX_PRICE_CHANGE_RATIO)
+            throw new RuntimeException(String.format("Gia moi %s lech %.1f%% so voi gia goc %s (toi da +-10%%).", fmtVnd(newPrice), deviation * 100, fmtVnd(original)));
+        c.setAgreedPrice(newPrice); if (adminNote != null) c.setAdminNote(adminNote);
+        c.getStages().add(stage(c, c.getStatus(), "Admin dieu chinh gia: " + fmtVnd(original) + " -> " + fmtVnd(newPrice), admin.getFullName()));
+        contractRepository.save(c);
+        notificationService.createNotification(c.getClient(), Notification.NotifType.SYSTEM, "HD " + c.getContractNumber() + " dieu chinh gia: " + fmtVnd(original) + " -> " + fmtVnd(newPrice));
+        notificationService.createNotification(c.getContractor(), Notification.NotifType.SYSTEM, "HD " + c.getContractNumber() + " dieu chinh gia: " + fmtVnd(original) + " -> " + fmtVnd(newPrice));
+        return toResponse(c);
+    }

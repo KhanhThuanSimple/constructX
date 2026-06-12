@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const setAuth = useAuthStore((state) => state.setAuth);
+
+  const isExpired = new URLSearchParams(location.search).get('expired') === '1';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,6 +38,13 @@ const LoginPage = () => {
           <h1 className="text-2xl font-bold font-display text-[#1a4f3a]">ConstructX</h1>
           <p className="text-gray-500 text-sm mt-1">Chào mừng bạn quay trở lại</p>
         </div>
+
+        {isExpired && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-sm text-amber-800">
+            <AlertCircle size={16} className="shrink-0 text-amber-500"/>
+            Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

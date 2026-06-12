@@ -9,6 +9,7 @@ import com.constructx.backend.features.chat.enums.RoomType;
 import com.constructx.backend.features.chat.service.ChatService;
 import com.constructx.backend.features.chat.service.FileUploadService;
 import com.constructx.backend.features.chat.service.GrokChatbotService;
+import com.constructx.backend.features.constructor.repository.ContractRepository;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
 import jakarta.validation.Valid;
@@ -33,7 +34,7 @@ public class ChatRestController {
     private final FileUploadService fileUploadService;
     private final GrokChatbotService grokChatbotService;
     private final UserRepository userRepository;
-    private final com.constructx.backend.features.constructor.repository.ContractJobRepository contractJobRepository;
+    private final ContractRepository contractRepository;
 
     @PostMapping("/rooms")
     public ResponseEntity<ChatRoomResponse> createChatRoom(
@@ -199,12 +200,12 @@ public class ChatRestController {
 
     /**
      * Tạo phòng chat tranh chấp 3 bên: Customer + Contractor + Admin
-     * POST /api/chat/dispute/{contractJobId}
-     * Tự động load ContractJob để lấy đủ customerId + contractorId + adminId
+     * POST /api/chat/dispute/{contractId}
+     * Tự động load Contract để lấy đủ customerId + contractorId + adminId
      */
-    @PostMapping("/dispute/{contractJobId}")
+    @PostMapping("/dispute/{contractId}")
     public ResponseEntity<ChatRoomResponse> createDisputeRoom(
-            @PathVariable Long contractJobId,
+            @PathVariable Long contractId,
             @RequestBody Map<String, String> body,
             Authentication authentication
     ) {
@@ -213,12 +214,11 @@ public class ChatRestController {
 
         List<Long> memberIds = new ArrayList<>();
 
-        // Load ContractJob để lấy đủ 3 bên
-        if (contractJobId != null && contractJobId > 0) {
-            contractJobRepository.findById(contractJobId).ifPresent(job -> {
-                // Thêm cả customer và contractor
-                memberIds.add(job.getCustomer().getId());
-                memberIds.add(job.getContractor().getId());
+        // Load Contract để lấy đủ 2 bên (Luồng A — Contract thống nhất)
+        if (contractId != null && contractId > 0) {
+            contractRepository.findById(contractId).ifPresent(contract -> {
+                if (contract.getClient() != null) memberIds.add(contract.getClient().getId());
+                if (contract.getContractor() != null) memberIds.add(contract.getContractor().getId());
             });
         }
 
@@ -236,14 +236,14 @@ public class ChatRestController {
                   if (!memberIds.contains(a.getId())) memberIds.add(a.getId());
               });
 
-        // Fallback nếu không tìm thấy ContractJob
+        // Fallback nếu không tìm thấy Contract
         if (memberIds.isEmpty()) memberIds.add(userId);
 
         CreateChatRoomRequest request = new CreateChatRoomRequest();
         request.setRoomType(RoomType.DISPUTE);
         request.setTitle("⚖️ Tranh chấp: " + reason);
-        request.setReferenceType("CONTRACT_JOB");
-        request.setReferenceId(contractJobId > 0 ? contractJobId : null);
+        request.setReferenceType("CONTRACT");
+        request.setReferenceId(contractId > 0 ? contractId : null);
         request.setMemberIds(memberIds);
 
         ChatRoomResponse response = chatService.createChatRoom(request, userId);

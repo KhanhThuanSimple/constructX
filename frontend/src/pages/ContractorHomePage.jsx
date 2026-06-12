@@ -1,372 +1,405 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import {
-  Search,
-  MapPin,
-  Clock,
-  ChevronRight,
-  Star,
-  Shield,
-  Zap,
-  Hammer,
-  Package,
-  CheckCircle,
-  ArrowRight,
-  TrendingUp,
-  Award,
-  Wallet,
-  Briefcase,
-  BarChart2,
-  FileText,
+  FileText, DollarSign, Clock, CheckCircle2, Wallet,
+  Shield, Gavel, TrendingUp, Lock, BadgeCheck,
+  ChevronRight, Loader2, AlertCircle, Info,
+  Hammer, Star, Users, Award, ArrowRight,
+  ShieldCheck, Percent, CalendarClock, HandCoins
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
-/* ------------------------------------------------------------------ */
-const PLATFORM_STATS = [
-  { label: 'Dự án đang mở', value: '50+', icon: <Briefcase size={22} /> },
-  { label: 'Giá trị trung bình', value: '80tr+', icon: <BarChart2 size={22} /> },
-  { label: 'Tỷ lệ hoàn thành', value: '96%', icon: <CheckCircle size={22} /> },
-  { label: 'Đối tác nhà thầu', value: '500+', icon: <Award size={22} /> },
+const fmt = (n) =>
+  n == null ? '—' :
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
+    .format(n).replace('₫', 'đ');
+
+const STATUS_CONTRACT = {
+  PENDING_REVIEW:    { label: 'Chờ Admin duyệt', cls: 'bg-amber-100 text-amber-700' },
+  WAITING_SIGNATURE: { label: 'Chờ ký kết',       cls: 'bg-blue-100 text-blue-700'  },
+  ACTIVE:            { label: 'Đang thi công',     cls: 'bg-green-100 text-green-700' },
+  COMPLETED:         { label: 'Hoàn thành',        cls: 'bg-gray-100 text-gray-600'   },
+  CANCELLED:         { label: 'Đã hủy',            cls: 'bg-red-100 text-red-600'     },
+};
+
+// ─── Chính sách nền tảng ──────────────────────────────────────────
+const POLICIES = [
+  {
+    icon: <ShieldCheck size={22} className="text-primary"/>,
+    title: 'Escrow 100% bảo vệ bạn',
+    desc: 'Khách hàng phải lock 100% giá trị hợp đồng trước khi thi công. Tiền luôn được giữ an toàn, không có rủi ro bùng tiền.',
+    color: 'bg-green-50 border-green-200',
+  },
+  {
+    icon: <Percent size={22} className="text-amber-600"/>,
+    title: 'Ký quỹ 5% đảm bảo cam kết',
+    desc: 'Nhà thầu lock 5% ký quỹ khi ký hợp đồng. Ký quỹ được hoàn trả 100% khi hoàn công thành công.',
+    color: 'bg-amber-50 border-amber-200',
+  },
+  {
+    icon: <HandCoins size={22} className="text-blue-600"/>,
+    title: 'Giải ngân theo milestone',
+    desc: 'Giải ngân theo 4 mốc: 20% / 50% / 80% / 100%. Mỗi đợt: Admin xác nhận → Khách duyệt → 30% nhận ngay, 70% locked đến mốc tiếp theo.',
+    color: 'bg-blue-50 border-blue-200',
+  },
+  {
+    icon: <CalendarClock size={22} className="text-purple-600"/>,
+    title: '5% bảo hành giữ 6 tháng',
+    desc: 'Sau hoàn công, 95% giải ngân ngay. 5% còn lại (warranty hold) được giữ 6 tháng, sau đó Admin giải ngân toàn bộ.',
+    color: 'bg-purple-50 border-purple-200',
+  },
+  {
+    icon: <Shield size={22} className="text-red-500"/>,
+    title: 'Quy tắc hủy hợp đồng',
+    desc: 'Nếu bạn hủy khi HĐ đang ACTIVE: mất ký quỹ 5% + trừ 20 điểm uy tín. Nếu khách hủy: bạn nhận 70% tiền cọc của khách như bồi thường.',
+    color: 'bg-red-50 border-red-200',
+  },
+  {
+    icon: <Star size={22} className="text-amber-500"/>,
+    title: 'Hệ thống uy tín',
+    desc: 'Mỗi hợp đồng hoàn thành tốt tăng điểm uy tín. Điểm cao giúp bạn được ưu tiên hiển thị và nhận nhiều đơn hàng hơn.',
+    color: 'bg-amber-50 border-amber-200',
+  },
 ];
 
-const CONTRACTOR_FEATURES = [
-  {
-    icon: <Wallet size={28} className="text-[#1a4f3a]" />,
-    title: 'Thu nhập minh bạch',
-    desc: 'Tiền được giải ngân ngay khi milestone được nghiệm thu. Không chờ đợi, không rủi ro.',
-  },
-  {
-    icon: <Zap size={28} className="text-[#1a4f3a]" />,
-    title: 'Cơ hội việc làm liên tục',
-    desc: 'Hàng chục dự án mới mỗi tuần. Tìm việc phù hợp chuyên môn và khu vực của bạn.',
-  },
-  {
-    icon: <Shield size={28} className="text-[#1a4f3a]" />,
-    title: 'Bảo vệ quyền lợi nhà thầu',
-    desc: 'Hệ thống hợp đồng điện tử và cơ chế giải quyết tranh chấp bảo vệ bạn mọi tình huống.',
-  },
-  {
-    icon: <Star size={28} className="text-[#1a4f3a]" />,
-    title: 'Xây dựng danh tiếng',
-    desc: 'Hồ sơ năng lực số và đánh giá của khách hàng giúp bạn nổi bật và nhận nhiều dự án hơn.',
-  },
+const DISBURSEMENT_FLOW = [
+  { step: '01', label: 'Nhà thầu gửi yêu cầu', desc: 'Chọn giai đoạn & số tiền cần giải ngân' },
+  { step: '02', label: 'Admin xác nhận', desc: 'Admin kiểm tra và xác nhận hợp lệ' },
+  { step: '03', label: 'Khách hàng duyệt', desc: 'Khách hàng phê duyệt và tiền được chuyển' },
+  { step: '04', label: '30% nhận ngay', desc: '70% còn lại locked đến mốc tiến độ tiếp theo' },
 ];
 
-const HOW_IT_WORKS_CONTRACTOR = [
-  { step: '01', title: 'Hoàn thiện hồ sơ', desc: 'Cập nhật năng lực, portfolio và khu vực hoạt động để tăng khả năng được chọn.' },
-  { step: '02', title: 'Duyệt & Chọn dự án', desc: 'Lọc dự án theo khu vực, ngân sách và chuyên môn. Chọn những gì phù hợp nhất.' },
-  { step: '03', title: 'Gửi báo giá', desc: 'Gửi báo giá chi tiết và minh bạch. Thắng thầu dựa trên năng lực thực sự.' },
-  { step: '04', title: 'Thi công & Thu tiền', desc: 'Thực hiện theo milestone, nhật ký thi công, và nhận thanh toán từng giai đoạn.' },
-];
-
-/* ------------------------------------------------------------------ */
-
-const ContractorHomePage = () => {
-  const { user } = useAuthStore();
+export default function ContractorHomePage() {
+  const { user, refreshUser } = useAuthStore();
   const navigate = useNavigate();
-  const [materials, setMaterials] = useState([]);
-  const [openProjects, setOpenProjects] = useState([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMaterial, setSelectedMaterial] = useState(null);
-
-  useEffect(() => {
-    fetchMaterials();
-    fetchOpenProjects();
-  }, []);
-
-  const fetchMaterials = async () => {
-    try {
-      const res = await api.get('/public/materials');
-      setMaterials(res.data.data || []);
-    } catch {
-      // vật liệu chỉ là bộ lọc, không hiển thị lỗi
-    }
-  };
-
-  const fetchOpenProjects = async () => {
-    try {
-      const res = await api.get('/projects/open');
-      setOpenProjects(res.data.data || []);
-    } catch {
-      toast.error('Không thể tải danh sách dự án');
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
-
-  const filteredProjects = openProjects
-    .filter((p) => {
-      const matchSearch =
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchMaterial = selectedMaterial
-        ? p.description?.toLowerCase().includes(selectedMaterial.toLowerCase()) ||
-          p.name?.toLowerCase().includes(selectedMaterial.toLowerCase())
-        : true;
-      return matchSearch && matchMaterial;
-    })
-    .slice(0, 6);
-
-  const formatCurrency = (amount) => {
-    if (!amount) return 'Thỏa thuận';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
-      .format(amount)
-      .replace('₫', 'đ');
-  };
-
   const isApproved = user?.approvalStatus === 'APPROVED';
 
+  const [contracts, setContracts] = useState([]);
+  const [wallet, setWallet] = useState(null);
+  const [openOrders, setOpenOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPolicy, setShowPolicy] = useState(false);
+
+  useEffect(() => {
+    refreshUser();
+    Promise.all([
+      api.get('/contracts/my').catch(() => ({ data: { data: [] } })),
+      api.get('/wallet/my').catch(() => ({ data: { data: null } })),
+      api.get('/order-bids/open').catch(() => ({ data: { data: [] } })),
+    ]).then(([cRes, wRes, oRes]) => {
+      setContracts(cRes.data.data || []);
+      setWallet(wRes.data.data || null);
+      setOpenOrders(oRes.data.data || []);
+    }).catch(() => toast.error('Không thể tải dữ liệu'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const activeContracts    = contracts.filter(c => c.status === 'ACTIVE');
+  const pendingContracts   = contracts.filter(c => ['PENDING_REVIEW','WAITING_SIGNATURE'].includes(c.status));
+  const completedContracts = contracts.filter(c => c.status === 'COMPLETED');
+  const totalRevenue       = completedContracts.reduce((s, c) => s + (c.agreedPrice || 0), 0);
+
+  if (loading) return (
+    <Layout title="Tổng quan nhà thầu">
+      <div className="flex justify-center py-24"><Loader2 size={36} className="animate-spin text-primary"/></div>
+    </Layout>
+  );
+
   return (
-    <Layout title="Trang chủ nhà thầu">
-      <div className="max-w-5xl mx-auto space-y-10">
+    <Layout title="Tổng quan nhà thầu">
+      <div className="max-w-4xl mx-auto space-y-6">
 
         {/* ── Banner chưa duyệt ── */}
         {!isApproved && (
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 text-sm">
-            <Shield size={18} className="mt-0.5 shrink-0 text-amber-500" />
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl p-4">
+            <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-500"/>
             <div>
-              <p className="font-semibold">Tài khoản của bạn đang chờ phê duyệt</p>
-              <p className="text-amber-700 mt-0.5">
-                Admin đang xem xét hồ sơ của bạn. Sau khi được duyệt, bạn có thể tham gia đấu thầu và nhận dự án.
+              <p className="font-bold text-sm">Tài khoản đang chờ phê duyệt</p>
+              <p className="text-xs mt-0.5 text-amber-800">
+                Admin đang xem xét hồ sơ. Sau khi duyệt bạn có thể nhận đơn hàng và ký hợp đồng.
               </p>
             </div>
           </div>
         )}
 
-        {/* ── Hero ── */}
-        <section className="relative bg-gradient-to-br from-[#1a3a5c] to-[#1a4f3a] rounded-3xl overflow-hidden p-8 md:p-12 text-white">
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}
-          />
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-white/15 rounded-full px-4 py-1.5 text-xs font-medium mb-4">
-                <Hammer size={14} /> Nền tảng dành cho nhà thầu chuyên nghiệp
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold font-display leading-tight mb-4">
-                Chào mừng trở lại,<br />
-                {user?.fullName || 'nhà thầu'} 👷
-              </h1>
-              <p className="text-white/80 text-sm md:text-base mb-6 max-w-md">
-                ConstructX mang đến hàng chục dự án thi công mỗi tuần. Cập nhật hồ sơ, đấu thầu và quản lý công trình ngay trên một nền tảng.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => navigate('/projects/browse')}
-                  className="flex items-center gap-2 bg-white text-[#1a4f3a] font-bold px-6 py-3 rounded-xl hover:bg-green-50 transition-colors shadow-lg"
-                >
-                  <Search size={18} /> Tìm dự án mới
-                </button>
-                <button
-                  onClick={() => navigate('/portfolio')}
-                  className="flex items-center gap-2 bg-white/15 text-white font-medium px-6 py-3 rounded-xl hover:bg-white/25 transition-colors border border-white/30"
-                >
-                  <FileText size={16} /> Cập nhật hồ sơ
-                </button>
+        {/* ── Greeting hero ── */}
+        <div className="bg-gradient-to-br from-primary to-[#1a3a5c] rounded-2xl p-6 text-white">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-white/60 text-sm">Xin chào,</p>
+              <h1 className="text-2xl font-bold mt-0.5">{user?.fullName || 'Nhà thầu'} 👷</h1>
+              <div className="flex items-center gap-2 mt-2">
+                {isApproved ? (
+                  <span className="flex items-center gap-1.5 bg-green-500/20 text-green-300 text-xs font-bold px-3 py-1 rounded-full border border-green-400/30">
+                    <BadgeCheck size={13}/> Đã được phê duyệt
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 bg-amber-500/20 text-amber-300 text-xs font-bold px-3 py-1 rounded-full border border-amber-400/30">
+                    <Clock size={13}/> Chờ phê duyệt
+                  </span>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 shrink-0">
-              {PLATFORM_STATS.map((s) => (
-                <div key={s.label} className="bg-white/10 backdrop-blur rounded-2xl p-4 text-center min-w-[110px]">
-                  <div className="flex justify-center mb-1 opacity-80">{s.icon}</div>
-                  <p className="text-2xl font-bold">{s.value}</p>
-                  <p className="text-[11px] text-white/70 mt-0.5">{s.label}</p>
-                </div>
-              ))}
+            <div className="flex gap-3">
+              <button onClick={() => navigate('/order-bidding')}
+                className="flex items-center gap-2 bg-white text-primary font-bold px-4 py-2.5 rounded-xl text-sm hover:bg-green-50 transition-colors shadow-md">
+                <Gavel size={16}/> Đấu thầu ngay
+              </button>
+              <button onClick={() => setShowPolicy(!showPolicy)}
+                className="flex items-center gap-2 bg-white/15 text-white font-medium px-4 py-2.5 rounded-xl text-sm hover:bg-white/25 border border-white/20 transition-colors">
+                <Info size={16}/> Chính sách
+              </button>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* ── Danh mục vật liệu (bộ lọc) ── */}
-        {materials.length > 0 && (
-          <section>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Đang thi công',  value: activeContracts.length,    color: 'text-green-600',  icon: <Hammer size={18}/> },
+            { label: 'Chờ xử lý',      value: pendingContracts.length,   color: pendingContracts.length > 0 ? 'text-amber-500' : 'text-gray-400', icon: <Clock size={18}/> },
+            { label: 'Hoàn thành',     value: completedContracts.length, color: 'text-primary',    icon: <CheckCircle2 size={18}/> },
+            { label: 'Tổng doanh thu', value: fmt(totalRevenue),         color: 'text-primary',    icon: <TrendingUp size={18}/> },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className={`${s.color} mb-1.5`}>{s.icon}</div>
+              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Ví ── */}
+        {wallet && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-xl font-bold font-display text-gray-900">Lọc theo vật liệu</h2>
-                <p className="text-sm text-gray-500">Tìm dự án theo chuyên môn vật liệu của bạn</p>
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Wallet size={16} className="text-primary"/> Ví của tôi
+              </p>
+              <button onClick={() => navigate('/wallet')}
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-1">
+                Quản lý <ChevronRight size={13}/>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Tổng số dư</p>
+                <p className="font-bold text-gray-900 text-sm">{fmt(wallet.balance)}</p>
               </div>
-              {selectedMaterial && (
-                <button
-                  onClick={() => setSelectedMaterial(null)}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline"
-                >
-                  Bỏ lọc
-                </button>
-              )}
+              <div className="bg-green-50 rounded-xl p-3">
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Khả dụng</p>
+                <p className="font-bold text-green-700 text-sm">{fmt(wallet.availableBalance)}</p>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-3">
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1 justify-center">
+                  <Lock size={9}/> Đang khóa
+                </p>
+                <p className="font-bold text-amber-600 text-sm">{fmt(wallet.lockedAmount)}</p>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {materials.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setSelectedMaterial(selectedMaterial === m.name ? null : m.name)}
-                  className={`inline-flex items-center gap-1.5 font-medium text-sm px-4 py-2 rounded-full border transition-colors ${
-                    selectedMaterial === m.name
-                      ? 'bg-[#1a4f3a] text-white border-[#1a4f3a]'
-                      : 'bg-[#e8f5ee] text-[#1a4f3a] border-[#b7dfc8] hover:bg-[#d1eedd]'
-                  }`}
-                >
-                  <Hammer size={13} /> {m.name}
-                </button>
-              ))}
-            </div>
-          </section>
+          </div>
         )}
 
-        {/* ── Dự án đang mở ── */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold font-display text-gray-900">Dự án đang tuyển thầu</h2>
-              <p className="text-sm text-gray-500">Gửi báo giá và trúng thầu ngay hôm nay</p>
-            </div>
-            <button
-              onClick={() => navigate('/projects/browse')}
-              className="text-sm font-semibold text-[#1a4f3a] flex items-center gap-1 hover:gap-2 transition-all"
-            >
-              Xem tất cả <ChevronRight size={16} />
+        {/* ── Hợp đồng gần đây ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+            <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <FileText size={16} className="text-primary"/> Hợp đồng của tôi
+            </p>
+            <button onClick={() => navigate('/contracts')}
+              className="text-xs text-primary font-medium hover:underline flex items-center gap-1">
+              Xem tất cả <ChevronRight size={13}/>
             </button>
           </div>
-
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 text-gray-400" size={16} />
-            <input
-              type="text"
-              placeholder="Tìm kiếm dự án..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#1a4f3a] transition-all"
-            />
-          </div>
-
-          {loadingProjects ? (
-            <div className="text-center py-12 text-gray-400 text-sm">Đang tải dự án...</div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-sm">
-              {selectedMaterial
-                ? `Không có dự án liên quan đến "${selectedMaterial}".`
-                : 'Chưa có dự án nào đang tuyển thầu.'}
+          {contracts.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 text-sm">
+              <FileText size={32} className="mx-auto mb-2 opacity-20"/>
+              Chưa có hợp đồng nào. Đấu thầu để bắt đầu.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={() => navigate(`/projectsv2/${project.id}`)}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden cursor-pointer"
-                >
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        Đang tuyển
-                      </span>
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Clock size={11} /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-gray-900 group-hover:text-[#1a4f3a] transition-colors mb-1.5 line-clamp-1">
-                      {project.name}
-                    </h3>
-                    <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
-                      <span className="flex items-center gap-1"><MapPin size={12} /> {project.address || 'Toàn quốc'}</span>
-                      {project.area && <span>{project.area} m²</span>}
-                    </div>
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-4">{project.description || 'Không có mô tả.'}</p>
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Ngân sách</p>
-                        <p className="text-sm font-bold text-[#1a4f3a]">
-                          {formatCurrency(project.budgetMin)} – {formatCurrency(project.budgetMax)}
-                        </p>
+            <div className="divide-y divide-gray-50">
+              {contracts.slice(0, 5).map(c => {
+                const st = STATUS_CONTRACT[c.status] || {};
+                return (
+                  <div key={c.id}
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => navigate(`/contracts/${c.id}/progress`)}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>{st.label}</span>
                       </div>
-                      {isApproved ? (
-                        <button className="flex items-center gap-1 bg-[#1a4f3a] text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:bg-[#2d7a5a] transition-colors">
-                          Gửi báo giá <ChevronRight size={13} />
-                        </button>
-                      ) : (
-                        <span className="text-xs text-amber-600 font-medium">Chờ duyệt</span>
-                      )}
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {c.projectName || c.orderCode || c.contractNumber}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-mono">{c.contractNumber}</p>
                     </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="text-sm font-bold text-primary">{fmt(c.agreedPrice)}</p>
+                    </div>
+                    <ChevronRight size={15} className="text-gray-300 ml-2 shrink-0"/>
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Đơn hàng đang mở ── */}
+        {openOrders.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Gavel size={16} className="text-primary"/>
+                Đơn hàng đang mở đấu giá
+                <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {openOrders.length}
+                </span>
+              </p>
+              <button onClick={() => navigate('/order-bidding')}
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-1">
+                Xem tất cả <ChevronRight size={13}/>
+              </button>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {openOrders.slice(0, 3).map(o => (
+                <div key={o.id}
+                  className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate('/order-bidding')}>
+                  <div className="flex-1 min-w-0">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 mb-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"/>
+                      Đang mở
+                    </span>
+                    <p className="text-sm font-semibold text-gray-800 truncate">
+                      {o.customRequirements
+                        ? o.customRequirements.substring(0, 55) + (o.customRequirements.length > 55 ? '…' : '')
+                        : o.orderCode}
+                    </p>
+                  </div>
+                  <ChevronRight size={15} className="text-gray-300 ml-3 shrink-0"/>
                 </div>
               ))}
             </div>
-          )}
-        </section>
-
-        {/* ── Cách thức hoạt động ── */}
-        <section>
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold font-display text-gray-900">Từ đăng ký đến nhận tiền</h2>
-            <p className="text-sm text-gray-500 mt-1">Quy trình rõ ràng, minh bạch và bảo vệ quyền lợi nhà thầu</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {HOW_IT_WORKS_CONTRACTOR.map((item, i) => (
-              <div key={item.step} className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
-                {i < HOW_IT_WORKS_CONTRACTOR.length - 1 && (
-                  <div className="hidden md:block absolute top-8 -right-4 z-10 text-gray-300">
-                    <ArrowRight size={20} />
+        )}
+
+        {/* ── Chính sách nền tảng (toggle) ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowPolicy(!showPolicy)}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <ShieldCheck size={16} className="text-primary"/> Chính sách & Quy định nền tảng ConstructX
+            </p>
+            <ChevronRight size={16} className={`text-gray-400 transition-transform ${showPolicy ? 'rotate-90' : ''}`}/>
+          </button>
+
+          {showPolicy && (
+            <div className="border-t border-gray-50 p-5 space-y-4">
+              {/* Grid chính sách */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {POLICIES.map((p, i) => (
+                  <div key={i} className={`rounded-xl border p-4 ${p.color}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0 mt-0.5">{p.icon}</div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 mb-1">{p.title}</p>
+                        <p className="text-xs text-gray-600 leading-relaxed">{p.desc}</p>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <span className="text-3xl font-black text-[#e8f5ee] select-none">{item.step}</span>
-                <h3 className="font-bold text-gray-900 mt-2 mb-1">{item.title}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* ── Tính năng ── */}
-        <section>
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold font-display text-gray-900">Tại sao nhà thầu chọn ConstructX?</h2>
-            <p className="text-sm text-gray-500 mt-1">Công cụ chuyên nghiệp giúp bạn quản lý, phát triển và tăng doanh thu</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {CONTRACTOR_FEATURES.map((f) => (
-              <div key={f.title} className="flex gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-[#e8f5ee] flex items-center justify-center shrink-0">
-                  {f.icon}
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-1">{f.title}</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+              {/* Quy trình giải ngân */}
+              <div className="bg-gradient-to-r from-primary/5 to-blue-50 border border-primary/20 rounded-xl p-4">
+                <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <ArrowRight size={13}/> Quy trình giải ngân từng milestone
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {DISBURSEMENT_FLOW.map((f, i) => (
+                    <div key={i} className="bg-white rounded-xl p-3 border border-white/80">
+                      <span className="text-2xl font-black text-primary/20">{f.step}</span>
+                      <p className="text-xs font-bold text-gray-800 mt-1">{f.label}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{f.desc}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* ── CTA ── */}
-        <section className="bg-gradient-to-r from-[#1a3a5c] to-[#1a4f3a] rounded-3xl p-8 text-center text-white">
-          <TrendingUp size={36} className="mx-auto mb-3 opacity-80" />
-          <h2 className="text-2xl font-bold font-display mb-2">Tìm dự án phù hợp ngay</h2>
-          <p className="text-white/75 text-sm mb-6 max-w-md mx-auto">
-            Hàng chục dự án thi công nội thất đang chờ báo giá. Cập nhật hồ sơ để tăng tỷ lệ trúng thầu.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <button
-              onClick={() => navigate('/projects/browse')}
-              className="bg-white text-[#1a4f3a] font-bold px-8 py-3 rounded-xl hover:bg-green-50 transition-colors shadow-lg"
-            >
-              Tìm dự án ngay →
-            </button>
-            <button
-              onClick={() => navigate('/portfolio')}
-              className="bg-white/15 text-white font-medium px-6 py-3 rounded-xl hover:bg-white/25 transition-colors border border-white/30"
-            >
-              Cập nhật hồ sơ năng lực
-            </button>
-          </div>
-        </section>
+              {/* Bảng tóm tắt tỉ lệ */}
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left font-bold text-gray-600">Sự kiện</th>
+                      <th className="px-4 py-2.5 text-left font-bold text-gray-600">Tỉ lệ</th>
+                      <th className="px-4 py-2.5 text-left font-bold text-gray-600">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {[
+                      ['Escrow khách hàng', '100% agreedPrice', 'Lock khi chấp nhận báo giá'],
+                      ['Ký quỹ nhà thầu', '5% agreedPrice', 'Lock khi ký hợp đồng, hoàn trả khi hoàn công'],
+                      ['Giải ngân mỗi đợt', '30% ngay / 70% locked', 'Locked mở dần theo tiến độ tiếp theo'],
+                      ['Hoàn công 95%+5%', '95% ngay, 5% warranty', '5% giữ 6 tháng bảo hành'],
+                      ['Hủy bởi Contractor', 'Mất 5% ký quỹ', 'Trừ 20 điểm uy tín'],
+                      ['Hủy bởi Customer', 'Nhận 70% cọc khách', 'Lấy lại 5% ký quỹ'],
+                    ].map(([ev, rate, note], i) => (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                        <td className="px-4 py-2.5 font-semibold text-gray-800">{ev}</td>
+                        <td className="px-4 py-2.5 font-bold text-primary">{rate}</td>
+                        <td className="px-4 py-2.5 text-gray-500">{note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Quick actions ── */}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => navigate('/order-bidding')}
+            className="flex items-center justify-between bg-primary text-white rounded-xl p-4 hover:bg-primary/90 transition-colors">
+            <div className="text-left">
+              <p className="font-bold text-sm">Đấu thầu đơn hàng</p>
+              <p className="text-[11px] text-white/70 mt-0.5">Gửi báo giá ngay</p>
+            </div>
+            <Gavel size={22} className="opacity-80"/>
+          </button>
+          <button onClick={() => navigate('/contracts')}
+            className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors">
+            <div className="text-left">
+              <p className="font-bold text-sm text-gray-800">Hợp đồng & Thi công</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Tiến độ & Giải ngân</p>
+            </div>
+            <FileText size={22} className="text-gray-400"/>
+          </button>
+          <button onClick={() => navigate('/portfolio')}
+            className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors">
+            <div className="text-left">
+              <p className="font-bold text-sm text-gray-800">Hồ sơ năng lực</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Cập nhật portfolio</p>
+            </div>
+            <BadgeCheck size={22} className="text-gray-400"/>
+          </button>
+          <button onClick={() => navigate('/wallet')}
+            className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors">
+            <div className="text-left">
+              <p className="font-bold text-sm text-gray-800">Ví & Thu nhập</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Rút tiền & lịch sử</p>
+            </div>
+            <Wallet size={22} className="text-gray-400"/>
+          </button>
+        </div>
 
       </div>
     </Layout>
   );
-};
-
-export default ContractorHomePage;
+}

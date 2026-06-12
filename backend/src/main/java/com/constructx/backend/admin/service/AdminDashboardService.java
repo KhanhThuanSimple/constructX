@@ -56,7 +56,7 @@ public class AdminDashboardService {
         long totalContracts  = contractRepository.count();
         long activeContracts = contractRepository.countByStatus(Contract.Status.ACTIVE);
 
-        List<AdminProjectSummary> recentProjects = projectRepository.findAllByOrderByCreatedAtDesc()
+        List<AdminProjectSummary> recentProjects = projectRepository.findAllWithUserOrderByCreatedAtDesc()
                 .stream().limit(5).map(this::toSummary).toList();
 
         // ── Chart data — 6 tháng gần nhất ────────────────────────────
