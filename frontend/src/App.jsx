@@ -14,6 +14,7 @@ import AdminProductsPage from './pages/AdminProductsPage';
 import ProfilePage from './pages/ProfilePage';
 import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
+import ContractorProfilePage from './pages/ContractorProfilePage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
@@ -193,6 +194,12 @@ function App() {
         <Route path="/profile" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ProfilePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contractor/:id" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractorProfilePage />
           </ProtectedRoute>
         } />
 

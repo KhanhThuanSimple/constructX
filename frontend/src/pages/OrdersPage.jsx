@@ -292,16 +292,22 @@ export default function OrdersPage() {
                           </button>
                         )}
                         {o.status === 'DELIVERED' && o.assignedContractorId && (
-                          reviewedOrders.has(o.id) ? (
-                            <span className="flex items-center gap-1.5 text-xs text-amber-500 font-bold px-3 py-1.5 bg-amber-50 rounded-xl">
-                              <Star size={13} fill="currentColor"/> Đã đánh giá
-                            </span>
-                          ) : (
-                            <button onClick={() => { setReviewModal(o); setReviewData({ rating: 5, comment: '' }); }}
-                              className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 text-white px-3 py-1.5 rounded-xl hover:bg-amber-600">
-                              <Star size={13}/> Đánh giá nhà thầu
+                          <div className="flex gap-2">
+                            <button onClick={() => navigate(`/contractor/${o.assignedContractorId}`)}
+                              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors">
+                              Xem hồ sơ nhà thầu
                             </button>
-                          )
+                            {reviewedOrders.has(o.id) ? (
+                              <span className="flex items-center gap-1.5 text-xs text-amber-500 font-bold px-3 py-1.5 bg-amber-50 rounded-xl">
+                                <Star size={13} fill="currentColor"/> Đã đánh giá
+                              </span>
+                            ) : (
+                              <button onClick={() => { setReviewModal(o); setReviewData({ rating: 5, comment: '' }); }}
+                                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 text-white px-3 py-1.5 rounded-xl hover:bg-amber-600">
+                                <Star size={13}/> Đánh giá nhà thầu
+                              </button>
+                            )}
+                          </div>
                         )}
                         {o.status === 'PENDING' && (
                           <button onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}
@@ -338,7 +344,10 @@ export default function OrdersPage() {
                                     {bid.contractorName?.charAt(0)}
                                   </div>
                                   <div>
-                                    <p className="font-semibold text-gray-900 text-sm">{bid.contractorName}</p>
+                                    <p onClick={() => navigate(`/contractor/${bid.contractorId}`)}
+                                       className="font-semibold text-gray-900 text-sm cursor-pointer hover:underline hover:text-primary">
+                                      {bid.contractorName}
+                                    </p>
                                     <p className="text-xs text-gray-500">{bid.contractorPhone}</p>
                                   </div>
                                   {bid.status === 'ACCEPTED' && <span className="badge badge-green text-[10px]">✓ Đã chọn</span>}
@@ -380,11 +389,17 @@ export default function OrdersPage() {
                               )}
 
                               {bid.status === 'PENDING' && o.status === 'OPEN_BIDDING' && (
-                                <button onClick={() => handleAcceptBid(o.id, bid.id)} disabled={accepting === bid.id}
-                                  className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary-light disabled:opacity-60">
-                                  <CheckCircle size={13}/>
-                                  {accepting === bid.id ? 'Đang xử lý...' : 'Chọn nhà thầu này'}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleAcceptBid(o.id, bid.id)} disabled={accepting === bid.id}
+                                    className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary-light disabled:opacity-60">
+                                    <CheckCircle size={13}/>
+                                    {accepting === bid.id ? 'Đang xử lý...' : 'Chọn nhà thầu này'}
+                                  </button>
+                                  <button onClick={() => navigate(`/contractor/${bid.contractorId}`)}
+                                    className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                    Xem hồ sơ
+                                  </button>
+                                </div>
                               )}
                             </div>
                           ))}

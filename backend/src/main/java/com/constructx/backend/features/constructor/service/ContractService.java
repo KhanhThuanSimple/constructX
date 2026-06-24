@@ -11,6 +11,8 @@ import com.constructx.backend.features.notification.entity.Notification;
 import com.constructx.backend.features.notification.service.NotificationService;
 import com.constructx.backend.features.project.entity.Project;
 import com.constructx.backend.features.project.repository.ProjectRepository;
+import com.constructx.backend.features.order.entity.Order;
+import com.constructx.backend.features.order.repository.OrderRepository;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.wallet.entity.Transaction;
@@ -51,6 +53,7 @@ public class ContractService {
     private final WalletCoreManager walletCoreManager;
     private final NotificationService notificationService;
     private final BidService bidService;
+    private final OrderRepository orderRepository;
 
     private User getCurrentUser() {
         return userRepository.findByEmail(
@@ -397,6 +400,22 @@ public class ContractService {
                         fmtVnd(immediateAmt), fmtVnd(warrantyAmt), WARRANTY_MONTHS,
                         c.getWarrantyEndDate().toLocalDate().toString()),
                 admin.getFullName()));
+
+        // Cập nhật trạng thái dự án (nếu có)
+        if (c.getProject() != null) {
+            c.getProject().setStatus(Project.Status.COMPLETED);
+            projectRepository.save(c.getProject());
+        }
+
+        // Cập nhật trạng thái đơn hàng tùy chỉnh (nếu có)
+        if (c.getSourceOrder() != null) {
+            Order order = c.getSourceOrder();
+            order.setStatus(Order.Status.DELIVERED);
+            order.setDeliveredAt(LocalDateTime.now());
+            order.setFullyPaid(true);
+            orderRepository.save(order);
+        }
+
         contractRepository.save(c);
 
         notificationService.createNotification(c.getClient(), Notification.NotifType.PAYMENT_SUCCESS,

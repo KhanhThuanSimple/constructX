@@ -24,4 +24,9 @@ public class UserController {
     public ResponseEntity<ApiResponse<User>> updateProfile(@RequestBody UserUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật thông tin thành công", userService.updateProfile(request)));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Lấy thông tin người dùng thành công", userService.getUserById(id)));
+    }
 }

@@ -248,7 +248,10 @@ export default function ProjectDetailPage() {
                                 {bid.contractorName?.charAt(0) || 'C'}
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-900 text-sm">{bid.contractorName}</p>
+                                <p onClick={() => navigate(`/contractor/${bid.contractorId}`)}
+                                   className="font-semibold text-gray-900 text-sm cursor-pointer hover:underline hover:text-primary">
+                                  {bid.contractorName}
+                                </p>
                                 <p className="text-xs text-gray-500">{bid.contractorPhone || bid.contractorEmail}</p>
                               </div>
                               {bid.status === 'ACCEPTED' && (
@@ -279,14 +282,22 @@ export default function ProjectDetailPage() {
                             </button>
 
                             {bid.status === 'PENDING' && isOwner && project.status === 'OPEN' && (
-                              <button
-                                onClick={() => handleAcceptBid(bid.id)}
-                                disabled={accepting === bid.id}
-                                className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary-light transition-colors disabled:opacity-60"
-                              >
-                                <CheckCircle size={13} />
-                                {accepting === bid.id ? 'Đang xử lý...' : 'Chấp nhận'}
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAcceptBid(bid.id)}
+                                  disabled={accepting === bid.id}
+                                  className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary-light transition-colors disabled:opacity-60"
+                                >
+                                  <CheckCircle size={13} />
+                                  {accepting === bid.id ? 'Đang xử lý...' : 'Chấp nhận'}
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/contractor/${bid.contractorId}`)}
+                                  className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                                >
+                                  Xem hồ sơ
+                                </button>
+                              </div>
                             )}
                           </div>
 

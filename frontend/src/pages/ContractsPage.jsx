@@ -5,7 +5,7 @@ import {
   FileText, CheckCircle, Clock, XCircle, AlertCircle,
   ChevronDown, ChevronUp, User as UserIcon, Calendar,
   ArrowRight, PenLine, Printer, Download, Building2,
-  Phone, Mail, DollarSign, Shield, TrendingUp
+  Phone, Mail, DollarSign, Shield, TrendingUp, Star
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -185,12 +185,34 @@ export default function ContractsPage() {
   const [expanded, setExpanded] = useState(null);
   const [signing, setSigning] = useState(null);
 
+  // Review states
+  const [reviewedItems, setReviewedItems] = useState(new Set());
+  const [reviewModal, setReviewModal] = useState(null); // { contract }
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   useEffect(() => { fetchContracts(); }, []);
 
   const fetchContracts = async () => {
     try {
       const res = await api.get('/contracts/my');
-      setContracts(res.data.data || []);
+      const data = res.data.data || [];
+      setContracts(data);
+
+      // Check which completed contracts are already reviewed
+      const completedContracts = data.filter(c => c.status === 'COMPLETED');
+      if (completedContracts.length > 0) {
+        Promise.all(completedContracts.map(c => {
+          const refType = c.projectId ? 'PROJECT' : 'ORDER';
+          const refId = c.projectId || c.orderId;
+          if (!refId) return Promise.resolve(null);
+          return api.get(`/reviews/check?referenceType=${refType}&referenceId=${refId}`)
+            .then(r => r.data.data ? `${refType}_${refId}` : null)
+            .catch(() => null);
+        })).then(results => {
+          setReviewedItems(new Set(results.filter(Boolean)));
+        });
+      }
     } catch {
       toast.error('Không thể tải danh sách hợp đồng');
     } finally {
@@ -212,11 +234,35 @@ export default function ContractsPage() {
     }
   };
 
+  const handleSubmitReview = async () => {
+    if (!reviewModal) return;
+    if (!reviewData.comment.trim()) { toast.error('Vui lòng nhập nhận xét'); return; }
+    setSubmittingReview(true);
+    try {
+      const refType = reviewModal.projectId ? 'PROJECT' : 'ORDER';
+      const refId = reviewModal.projectId || reviewModal.orderId;
+      await api.post('/reviews', {
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+        referenceType: refType,
+        referenceId: refId,
+        revieweeId: reviewModal.contractorId,
+      });
+      toast.success('🌟 Cảm ơn bạn đã đánh giá!');
+      setReviewedItems(prev => new Set([...prev, `${refType}_${refId}`]));
+      setReviewModal(null);
+      setReviewData({ rating: 5, comment: '' });
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Lỗi gửi đánh giá');
+    } finally { setSubmittingReview(false); }
+  };
+
   const counts = Object.fromEntries(
     Object.keys(STATUS_CONFIG).map(k => [k, contracts.filter(c => c.status === k).length])
   );
 
   return (
+    <>
     <Layout title="Hợp đồng của tôi">
       <div className="max-w-4xl mx-auto space-y-6">
 
@@ -308,14 +354,20 @@ export default function ContractsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                       {[
                         { icon: <UserIcon size={13}/>, label: 'Bên A — Khách hàng', name: c.clientName },
-                        { icon: <Building2 size={13}/>, label: 'Bên B — Nhà thầu', name: c.contractorName, sub: c.contractorPhone },
+                        { icon: <Building2 size={13}/>, label: 'Bên B — Nhà thầu', name: c.contractorName, sub: c.contractorPhone, link: `/contractor/${c.contractorId}` },
                         { icon: <Shield size={13}/>, label: 'Bên C — ConstructX', name: 'Người chứng thực' },
                       ].map((party, i) => (
                         <div key={i} className="bg-gray-50 rounded-xl p-3">
                           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5 flex items-center gap-1">
                             {party.icon} {party.label}
                           </p>
-                          <p className="text-sm font-semibold text-gray-800">{party.name}</p>
+                          {party.link ? (
+                            <p onClick={() => navigate(party.link)} className="text-sm font-semibold text-primary cursor-pointer hover:underline">
+                              {party.name}
+                            </p>
+                          ) : (
+                            <p className="text-sm font-semibold text-gray-800">{party.name}</p>
+                          )}
                           {party.sub && <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><Phone size={10}/> {party.sub}</p>}
                         </div>
                       ))}
@@ -430,6 +482,28 @@ export default function ContractsPage() {
                             <TrendingUp size={13}/> Tiến độ & Giải ngân
                           </button>
                         )}
+
+                        {/* Đánh giá nhà thầu (COMPLETED) */}
+                        {c.status === 'COMPLETED' && user?.role === 'CUSTOMER' && (
+                          (() => {
+                            const refType = c.projectId ? 'PROJECT' : 'ORDER';
+                            const refId = c.projectId || c.orderId;
+                            const key = `${refType}_${refId}`;
+                            const isReviewed = reviewedItems.has(key);
+                            return isReviewed ? (
+                              <span className="flex items-center gap-1.5 text-xs text-amber-500 font-bold px-3 py-2 bg-amber-50 rounded-xl border border-amber-200">
+                                <Star size={13} fill="currentColor"/> Đã đánh giá
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => { setReviewModal(c); setReviewData({ rating: 5, comment: '' }); }}
+                                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600 transition-colors"
+                              >
+                                <Star size={13}/> Đánh giá nhà thầu
+                              </button>
+                            );
+                          })()
+                        )}
                       </div>
                     </div>
                   </div>
@@ -491,5 +565,54 @@ export default function ContractsPage() {
         )}
       </div>
     </Layout>
+
+    {/* Review Modal */}
+    {reviewModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-100 transition-all duration-300">
+          <h3 className="font-bold text-gray-900 text-lg mb-1 flex items-center gap-2">
+            <Star size={18} className="text-amber-500"/> Đánh giá nhà thầu
+          </h3>
+          <p className="text-sm text-gray-500 mb-5">
+            Dự án: <span className="font-bold text-gray-700">{reviewModal.projectName || reviewModal.orderCode || reviewModal.contractNumber}</span>
+          </p>
+
+          {/* Star rating */}
+          <div className="mb-4">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Điểm đánh giá</p>
+            <div className="flex gap-2">
+              {[1,2,3,4,5].map(s => (
+                <button key={s} onClick={() => setReviewData(d => ({...d, rating: s}))}
+                  className={`text-3xl transition-all hover:scale-110 ${s <= reviewData.rating ? 'text-amber-400' : 'text-gray-200'}`}>
+                  ★
+                </button>
+              ))}
+              <span className="ml-2 text-sm font-bold text-amber-600 self-center">{reviewData.rating}/5</span>
+            </div>
+          </div>
+
+          {/* Comment */}
+          <div className="mb-5">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Nhận xét</p>
+            <textarea rows={4} value={reviewData.comment}
+              onChange={e => setReviewData(d => ({...d, comment: e.target.value}))}
+              placeholder="Nhà thầu thi công như thế nào? Chất lượng, thái độ, tiến độ..."
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-primary resize-none transition-all focus:ring-2 focus:ring-primary/20"/>
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={() => setReviewModal(null)}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
+              Hủy
+            </button>
+            <button onClick={handleSubmitReview} disabled={submittingReview}
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
+              {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
