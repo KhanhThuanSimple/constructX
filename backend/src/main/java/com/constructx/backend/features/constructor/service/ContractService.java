@@ -17,7 +17,9 @@ import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.entity.Wallet;
+import com.constructx.backend.features.wallet.entity.PlatformWallet;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.repository.PlatformWalletRepository;
 import com.constructx.backend.features.wallet.service.WalletCoreManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +56,7 @@ public class ContractService {
     private final NotificationService notificationService;
     private final BidService bidService;
     private final OrderRepository orderRepository;
+    private final PlatformWalletRepository platformWalletRepository;
 
     private User getCurrentUser() {
         return userRepository.findByEmail(
@@ -309,6 +312,9 @@ public class ContractService {
     public ContractResponse updateTerms(Long contractId, String terms, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể cập nhật điều khoản.");
+        }
         c.setTerms(terms);
         if (adminNote != null) c.setAdminNote(adminNote);
         c.getStages().add(stage(c, c.getStatus(),
@@ -322,6 +328,9 @@ public class ContractService {
     public ContractResponse updatePrice(Long contractId, Long newPrice, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể điều chỉnh giá.");
+        }
         Long original = c.getOriginalAgreedPrice() != null ? c.getOriginalAgreedPrice() : c.getAgreedPrice();
         double deviation = Math.abs((double)(newPrice - original) / original);
         if (deviation > MAX_PRICE_CHANGE_RATIO)
@@ -346,6 +355,9 @@ public class ContractService {
     public ContractResponse completeContract(Long contractId, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hoàn thành hợp đồng.");
+        }
         if (c.getStatus() != Contract.Status.ACTIVE)
             throw new RuntimeException("Chi hoan thanh duoc hop dong dang ACTIVE");
 
@@ -353,10 +365,12 @@ public class ContractService {
         long customerEscrow    = c.getCustomerDepositAmount() != null ? c.getCustomerDepositAmount() : 0L;
         long contractorDeposit = c.getContractorDepositAmount() != null ? c.getContractorDepositAmount() : 0L;
 
+        // 5% phí nền tảng
+        long platformFeeAmt = Math.round(agreedPrice * 0.05);
         // 5% warranty hold — giữ lại trong ví nhà thầu (lockedAmount) 6 tháng
         long warrantyAmt  = Math.round(agreedPrice * WARRANTY_HOLD_RATE);
-        // 95% thanh toán ngay
-        long immediateAmt = agreedPrice - warrantyAmt;
+        // 90% giải ngân ngay cho nhà thầu sau khi trừ phí nền tảng 5% và bảo hành 5%
+        long immediateAmt = agreedPrice - platformFeeAmt - warrantyAmt;
 
         // Unlock escrow 100% từ ví Customer (giải phóng lockedAmount)
         if (Boolean.TRUE.equals(c.getCustomerDepositLocked()) && customerEscrow > 0) {
@@ -375,13 +389,27 @@ public class ContractService {
             unlockContractorDeposit(c, "Hop dong hoan thanh");
         }
 
-        // Giải ngân 95% ngay cho nhà thầu
+        // Thu phí hoa hồng 5% chuyển về ví PlatformWallet
+        PlatformWallet platformWallet = platformWalletRepository.findById(1L)
+                .orElseGet(() -> PlatformWallet.builder().id(1L).balance(0L).build());
+        platformWallet.setBalance(platformWallet.getBalance() + platformFeeAmt);
+        platformWalletRepository.save(platformWallet);
+
+        // Ghi nhận transaction phí nền tảng
+        Wallet clientWallet = walletRepository.findByUserId(c.getClient().getId()).orElse(null);
+        if (clientWallet != null) {
+            walletCoreManager.recordTransaction(clientWallet, platformFeeAmt, Transaction.Type.RELEASE, 
+                    "CONSTRUCTX_COMMISSION", "CTR-COMM-" + c.getContractNumber(),
+                    "Khấu trừ 5% phí hoa hồng nền tảng: " + fmtVnd(platformFeeAmt));
+        }
+
+        // Giải ngân 90% ngay cho nhà thầu
         Wallet contractorWallet = walletRepository.findByUserId(c.getContractor().getId())
                 .orElseThrow(() -> new RuntimeException("Vi nha thau khong ton tai"));
 
         walletCoreManager.executeDeposit(contractorWallet, immediateAmt, Transaction.Type.REVENUE,
-                "CONSTRUCTX_ESCROW", "CTR-COMPLETE-95-" + c.getContractNumber(),
-                "Giai ngan 95%% hoan cong HD " + c.getContractNumber());
+                "CONSTRUCTX_ESCROW", "CTR-COMPLETE-90-" + c.getContractNumber(),
+                "Giai ngan 90%% hoan cong (da tru 5%% phi) HD " + c.getContractNumber());
 
         // Giữ 5% warranty: cộng vào balance nhà thầu nhưng lock lại
         walletCoreManager.executeLockForOrder(contractorWallet, warrantyAmt, Transaction.Type.LOCK,
@@ -472,6 +500,10 @@ public class ContractService {
         User user = getCurrentUser();
         Contract c = getContract(contractId);
 
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể ký hợp đồng.");
+        }
+
         if (c.getStatus() != Contract.Status.WAITING_SIGNATURE)
             throw new RuntimeException("Hop dong chua san sang de ky (can Admin duyet truoc)");
 
@@ -544,6 +576,10 @@ public class ContractService {
         User customer = getCurrentUser();
         Contract c = getContract(contractId);
 
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hủy hợp đồng.");
+        }
+
         if (!c.getClient().getId().equals(customer.getId()))
             throw new RuntimeException("Ban khong phai la Khach hang cua hop dong nay");
 
@@ -609,6 +645,10 @@ public class ContractService {
     public ContractResponse cancelByContractor(Long contractId, String reason) {
         User contractor = getCurrentUser();
         Contract c = getContract(contractId);
+
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hủy hợp đồng.");
+        }
 
         if (!c.getContractor().getId().equals(contractor.getId()))
             throw new RuntimeException("Ban khong phai la Nha thau cua hop dong nay");

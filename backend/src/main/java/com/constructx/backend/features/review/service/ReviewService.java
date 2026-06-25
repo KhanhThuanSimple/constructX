@@ -9,6 +9,7 @@ import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.constructor.repository.ContractRepository;
 import com.constructx.backend.features.project.repository.ProjectRepository;
 import com.constructx.backend.features.order.repository.OrderRepository;
+import com.constructx.backend.admin.repository.DisputeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +29,7 @@ public class ReviewService {
     private final ContractRepository contractRepository;
     private final ProjectRepository projectRepository;
     private final OrderRepository orderRepository;
+    private final DisputeRepository disputeRepository;
 
     @Transactional
     public ReviewResponse createReview(ReviewRequest request) {
@@ -84,6 +86,9 @@ public class ReviewService {
                 .referenceType(request.getReferenceType())
                 .referenceId(request.getReferenceId())
                 .rating(request.getRating())
+                .qualityScore(request.getQualityScore() != null ? request.getQualityScore() : request.getRating())
+                .communicationScore(request.getCommunicationScore() != null ? request.getCommunicationScore() : request.getRating())
+                .progressScore(request.getProgressScore() != null ? request.getProgressScore() : request.getRating())
                 .comment(request.getComment())
                 .build();
 
@@ -96,11 +101,105 @@ public class ReviewService {
     }
 
     public Map<String, Object> getUserRatingSummary(Long userId) {
-        double avg = reviewRepository.findAverageRatingByRevieweeId(userId);
-        long count = reviewRepository.countByRevieweeId(userId);
-        return Map.of(
-                "averageRating", Math.round(avg * 10.0) / 10.0,
-                "totalReviews", count
+        List<Review> reviews = reviewRepository.findByRevieweeIdOrderByCreatedAtDesc(userId);
+        double avgRating = 0;
+        double avgQuality = 0;
+        double avgCommunication = 0;
+        double avgProgress = 0;
+        long totalReviews = reviews.size();
+
+        if (totalReviews > 0) {
+            double sumRating = 0;
+            double sumQuality = 0;
+            double sumCommunication = 0;
+            double sumProgress = 0;
+            long countQuality = 0;
+            long countCommunication = 0;
+            long countProgress = 0;
+
+            for (Review r : reviews) {
+                sumRating += r.getRating();
+                if (r.getQualityScore() != null) {
+                    sumQuality += r.getQualityScore();
+                    countQuality++;
+                }
+                if (r.getCommunicationScore() != null) {
+                    sumCommunication += r.getCommunicationScore();
+                    countCommunication++;
+                }
+                if (r.getProgressScore() != null) {
+                    sumProgress += r.getProgressScore();
+                    countProgress++;
+                }
+            }
+
+            avgRating = sumRating / totalReviews;
+            avgQuality = countQuality > 0 ? sumQuality / countQuality : avgRating;
+            avgCommunication = countCommunication > 0 ? sumCommunication / countCommunication : avgRating;
+            avgProgress = countProgress > 0 ? sumProgress / countProgress : avgRating;
+        }
+
+        // Fetch contractor-specific stats
+        List<com.constructx.backend.features.constructor.entity.Contract> contracts = 
+                contractRepository.findByContractorIdOrderByCreatedAtDesc(userId);
+        
+        long totalContracts = contracts.size();
+        long completedContracts = contracts.stream()
+                .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.COMPLETED)
+                .count();
+        long cancelledContracts = contracts.stream()
+                .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.CANCELLED)
+                .count();
+        
+        long totalDisputes = disputeRepository.countByContractorId(userId);
+        long pendingDisputes = disputeRepository.countByContractorIdAndStatus(userId, com.constructx.backend.admin.entity.Dispute.Status.PENDING);
+        long resolvedDisputes = totalDisputes - pendingDisputes;
+
+        double completionRate = totalContracts > 0 ? ((double) completedContracts / totalContracts) * 100.0 : 100.0;
+        double disputeRate = totalContracts > 0 ? ((double) totalDisputes / totalContracts) * 100.0 : 0.0;
+
+        long totalProjectValue = contracts.stream()
+                .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.ACTIVE || 
+                             c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.COMPLETED)
+                .mapToLong(c -> c.getAgreedPrice() != null ? c.getAgreedPrice() : 0L)
+                .sum();
+
+        long earnedRevenue = contracts.stream()
+                .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.COMPLETED)
+                .mapToLong(c -> c.getAgreedPrice() != null ? c.getAgreedPrice() : 0L)
+                .sum();
+
+        // Calculate AI Trust Score
+        double trustRating = totalReviews > 0 ? avgRating : 5.0;
+        double ratingPart = trustRating * 20.0 * 0.4;
+        double completionPart = completionRate * 0.3;
+        double disputeDeduction = disputeRate * 20.0 * 0.2;
+        double responseFactor = 1.0;
+        double responsePart = responseFactor * 10.0;
+        double baseScore = 20.0;
+
+        double trustScoreRaw = ratingPart + completionPart - disputeDeduction + responsePart + baseScore;
+        int aiTrustScore = (int) Math.max(0.0, Math.min(100.0, Math.round(trustScoreRaw)));
+        boolean isVerified = aiTrustScore >= 85;
+
+        return Map.ofEntries(
+                Map.entry("averageRating", Math.round(avgRating * 10.0) / 10.0),
+                Map.entry("totalReviews", totalReviews),
+                Map.entry("qualityScore", Math.round(avgQuality * 10.0) / 10.0),
+                Map.entry("communicationScore", Math.round(avgCommunication * 10.0) / 10.0),
+                Map.entry("progressScore", Math.round(avgProgress * 10.0) / 10.0),
+                Map.entry("totalContracts", totalContracts),
+                Map.entry("completedContracts", completedContracts),
+                Map.entry("cancelledContracts", cancelledContracts),
+                Map.entry("totalDisputes", totalDisputes),
+                Map.entry("pendingDisputes", pendingDisputes),
+                Map.entry("resolvedDisputes", resolvedDisputes),
+                Map.entry("completionRate", Math.round(completionRate * 10.0) / 10.0),
+                Map.entry("disputeRate", Math.round(disputeRate * 10.0) / 10.0),
+                Map.entry("totalProjectValue", totalProjectValue),
+                Map.entry("earnedRevenue", earnedRevenue),
+                Map.entry("aiTrustScore", aiTrustScore),
+                Map.entry("isVerified", isVerified)
         );
     }
 
@@ -125,6 +224,9 @@ public class ReviewService {
                 .referenceId(r.getReferenceId())
                 .rating(r.getRating())
                 .comment(r.getComment())
+                .qualityScore(r.getQualityScore())
+                .communicationScore(r.getCommunicationScore())
+                .progressScore(r.getProgressScore())
                 .createdAt(r.getCreatedAt())
                 .build();
     }

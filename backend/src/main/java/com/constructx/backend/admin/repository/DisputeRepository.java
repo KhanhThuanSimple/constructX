@@ -12,4 +12,8 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
     List<Dispute> findAllByOrderByCreatedAtDesc();
 
     long countByStatus(Dispute.Status status);
+
+    long countByContractorId(Long contractorId);
+
+    long countByContractorIdAndStatus(Long contractorId, Dispute.Status status);
 }

@@ -9,8 +9,11 @@ import com.constructx.backend.features.chat.enums.RoomType;
 import com.constructx.backend.features.chat.repository.ChatMessageRepository;
 import com.constructx.backend.features.chat.repository.ChatRoomMemberRepository;
 import com.constructx.backend.features.chat.repository.ChatRoomRepository;
+import com.constructx.backend.features.chat.enums.MessageType;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.service.UserService;
+import com.constructx.backend.features.notification.entity.Notification;
+import com.constructx.backend.features.notification.service.NotificationService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,8 @@ public class ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
     private final UserService userService;
+    private final NotificationService notificationService;
+    private final com.constructx.backend.features.user.repository.UserRepository userRepository;
 
     @Value("${chat.rate-limit.max-messages:30}")
     private int maxMessagesPerMinute;
@@ -174,6 +179,11 @@ public class ChatService {
 
         // Send push notifications to offline members
         sendPushNotifications(room.getId(), senderId, response);
+
+        // AI Risk Monitoring: Scan for high dispute risk keywords
+        if (room.getRoomType() == RoomType.DIRECT || room.getRoomType() == RoomType.SUPPORT) {
+            checkForDisputeRisk(room, request.getContent(), senderId);
+        }
 
         log.info("Message sent in room {} by user {}", room.getId(), senderId);
         return response;
@@ -530,5 +540,53 @@ public class ChatService {
                 "/topic/rooms/" + room.getId() + "/users/status",
                 statusUpdate
         ));
+    }
+
+    private void checkForDisputeRisk(ChatRoom room, String content, Long senderId) {
+        if (content == null || content.isBlank()) return;
+        String lowerContent = content.toLowerCase();
+        boolean hasRisk = lowerContent.contains("sai vật liệu") || 
+                          lowerContent.contains("chậm tiến độ") || 
+                          lowerContent.contains("hoàn tiền") || 
+                          lowerContent.contains("tranh chấp") ||
+                          lowerContent.contains("gian lận") ||
+                          lowerContent.contains("không đúng thiết kế") ||
+                          lowerContent.contains("trễ hạn");
+        if (hasRisk) {
+            log.warn("Dispute Risk = HIGH detected in room {} for message content: {}", room.getId(), content);
+
+            // 1. Tạo tin nhắn SYSTEM chèn vào phòng chat
+            ChatMessage systemMsg = ChatMessage.builder()
+                    .room(room)
+                    .senderId(0L) // 0 đại diện cho SYSTEM/HE THONG
+                    .messageType(MessageType.SYSTEM)
+                    .content("⚠️ Cảnh báo rủi ro (Dispute Risk = HIGH): Hệ thống phát hiện từ khóa xung đột lớn (vật liệu, tiến độ, hoàn tiền). Vui lòng thương lượng hòa nhã hoặc nhấn nút 'Khiếu nại' trên hợp đồng để mời Admin phân xử.")
+                    .isPinned(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            systemMsg = chatMessageRepository.save(systemMsg);
+            
+            // Broadcast tin nhắn SYSTEM tới phòng chat qua WebSocket
+            ChatMessageResponse systemResponse = buildMessageResponse(systemMsg);
+            messagingTemplate.convertAndSend(
+                    "/topic/rooms/" + room.getId(),
+                    systemResponse
+            );
+
+            // 2. Gửi thông báo hệ thống đến các thành viên và Admin
+            try {
+                List<ChatRoomMember> members = chatRoomMemberRepository.findByRoomId(room.getId());
+                String alertMsg = "[Cảnh báo hệ thống] Phát hiện nguy cơ tranh chấp cao (Dispute Risk = HIGH) trong phòng chat #" + room.getId();
+                for (ChatRoomMember m : members) {
+                    userRepository.findById(m.getUserId()).ifPresent(user -> 
+                        notificationService.createNotification(user, Notification.NotifType.DISPUTE, alertMsg)
+                    );
+                }
+                notificationService.createNotificationForAdmins(Notification.NotifType.DISPUTE, 
+                        alertMsg + " - Cần Admin theo dõi hỗ trợ.");
+            } catch (Exception e) {
+                log.error("Lỗi khi tạo thông báo cảnh báo tranh chấp", e);
+            }
+        }
     }
 }

@@ -42,6 +42,15 @@ public class Review {
     @Column(nullable = false)
     private Integer rating; // 1–5
 
+    @Column(name = "quality_score")
+    private Integer qualityScore; // 1-5 sao về chất lượng
+
+    @Column(name = "communication_score")
+    private Integer communicationScore; // 1-5 sao về giao tiếp
+
+    @Column(name = "progress_score")
+    private Integer progressScore; // 1-5 sao về tiến độ
+
     @Column(length = 1000)
     private String comment;
 

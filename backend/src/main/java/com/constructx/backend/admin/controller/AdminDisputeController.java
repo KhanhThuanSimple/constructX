@@ -47,4 +47,14 @@ public class AdminDisputeController {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    @PostMapping("/{id}/ai-summary")
+    public ResponseEntity<ApiResponse<String>> getAiSummary(@PathVariable Long id) {
+        try {
+            String summary = adminDisputeService.generateDisputeAiSummary(id);
+            return ResponseEntity.ok(ApiResponse.ok("Tạo tóm tắt tranh chấp từ AI thành công", summary));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
 }

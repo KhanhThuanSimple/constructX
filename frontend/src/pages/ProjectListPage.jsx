@@ -160,7 +160,7 @@ const ProjectListPage = () => {
                       <span className="text-[10px] text-gray-400">#{p.id}</span>
                       <div className="flex gap-2">
                         {isContractor ? (
-                          <button onClick={() => navigate(`/projectsv2/${p.id}`)}
+                          <button onClick={() => navigate(`/projects/${p.id}`)}
                             className="flex items-center gap-1.5 text-xs font-medium border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-50">
                             <Eye size={13}/> Xem chi tiết
                           </button>

@@ -12,6 +12,8 @@ public class DisputeResponse {
     private Long id;
     private Long projectId;
     private String projectName;
+    private Long contractId;
+    private String contractNumber;
     private String customerName;
     private String contractorName;
     private String reason;
@@ -20,6 +22,7 @@ public class DisputeResponse {
     private String resolution;
     private String resolutionType;
     private Long refundAmount;
+    private Long chatRoomId;
     private LocalDateTime createdAt;
     private List<DisputeMessageResponse> messages;
 }

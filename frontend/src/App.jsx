@@ -12,13 +12,15 @@ import ShopPage from './pages/shop/ShopPage';
 import ShopProductDetailPage from './pages/shop/ShopProductDetailPage';
 import AdminProductsPage from './pages/AdminProductsPage';
 import ProfilePage from './pages/ProfilePage';
-import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
 import ContractorProfilePage from './pages/ContractorProfilePage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
-import AdminUsersPage from './pages/AdminUsersPage';
+import CreateProjectPage from './pages/CreateProjectPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProjectListPage from './pages/ProjectListPage';
+import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ChatPage from './pages/ChatPage';
@@ -69,16 +71,28 @@ function App() {
         } />
 
         <Route path="/dashboard" element={<Navigate to="/" />} />
-        <Route path="/projects" element={<Navigate to="/" />} />
-        <Route path="/projects/new" element={<Navigate to="/" />} />
-        <Route path="/projects/:id" element={<Navigate to="/" />} />
-        <Route path="/projects/browse" element={<Navigate to="/" />} />
-
-        <Route path="/production-log" element={
-          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <ProductionLogPage />
+        <Route path="/projects" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
+            <ProjectListPage />
           </ProtectedRoute>
         } />
+        <Route path="/projects/new" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER']}>
+            <CreateProjectPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/:id" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/browse" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProjectMarketplacePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/production-log" element={<Navigate to="/contracts" replace />} />
 
         <Route path="/portfolio" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
@@ -140,7 +154,7 @@ function App() {
 
         <Route path="/admin/users" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <AdminUsersPage />
+            <AdminAllUsersPage />
           </ProtectedRoute>
         } />
         <Route path="/admin/all-users" element={
