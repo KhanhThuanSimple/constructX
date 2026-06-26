@@ -22,3 +22,8 @@ dist/
 
 # Java upgrade generated files
 .github/java-upgrade/backend/target/classes/application.yml
+
+.env
+backend/src/main/.env
+frontend/test.js
+temp_repo/

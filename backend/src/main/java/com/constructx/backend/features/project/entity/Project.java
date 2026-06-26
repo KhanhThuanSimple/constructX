@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -52,6 +53,9 @@ public class Project {
     private LocalDateTime approvedAt;
 
     private LocalDateTime createdAt;
+
+    @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
+    private List<String> imageUrls;
 
     @ManyToOne
     @JoinColumn(name = "user_id")

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import {
@@ -27,22 +27,51 @@ const fmt = (n) =>
 
 export default function CreateProjectPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: '', address: '', city: '', district: '', street: '',
+    name: location.state?.prefillProduct ? location.state.prefillProduct.name : '',
+    address: '', city: '', district: '', street: '',
     description: '', budgetMin: 50000000, budgetMax: 100000000, bidType: 'OPEN',
-    selectedProducts: [], customRequirements: '',
+    selectedProducts: location.state?.prefillProduct ? [{ ...location.state.prefillProduct, qty: 1, customNote: '' }] : [],
+    customRequirements: '',
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Address data
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(() => {});
+  }, []);
+
+  const handleCityChange = (e) => {
+    const cityName = e.target.value;
+    setFormData(prev => ({ ...prev, city: cityName, district: '' }));
+    
+    const p = provinces.find(x => x.name === cityName);
+    if (p) {
+      fetch(`https://provinces.open-api.vn/api/p/${p.code}?depth=2`)
+        .then(res => res.json())
+        .then(data => setDistricts(data.districts || []))
+        .catch(() => setDistricts([]));
+    } else {
+      setDistricts([]);
+    }
+  };
 
   // Sản phẩm mẫu từ admin
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [productCategory, setProductCategory] = useState('');
+  const [productCategory, setProductCategory] = useState(location.state?.prefillProduct?.category || '');
 
   useEffect(() => {
     if (step === 2) fetchCatalog();
@@ -89,20 +118,82 @@ export default function CreateProjectPage() {
     setSelectedFiles(prev => [...prev, ...Array.from(e.target.files)]);
   };
 
+  const uploadImageToCloudinary = async (file) => {
+    try {
+      const cloudName = 'dtufvt361';
+      const apiKey = '891517336858882';
+      const apiSecret = 'Sp6F1ZaE4r4dYMi5Lo-goe6TBMQ';
+      
+      const timestamp = Math.round((new Date).getTime() / 1000);
+      const signatureString = `timestamp=${timestamp}${apiSecret}`;
+      
+      // Hash SHA-1 cho signature
+      const encoder = new TextEncoder();
+      const data = encoder.encode(signatureString);
+      const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('api_key', apiKey);
+      uploadData.append('timestamp', timestamp);
+      uploadData.append('signature', signature);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: uploadData,
+        }
+      );
+
+      const dataRes = await response.json();
+      if (!response.ok) {
+        toast.error('Cloudinary từ chối ảnh: ' + (dataRes.error?.message || 'Không rõ nguyên nhân'));
+        return null;
+      }
+      return dataRes.secure_url;
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh lên: ' + error.message);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) { toast.error('Vui lòng nhập tên dự án'); setStep(1); return; }
     setLoading(true);
     try {
+      let uploadedImageUrls = [];
+      
+      // Lấy ảnh từ các sản phẩm mẫu đã chọn (nếu có)
+      if (formData.selectedProducts.length > 0) {
+        formData.selectedProducts.forEach(p => {
+          if (p.imageUrl && !uploadedImageUrls.includes(p.imageUrl)) {
+            uploadedImageUrls.push(p.imageUrl);
+          }
+        });
+      }
+
+      if (selectedFiles.length > 0) {
+        toast.loading('Đang upload ảnh đính kèm...', { id: 'upload-project-images' });
+        for (const file of selectedFiles) {
+          const url = await uploadImageToCloudinary(file);
+          if (url) uploadedImageUrls.push(url);
+        }
+        toast.dismiss('upload-project-images');
+      }
+
       // Gộp description: thêm thông tin sản phẩm đã chọn
       let desc = formData.description || '';
       if (formData.selectedProducts.length > 0) {
-        desc += '\n\n--- SẢN PHẨM MẪU YÊU CẦU ---\n';
+        desc += '\n\n';
         formData.selectedProducts.forEach(p => {
           desc += `• ${p.name} (x${p.qty})${p.customNote ? ' — ' + p.customNote : ''}\n`;
         });
       }
       if (formData.customRequirements) {
-        desc += '\n--- YÊU CẦU RIÊNG ---\n' + formData.customRequirements;
+        desc += '\n' + formData.customRequirements;
       }
 
       const payload = {
@@ -112,11 +203,13 @@ export default function CreateProjectPage() {
         budgetMin: formData.budgetMin,
         budgetMax: formData.budgetMax,
         bidType: formData.bidType,
+        imageUrls: uploadedImageUrls,
       };
       await api.post('/projects', payload);
       toast.success('Đăng dự án thành công!');
       navigate('/projects');
     } catch {
+      toast.dismiss('upload-project-images');
       toast.error('Lỗi khi tạo dự án, vui lòng thử lại');
     } finally {
       setLoading(false);
@@ -174,25 +267,33 @@ export default function CreateProjectPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="field-label">Tỉnh / Thành phố</label>
-                  <input type="text" value={formData.city}
-                    onChange={e => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="VD: TP. Hồ Chí Minh" className="field" />
+                  <select value={formData.city} onChange={handleCityChange} className="field">
+                    <option value="">Chọn Tỉnh / Thành phố</option>
+                    {provinces.map(p => (
+                      <option key={p.code} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="field-label">Quận / Huyện</label>
-                  <input type="text" value={formData.district}
+                  <select
+                    value={formData.district}
                     onChange={e => setFormData({ ...formData, district: e.target.value })}
-                    placeholder="VD: Quận 1" className="field" />
+                    className="field"
+                    disabled={!formData.city}
+                  >
+                    <option value="">Chọn Quận / Huyện</option>
+                    {districts.map(d => (
+                      <option key={d.code} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>
                 <label className="field-label">Địa chỉ chi tiết</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 text-gray-400" size={16} />
-                  <input type="text" value={formData.street}
-                    onChange={e => setFormData({ ...formData, street: e.target.value })}
-                    placeholder="Số nhà, tên đường..." className="field pl-9" />
-                </div>
+                <input type="text" value={formData.street}
+                  onChange={e => setFormData({ ...formData, street: e.target.value })}
+                  placeholder="Số nhà, tên đường..." className="field" />
               </div>
             </div>
           )}
@@ -223,7 +324,6 @@ export default function CreateProjectPage() {
                           }
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
-                            <p className="text-[10px] text-green-600 font-medium">{fmt(p.price)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -286,7 +386,6 @@ export default function CreateProjectPage() {
                           }
                         </div>
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{p.name}</p>
-                        <p className="text-xs font-bold text-primary mt-1">{fmt(p.price)}</p>
                         {selected && (
                           <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-primary">
                             <CheckCircle size={11} /> Đã chọn
@@ -340,13 +439,8 @@ export default function CreateProjectPage() {
                     {formData.selectedProducts.map(p => (
                       <div key={p.id} className="flex justify-between text-blue-700 text-xs">
                         <span>{p.name} × {p.qty}</span>
-                        <span className="font-semibold">{fmt(p.price * p.qty)}</span>
                       </div>
                     ))}
-                    <div className="border-t border-blue-200 mt-1 pt-1 flex justify-between font-bold text-blue-900">
-                      <span>Tham khảo sản phẩm:</span>
-                      <span>{fmt(formData.selectedProducts.reduce((s, p) => s + p.price * p.qty, 0))}</span>
-                    </div>
                   </div>
                 </div>
               )}
