@@ -279,6 +279,22 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             )}
+
+            {project.imageUrls && project.imageUrls.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
+                  <FileText size={13} /> Tài liệu đính kèm
+                </p>
+                <div className="flex gap-4 overflow-x-auto pb-4">
+                  {project.imageUrls.map((url, i) => (
+                    <div key={i} onClick={() => window.open(url, '_blank')}
+                         className="shrink-0 w-64 h-48 bg-gray-100 rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                      <img src={url} alt={`Đính kèm ${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

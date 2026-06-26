@@ -212,7 +212,7 @@ const CustomerHomePage = () => {
               <p className="text-sm text-gray-500">Các dự án mới nhất đang chờ nhà thầu báo giá</p>
             </div>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/projects')}
               className="text-sm font-semibold text-[#1a4f3a] flex items-center gap-1 hover:gap-2 transition-all"
             >
               Xem tất cả <ChevronRight size={16} />
@@ -239,17 +239,33 @@ const CustomerHomePage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredProjects.map((project) => (
+              {filteredProjects.map((project) => {
+                const statusMap = {
+                  DRAFT: { label: 'Nháp', cls: 'bg-gray-100 text-gray-500' },
+                  OPEN: { label: 'Đang tuyển', cls: 'bg-green-50 text-green-700' },
+                  IN_PROGRESS: { label: 'Đang thi công', cls: 'bg-amber-50 text-amber-700' },
+                  COMPLETED: { label: 'Hoàn thành', cls: 'bg-blue-50 text-blue-700' },
+                  CLOSED: { label: 'Đã đóng', cls: 'bg-gray-100 text-gray-500' },
+                  CANCELLED: { label: 'Đã hủy', cls: 'bg-red-50 text-red-600' },
+                };
+                const st = statusMap[project.status] || statusMap.DRAFT;
+                return (
                 <div
                   key={project.id}
                   onClick={() => navigate(`/projects/${project.id}`)}
                   className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden cursor-pointer"
                 >
+                  {/* Ảnh dự án */}
+                  {project.imageUrls && project.imageUrls.length > 0 && (
+                    <div className="h-36 w-full bg-gray-100 border-b border-gray-100">
+                      <img src={project.imageUrls[0]} alt={project.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        Đang tuyển
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${st.cls}`}>
+                        {project.status === 'OPEN' && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                        {st.label}
                       </span>
                       <span className="text-xs text-gray-400 flex items-center gap-1">
                         <Clock size={11} /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}
@@ -260,7 +276,6 @@ const CustomerHomePage = () => {
                     </h3>
                     <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
                       <span className="flex items-center gap-1"><MapPin size={12} /> {project.address || 'Toàn quốc'}</span>
-                      <span>{project.area ? `${project.area} m²` : ''}</span>
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-2 mb-4">{project.description || 'Không có mô tả.'}</p>
                     <div className="flex items-center justify-between pt-3 border-t border-gray-50">
@@ -276,7 +291,8 @@ const CustomerHomePage = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

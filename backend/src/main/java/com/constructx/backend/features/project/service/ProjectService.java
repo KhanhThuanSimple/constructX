@@ -69,6 +69,7 @@ public class ProjectService {
                 .budgetMin(request.getBudgetMin())
                 .budgetMax(request.getBudgetMax())
                 .bidType(bidType)
+                .imageUrls(request.getImageUrls())
                 .status(Project.Status.DRAFT)
                 .approvalStatus(Project.ApprovalStatus.PENDING)
                 .build();

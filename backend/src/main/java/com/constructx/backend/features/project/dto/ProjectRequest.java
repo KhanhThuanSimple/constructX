@@ -1,5 +1,6 @@
 package com.constructx.backend.features.project.dto;
 
+import java.util.List;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -16,4 +17,5 @@ public class ProjectRequest {
     private Long budgetMin;
     private Long budgetMax;
     private String bidType;  // OPEN or DIRECT
+    private List<String> imageUrls;
 }
