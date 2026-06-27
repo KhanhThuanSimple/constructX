@@ -17,6 +17,7 @@ import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.entity.Wallet;
+import com.constructx.backend.features.wallet.entity.PlatformWallet;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
 import com.constructx.backend.features.wallet.entity.PlatformWallet;
 import com.constructx.backend.features.wallet.entity.PlatformTransaction;
@@ -319,6 +320,9 @@ public class ContractService {
     public ContractResponse updateTerms(Long contractId, String terms, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể cập nhật điều khoản.");
+        }
         c.setTerms(terms);
         if (adminNote != null) c.setAdminNote(adminNote);
         c.getStages().add(stage(c, c.getStatus(),
@@ -332,6 +336,9 @@ public class ContractService {
     public ContractResponse updatePrice(Long contractId, Long newPrice, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể điều chỉnh giá.");
+        }
         Long original = c.getOriginalAgreedPrice() != null ? c.getOriginalAgreedPrice() : c.getAgreedPrice();
         double deviation = Math.abs((double)(newPrice - original) / original);
         if (deviation > MAX_PRICE_CHANGE_RATIO)
@@ -356,6 +363,9 @@ public class ContractService {
     public ContractResponse completeContract(Long contractId, String adminNote) {
         User admin = getCurrentUser();
         Contract c = getContract(contractId);
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hoàn thành hợp đồng.");
+        }
         if (c.getStatus() != Contract.Status.ACTIVE)
             throw new RuntimeException("Chi hoan thanh duoc hop dong dang ACTIVE");
 
@@ -415,8 +425,8 @@ public class ContractService {
                 .orElseThrow(() -> new RuntimeException("Vi nha thau khong ton tai"));
 
         walletCoreManager.executeDeposit(contractorWallet, immediateAmt, Transaction.Type.REVENUE,
-                "CONSTRUCTX_ESCROW", "CTR-COMPLETE-95-" + c.getContractNumber(),
-                "Giai ngan 95%% hoan cong HD " + c.getContractNumber());
+                "CONSTRUCTX_ESCROW", "CTR-COMPLETE-90-" + c.getContractNumber(),
+                "Giai ngan 90%% hoan cong (da tru 5%% phi) HD " + c.getContractNumber());
 
         // Giữ 5% warranty: cộng vào balance nhà thầu nhưng lock lại
         walletCoreManager.executeLockForOrder(contractorWallet, warrantyAmt, Transaction.Type.LOCK,
@@ -507,6 +517,10 @@ public class ContractService {
         User user = getCurrentUser();
         Contract c = getContract(contractId);
 
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể ký hợp đồng.");
+        }
+
         if (c.getStatus() != Contract.Status.WAITING_SIGNATURE)
             throw new RuntimeException("Hop dong chua san sang de ky (can Admin duyet truoc)");
 
@@ -579,6 +593,10 @@ public class ContractService {
         User customer = getCurrentUser();
         Contract c = getContract(contractId);
 
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hủy hợp đồng.");
+        }
+
         if (!c.getClient().getId().equals(customer.getId()))
             throw new RuntimeException("Ban khong phai la Khach hang cua hop dong nay");
 
@@ -644,6 +662,10 @@ public class ContractService {
     public ContractResponse cancelByContractor(Long contractId, String reason) {
         User contractor = getCurrentUser();
         Contract c = getContract(contractId);
+
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể hủy hợp đồng.");
+        }
 
         if (!c.getContractor().getId().equals(contractor.getId()))
             throw new RuntimeException("Ban khong phai la Nha thau cua hop dong nay");

@@ -102,8 +102,15 @@ const ProjectListPage = () => {
               const apCfg = APPROVAL_CFG[p.approvalStatus] || APPROVAL_CFG.PENDING;
               return (
                 <div key={p.id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden">
-                  <div className="p-5">
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                  
+                  {p.imageUrls && p.imageUrls.length > 0 && (
+                    <div className="h-40 w-full bg-gray-100 border-b border-gray-100 shrink-0">
+                      <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
+                  <div className="p-5 flex-1 flex flex-col">
                     {/* Badges */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${stCfg.cls}`}>
@@ -160,7 +167,7 @@ const ProjectListPage = () => {
                       <span className="text-[10px] text-gray-400">#{p.id}</span>
                       <div className="flex gap-2">
                         {isContractor ? (
-                          <button onClick={() => navigate(`/projectsv2/${p.id}`)}
+                          <button onClick={() => navigate(`/projects/${p.id}`)}
                             className="flex items-center gap-1.5 text-xs font-medium border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-50">
                             <Eye size={13}/> Xem chi tiết
                           </button>

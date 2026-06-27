@@ -68,6 +68,9 @@ public class DisbursementService {
             throw new RuntimeException("Ban khong phai nha thau cua hop dong nay");
         if (contract.getStatus() != Contract.Status.ACTIVE)
             throw new RuntimeException("Chi yeu cau giai ngan khi hop dong dang ACTIVE");
+        if (Boolean.TRUE.equals(contract.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể tạo yêu cầu giải ngân.");
+        }
 
         // Kiểm tra tiến độ thực tế
         int currentProgress = constructionLogRepository
@@ -153,6 +156,9 @@ public class DisbursementService {
         DisbursementRequest req = getDisbursement(requestId);
         if (req.getStatus() != DisbursementRequest.Status.PENDING)
             throw new RuntimeException("Yeu cau nay da duoc xu ly roi");
+        if (Boolean.TRUE.equals(req.getContract().getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể kiểm duyệt giải ngân.");
+        }
         if (Boolean.TRUE.equals(req.getAdminVerified()))
             throw new RuntimeException("Yeu cau nay da duoc Admin xac nhan roi");
 
@@ -187,6 +193,9 @@ public class DisbursementService {
 
         if (!contract.getClient().getId().equals(client.getId()))
             throw new RuntimeException("Ban khong phai khach hang cua hop dong nay");
+        if (Boolean.TRUE.equals(contract.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể phê duyệt giải ngân.");
+        }
         if (req.getStatus() != DisbursementRequest.Status.PENDING)
             throw new RuntimeException("Yeu cau nay da duoc xu ly roi");
         if (!Boolean.TRUE.equals(req.getAdminVerified()))

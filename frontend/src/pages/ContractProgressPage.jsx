@@ -42,7 +42,7 @@ function getDisbStatus(d) {
 }
 
 // Pipeline steps component
-function DisbPipeline({ d, isAdmin, isCustomer, onAdminVerify, onApprove, onReject, onUnlock, submitting }) {
+function DisbPipeline({ d, isAdmin, isCustomer, onAdminVerify, onApprove, onReject, onUnlock, submitting, isDisputed }) {
   const steps = [
     { key: 'sent',     label: 'Nhà thầu gửi',    done: true },
     { key: 'verify',   label: 'Admin xác nhận',   done: !!d.adminVerified },
@@ -82,8 +82,8 @@ function DisbPipeline({ d, isAdmin, isCustomer, onAdminVerify, onApprove, onReje
       <div className="flex flex-wrap gap-2">
         {/* Bước 2: Admin verify */}
         {isAdmin && d.status === 'PENDING' && !d.adminVerified && (
-          <button onClick={() => onAdminVerify(d.id)} disabled={submitting === d.id}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 disabled:opacity-60">
+          <button onClick={() => onAdminVerify(d.id)} disabled={submitting === d.id || isDisputed}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed">
             <ShieldCheck size={13}/> {submitting === d.id ? 'Đang xử lý...' : 'Admin xác nhận hợp lệ'}
           </button>
         )}
@@ -91,12 +91,12 @@ function DisbPipeline({ d, isAdmin, isCustomer, onAdminVerify, onApprove, onReje
         {/* Bước 3: Customer approve (chỉ sau Admin verify) */}
         {isCustomer && d.status === 'PENDING' && d.adminVerified && (
           <>
-            <button onClick={() => onApprove(d.id)} disabled={submitting === d.id}
-              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-60">
+            <button onClick={() => onApprove(d.id)} disabled={submitting === d.id || isDisputed}
+              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
               <CheckCircle2 size={13}/> {submitting === d.id ? 'Đang duyệt...' : 'Duyệt giải ngân'}
             </button>
-            <button onClick={() => onReject(d.id)} disabled={submitting === d.id}
-              className="flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 disabled:opacity-60">
+            <button onClick={() => onReject(d.id)} disabled={submitting === d.id || isDisputed}
+              className="flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed">
               <X size={13}/> Từ chối
             </button>
           </>
@@ -104,8 +104,8 @@ function DisbPipeline({ d, isAdmin, isCustomer, onAdminVerify, onApprove, onReje
 
         {/* Bước 5: Unlock locked (Admin hoặc Customer) */}
         {(isAdmin || isCustomer) && d.status === 'APPROVED' && !d.fullyUnlocked && d.lockedAmount > 0 && (
-          <button onClick={() => onUnlock(d.id)} disabled={submitting === d.id}
-            className="flex items-center gap-1.5 px-4 py-2 border border-amber-300 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-50 disabled:opacity-60">
+          <button onClick={() => onUnlock(d.id)} disabled={submitting === d.id || isDisputed}
+            className="flex items-center gap-1.5 px-4 py-2 border border-amber-300 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed">
             <Unlock size={13}/> Mở khóa {fmt(d.lockedAmount)}
           </button>
         )}
@@ -143,6 +143,13 @@ export default function ContractProgressPage() {
   const [progress, setProgress]           = useState(0);
   const [loading, setLoading]             = useState(true);
   const [activeTab, setActiveTab]         = useState('logs');
+
+  // Tranh chấp & Đánh giá
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeForm, setDisputeForm] = useState({ reason: '', amount: '' });
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, qualityScore: 5, communicationScore: 5, progressScore: 5, comment: '' });
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   // Modals
   const [showLogModal, setShowLogModal]   = useState(false);
@@ -186,12 +193,24 @@ export default function ContractProgressPage() {
         api.get(`/contracts/${contractId}/construction-logs`),
         api.get(`/contracts/${contractId}/disbursements`),
       ]);
-      setContract(cRes.data.data);
-      setProgress(cRes.data.data.progressPercent || 0);
-      setLogs(lRes.data.data || []);
-      setDisbursements(dRes.data.data || []);
-    } catch (e) {
-      toast.error('Không thể tải dữ liệu hợp đồng');
+
+      const contractData = contractRes.data.data;
+      setContract(contractData);
+      setLogs(logsRes.data.data || []);
+      setDisbursements(disbRes.data.data || []);
+      setProgress(progressRes.data.data || 0);
+
+      if (contractData && contractData.status === 'COMPLETED') {
+        const projId = contractData.projectId || (contractData.project && contractData.project.id) || contractId;
+        try {
+          const checkRes = await api.get(`/reviews/check?referenceType=PROJECT&referenceId=${projId}`);
+          setHasReviewed(checkRes.data.data);
+        } catch (e) {
+          console.error("Lỗi check review", e);
+        }
+      }
+    } catch {
+      toast.error('Không thể tải dữ liệu tiến độ');
     } finally {
       setLoading(false);
     }
@@ -366,7 +385,57 @@ export default function ContractProgressPage() {
     }
   };
 
-  // Tính toán số liệu giải ngân cho Header
+  const submitDispute = async () => {
+    if (!disputeForm.reason.trim()) return toast.error('Vui lòng nhập lý do tranh chấp');
+    setSubmitting('dispute');
+    try {
+      await api.post('/disputes', {
+        contractJobId: Number(contractId),
+        reason: disputeForm.reason,
+        amount: disputeForm.amount ? Number(disputeForm.amount) : undefined
+      });
+      toast.success('⚠️ Đã khởi tạo tranh chấp! Hợp đồng đã bị đóng băng tài chính.');
+      setShowDisputeModal(false);
+      setDisputeForm({ reason: '', amount: '' });
+      fetchAll();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Không thể khởi tạo tranh chấp');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const submitReview = async () => {
+    if (!reviewForm.comment.trim()) return toast.error('Vui lòng nhập nhận xét');
+    setSubmitting('review');
+    try {
+      const projId = contract.projectId || (contract.project && contract.project.id);
+      const contractorId = contract.contractorId || (contract.contractor && contract.contractor.id);
+      if (!projId || !contractorId) {
+        toast.error('Không tìm thấy thông tin dự án hoặc nhà thầu');
+        return;
+      }
+      await api.post('/reviews', {
+        rating: Number(reviewForm.rating),
+        qualityScore: Number(reviewForm.qualityScore),
+        communicationScore: Number(reviewForm.communicationScore),
+        progressScore: Number(reviewForm.progressScore),
+        comment: reviewForm.comment,
+        referenceType: 'PROJECT',
+        referenceId: projId,
+        revieweeId: contractorId
+      });
+      toast.success('🎉 Cảm ơn bạn đã đánh giá nhà thầu!');
+      setShowReviewModal(false);
+      setHasReviewed(true);
+      fetchAll();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Không thể gửi đánh giá');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
   const totalDisbursed  = disbursements.filter(d => d.status === 'APPROVED').reduce((s, d) => s + (d.amount || 0), 0);
   const totalLocked     = disbursements.filter(d => d.status === 'APPROVED' && !d.fullyUnlocked).reduce((s, d) => s + (d.lockedAmount || 0), 0);
   const maxDisbursable  = Math.round((contract?.agreedPrice || 0) * 0.80);
@@ -439,11 +508,45 @@ export default function ContractProgressPage() {
             ))}
           </div>
 
-          {/* Stepper Chỉ số mốc */}
-          <div className="flex justify-between mt-3">
-            {PHASES.map(p => {
-              const reached = progress >= p.threshold;
-              return (
+          {/* Dispute & Review Action Buttons */}
+          {( (contract.status === 'ACTIVE' && !contract.isDisputed && (isCustomer || isContractor)) || (contract.status === 'COMPLETED' && isCustomer) ) && (
+            <div className="flex gap-2 flex-wrap border-t border-gray-50 mt-4 pt-3">
+              {contract.status === 'ACTIVE' && !contract.isDisputed && (isCustomer || isContractor) && (
+                <button onClick={() => setShowDisputeModal(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 hover:text-red-700 transition-colors">
+                  <AlertTriangle size={13} /> Khiếu nại / Gửi tranh chấp
+                </button>
+              )}
+              {contract.status === 'COMPLETED' && isCustomer && !hasReviewed && (
+                <button onClick={() => setShowReviewModal(true)}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors">
+                  <Star size={13} fill="currentColor" /> Đánh giá nhà thầu (Đa tiêu chí)
+                </button>
+              )}
+              {contract.status === 'COMPLETED' && isCustomer && hasReviewed && (
+                <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-bold">
+                  <CheckCircle2 size={13} /> Bạn đã gửi đánh giá cho dự án này
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Progress bar */}
+          <div className="mt-6">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-500 font-medium">Tiến độ thi công</span>
+              <span className="font-bold text-primary">{progress}%</span>
+            </div>
+            <div className="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-5 bg-primary rounded-full transition-all duration-700"
+                style={{ width: `${progress}%` }}/>
+              {PHASES.map(p => (
+                <div key={p.threshold} className="absolute top-0 bottom-0 w-px bg-white/60"
+                  style={{ left: `${p.threshold}%` }} title={p.label}/>
+              ))}
+            </div>
+            <div className="flex justify-between mt-2">
+              {PHASES.map(p => (
                 <div key={p.threshold} className="text-center" style={{ width: '25%' }}>
                   <div className={`w-3 h-3 rounded-full mx-auto mb-1 border-2 transition-all ${
                     reached ? 'bg-primary border-primary' : 'bg-white border-gray-300'
@@ -455,6 +558,20 @@ export default function ContractProgressPage() {
             })}
           </div>
         </div>
+
+        {/* Banner: Đóng băng do tranh chấp */}
+        {contract.isDisputed && (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-800 shadow-sm animate-pulse">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-500" />
+            <div>
+              <p className="font-bold text-red-950">⚠️ Hợp đồng đang có tranh chấp & bị ĐÓNG BĂNG tài chính</p>
+              <p className="text-xs mt-1 text-red-700 leading-relaxed">
+                Hợp đồng này đã bị đóng băng do phát sinh tranh chấp.
+                Mọi hành động cập nhật tiến độ, yêu cầu giải ngân, nghiệm thu hoặc hủy hợp đồng đều bị tạm khóa cho đến khi Admin giải quyết.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -653,6 +770,7 @@ export default function ContractProgressPage() {
                         onReject={openRejectModal}
                         onUnlock={unlockLocked}
                         submitting={submitting}
+                        isDisputed={contract.isDisputed}
                       />
                     )}
                   </div>
@@ -885,6 +1003,93 @@ export default function ContractProgressPage() {
               <button onClick={rejectDisbursement} disabled={submitting === rejectTarget}
                 className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 disabled:opacity-60">
                 {submitting === rejectTarget ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Khiếu nại / Gửi tranh chấp ── */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-7 relative">
+            <button onClick={() => setShowDisputeModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600">
+              <X size={20}/>
+            </button>
+            <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-1.5 text-red-600">
+              <AlertTriangle size={22} /> Khởi tạo tranh chấp
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Hành động này sẽ đóng băng toàn bộ hoạt động của hợp đồng và tạo phòng chat đối chất 3 bên giữa bạn, đối tác và Admin.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Lý do tranh chấp / khiếu nại</label>
+                <textarea rows={4} value={disputeForm.reason}
+                  onChange={e => setDisputeForm(p => ({ ...p, reason: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-400 resize-none"
+                  placeholder="Mô tả chi tiết lý do khiếu nại (ví dụ: chậm tiến độ 15 ngày, sai vật liệu thi công)..."/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Số tiền tranh chấp (VND, để trống để chọn toàn bộ cọc)</label>
+                <input type="number" value={disputeForm.amount}
+                  onChange={e => setDisputeForm(p => ({ ...p, amount: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-400"
+                  placeholder={`Tối đa: ${fmt(contract.agreedPrice)}`}/>
+              </div>
+              <button disabled={submitting === 'dispute'} onClick={submitDispute}
+                className="w-full py-3.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 text-sm">
+                {submitting === 'dispute' ? 'Đang gửi yêu cầu...' : '⚠️ Xác nhận gửi tranh chấp'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Đánh giá nhà thầu ── */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-7 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowReviewModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600">
+              <X size={20}/>
+            </button>
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Đánh giá nhà thầu</h2>
+            <p className="text-xs text-gray-400 mb-5">
+              Chia sẻ trải nghiệm thực tế của bạn để giúp hệ thống cập nhật điểm uy tín (AI Trust Score) cho nhà thầu.
+            </p>
+            <div className="space-y-4">
+              {/* Rating Star Criteria */}
+              {[
+                { key: 'rating', label: '⭐ Đánh giá chung (Tổng thể)' },
+                { key: 'qualityScore', label: '🛠️ Chất lượng thi công' },
+                { key: 'progressScore', label: '📅 Đúng hạn & Tiến độ' },
+                { key: 'communicationScore', label: '💬 Giao tiếp & Hợp tác' },
+              ].map(crit => (
+                <div key={crit.key} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                  <span className="text-xs font-semibold text-gray-700">{crit.label}</span>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button key={star} onClick={() => setReviewForm(p => ({ ...p, [crit.key]: star }))}
+                        className={`text-xl transition-colors ${
+                          star <= reviewForm[crit.key] ? 'text-amber-400 hover:text-amber-500' : 'text-gray-200 hover:text-gray-300'
+                        }`}>
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Nhận xét chi tiết</label>
+                <textarea rows={4} value={reviewForm.comment}
+                  onChange={e => setReviewForm(p => ({ ...p, comment: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none"
+                  placeholder="Nhận xét của bạn về chất lượng hoàn thiện, thái độ làm việc..."/>
+              </div>
+              <button disabled={submitting === 'review'} onClick={submitReview}
+                className="w-full py-3.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50 text-sm">
+                {submitting === 'review' ? 'Đang gửi đánh giá...' : 'Gửi đánh giá'}
               </button>
             </div>
           </div>

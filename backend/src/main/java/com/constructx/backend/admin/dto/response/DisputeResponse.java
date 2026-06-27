@@ -22,6 +22,7 @@ public class DisputeResponse {
     private String resolution;
     private String resolutionType;
     private Long refundAmount;
+    private Long chatRoomId;
     private LocalDateTime createdAt;
     private List<DisputeMessageResponse> messages;
 

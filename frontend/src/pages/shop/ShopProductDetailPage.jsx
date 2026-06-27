@@ -57,9 +57,9 @@ export default function ShopProductDetailPage() {
 
   const handleOrder = () => {
     if (!token) {
-      navigate(`/login?redirect=/shop/products/${id}`);
+      navigate('/login', { state: { redirect: '/projects/new', prefillProduct: product } });
     } else {
-      navigate('/shop/order', { state: { product: { ...product, price: Number(product.price) }, quantity: qty, type: 'CATALOG' } });
+      navigate('/projects/new', { state: { prefillProduct: product } });
     }
   };
 
@@ -137,11 +137,6 @@ export default function ShopProductDetailPage() {
               )}
               {/* Badges */}
               <div className="absolute top-4 left-4 flex flex-col gap-2">
-                {disc && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                    -{disc}% GIẢM GIÁ
-                  </span>
-                )}
                 {product.featured && (
                   <span className="bg-[#1a4f3a] text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow">
                     <Sparkles size={11} /> Bán chạy
@@ -193,17 +188,6 @@ export default function ShopProductDetailPage() {
                 <span className="text-sm text-gray-400">({product.reviewCount} đánh giá)</span>
               </div>
             )}
-
-            {/* Price */}
-            <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl font-bold text-[#1a4f3a]">{fmt(product.price)}</span>
-              {product.originalPrice && product.originalPrice > product.price && (
-                <span className="text-lg text-gray-400 line-through">{fmt(product.originalPrice)}</span>
-              )}
-              {disc && (
-                <span className="text-sm font-bold text-red-500">Tiết kiệm {fmt(product.originalPrice - product.price)}</span>
-              )}
-            </div>
 
             {/* Specs mini */}
             <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-2xl mb-6 text-sm">
@@ -271,7 +255,7 @@ export default function ShopProductDetailPage() {
                 className="flex-1 flex items-center justify-center gap-2 bg-[#1a4f3a] text-white font-bold py-3.5 rounded-xl hover:bg-[#2d7a5a] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[#1a4f3a]/25 active:scale-[0.98]"
               >
                 <ShoppingBag size={18} />
-                {product.stock === 0 ? 'Hết hàng' : 'Đặt hàng ngay'}
+                {product.stock === 0 ? 'Hết hàng' : 'Tạo dự án ngay'}
               </button>
               <button
                 onClick={() => setWishlisted(!wishlisted)}
@@ -391,7 +375,6 @@ export default function ShopProductDetailPage() {
                   </div>
                   <div className="p-3">
                     <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-1">{p.name}</p>
-                    <p className="text-sm font-bold text-[#1a4f3a]">{fmt(p.price)}</p>
                   </div>
                 </div>
               ))}

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import {
   Star, MapPin, Calendar, Image as ImageIcon, Loader2,
-  Phone, Mail, ArrowLeft, Award, ThumbsUp, MessageSquare, Briefcase
+  Phone, Mail, ArrowLeft, Award, ThumbsUp, MessageSquare, Briefcase,
+  BadgeCheck
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -109,8 +110,13 @@ export default function ContractorProfilePage() {
                   </span>
                   <span className="text-gray-400">({summary.totalReviews || 0} đánh giá)</span>
                   <span className="inline-flex items-center gap-1 bg-[#e8f5ee] text-[#1a4f3a] font-bold px-2.5 py-1 rounded-full">
-                    <Award size={14} /> Điểm uy tín: 100
+                    <Award size={14} /> AI Trust Score: {summary.aiTrustScore != null ? summary.aiTrustScore : 100}
                   </span>
+                  {summary.isVerified && (
+                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full" title="Nhà thầu được chứng nhận uy tín vượt trội bởi hệ thống AI ConstructX">
+                      <BadgeCheck size={14} className="fill-blue-100" /> Verified Contractor
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -133,6 +139,30 @@ export default function ContractorProfilePage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Advanced Operating & Financial Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+          <div className="space-y-1 text-center md:text-left md:border-r border-gray-100 pr-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tỷ lệ hoàn thành</p>
+            <p className="text-xl font-extrabold text-green-600">{summary.completionRate != null ? summary.completionRate : 100}%</p>
+            <p className="text-[10px] text-gray-400">Đã hoàn thành {summary.completedContracts || 0} / {summary.totalContracts || 0} HĐ</p>
+          </div>
+          <div className="space-y-1 text-center md:text-left md:border-r border-gray-100 px-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lịch sử tranh chấp</p>
+            <p className={`text-xl font-extrabold ${summary.totalDisputes > 0 ? 'text-red-500' : 'text-gray-500'}`}>{summary.totalDisputes || 0} ca</p>
+            <p className="text-[10px] text-gray-400">{summary.resolvedDisputes || 0} đã giải quyết, {summary.pendingDisputes || 0} chờ</p>
+          </div>
+          <div className="space-y-1 text-center md:text-left md:border-r border-gray-100 px-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Doanh thu thực tế</p>
+            <p className="text-xl font-extrabold text-primary">{fmt(summary.earnedRevenue)}</p>
+            <p className="text-[10px] text-gray-400">Nhận từ các dự án đã hoàn thành</p>
+          </div>
+          <div className="space-y-1 text-center md:text-left pl-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Giá trị thi công</p>
+            <p className="text-xl font-extrabold text-gray-900">{fmt(summary.totalProjectValue)}</p>
+            <p className="text-[10px] text-gray-400">Tổng quy mô các dự án</p>
           </div>
         </div>
 
@@ -244,6 +274,40 @@ export default function ContractorProfilePage() {
                     <span className="w-12 text-right">3 sao</span>
                     <div className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
                       <div className="bg-amber-400 h-full" style={{ width: '0%' }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Criteria Ratings */}
+                <div className="border-t border-gray-100 pt-5 text-left text-xs space-y-3">
+                  <p className="font-bold text-gray-700 uppercase tracking-wider text-[10px] mb-2">Đánh giá theo tiêu chí</p>
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="flex justify-between text-gray-600 mb-1 font-medium">
+                        <span>🛠️ Chất lượng thi công</span>
+                        <span className="font-bold">{summary.qualityScore || '0.0'} / 5.0</span>
+                      </div>
+                      <div className="bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(summary.qualityScore || 0) * 20}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-gray-600 mb-1 font-medium">
+                        <span>📅 Đúng hạn & Tiến độ</span>
+                        <span className="font-bold">{summary.progressScore || '0.0'} / 5.0</span>
+                      </div>
+                      <div className="bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(summary.progressScore || 0) * 20}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-gray-600 mb-1 font-medium">
+                        <span>💬 Giao tiếp & Hợp tác</span>
+                        <span className="font-bold">{summary.communicationScore || '0.0'} / 5.0</span>
+                      </div>
+                      <div className="bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(summary.communicationScore || 0) * 20}%` }} />
+                      </div>
                     </div>
                   </div>
                 </div>

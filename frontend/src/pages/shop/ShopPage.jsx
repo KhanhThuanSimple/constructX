@@ -94,11 +94,11 @@ export default function ShopPage() {
     setWishlist((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const handleOrderClick = (productId) => {
+    const product = [...products, ...featured].find(p => p.id === productId);
     if (!token) {
-      navigate(`/login?redirect=/shop/products/${productId}`);
+      navigate('/login', { state: { redirect: '/projects/new', prefillProduct: product } });
     } else {
-      const product = [...products, ...featured].find(p => p.id === productId);
-      navigate('/shop/order', { state: { product, quantity: 1, type: 'CATALOG' } });
+      navigate('/projects/new', { state: { prefillProduct: product } });
     }
   };
 
@@ -485,11 +485,6 @@ function ProductCard({ product, wishlisted, onWishlist, onOrder, onDetail }) {
         )}
         {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
-          {disc && (
-            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              -{disc}%
-            </span>
-          )}
           {product.featured && (
             <span className="bg-[#1a4f3a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5">
               <Sparkles size={9} /> Hot
@@ -550,20 +545,13 @@ function ProductCard({ product, wishlisted, onWishlist, onOrder, onDetail }) {
             <span className="text-[10px] text-gray-400">({product.reviewCount})</span>
           </div>
         )}
-        {/* Price */}
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-base font-bold text-[#1a4f3a]">{fmt(product.price)}</span>
-          {product.originalPrice && product.originalPrice > product.price && (
-            <span className="text-xs text-gray-400 line-through">{fmt(product.originalPrice)}</span>
-          )}
-        </div>
         {/* CTA */}
         <button
           onClick={onOrder}
           disabled={product.stock === 0}
           className="w-full py-2 rounded-xl bg-[#1a4f3a] text-white text-xs font-bold hover:bg-[#2d7a5a] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
         >
-          {product.stock === 0 ? 'Hết hàng' : 'Đặt hàng ngay'}
+          {product.stock === 0 ? 'Hết hàng' : 'Tạo dự án ngay'}
         </button>
       </div>
     </div>

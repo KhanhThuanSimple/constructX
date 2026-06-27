@@ -100,6 +100,61 @@ public class SchemaMigration {
                 log.info("[Migration] contracts.completed_at: column added");
             }
 
+            // 8. is_disputed column in contracts table
+            if (!columnExists(conn, "contracts", "is_disputed")) {
+                stmt.execute("ALTER TABLE contracts ADD COLUMN is_disputed TINYINT(1) NOT NULL DEFAULT 0");
+                log.info("[Migration] contracts.is_disputed: column added");
+            }
+
+            // 9. chat_room_id column in disputes table
+            if (!columnExists(conn, "disputes", "chat_room_id")) {
+                stmt.execute("ALTER TABLE disputes ADD COLUMN chat_room_id BIGINT(20) NULL");
+                log.info("[Migration] disputes.chat_room_id: column added");
+            }
+
+            // 9.1. contract_id column in disputes table
+            if (!columnExists(conn, "disputes", "contract_id")) {
+                stmt.execute("ALTER TABLE disputes ADD COLUMN contract_id BIGINT(20) NULL");
+                log.info("[Migration] disputes.contract_id: column added");
+            }
+
+            // 9.5. Sua project_id thanh nullable trong bang disputes
+            if (isColumnNotNull(conn, "disputes", "project_id")) {
+                stmt.execute("ALTER TABLE disputes MODIFY COLUMN project_id BIGINT(20) NULL");
+                log.info("[Migration] disputes.project_id: NOT NULL -> NULL");
+            }
+
+            // 10. quality_score, communication_score, progress_score in reviews table
+            if (!columnExists(conn, "reviews", "quality_score")) {
+                stmt.execute("ALTER TABLE reviews ADD COLUMN quality_score INT NULL");
+                log.info("[Migration] reviews.quality_score: column added");
+            }
+            if (!columnExists(conn, "reviews", "communication_score")) {
+                stmt.execute("ALTER TABLE reviews ADD COLUMN communication_score INT NULL");
+                log.info("[Migration] reviews.communication_score: column added");
+            }
+            if (!columnExists(conn, "reviews", "progress_score")) {
+                stmt.execute("ALTER TABLE reviews ADD COLUMN progress_score INT NULL");
+                log.info("[Migration] reviews.progress_score: column added");
+            }
+
+            // 11. Create platform_wallets table
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS platform_wallets (
+                    id BIGINT NOT NULL AUTO_INCREMENT,
+                    balance BIGINT NOT NULL DEFAULT 0,
+                    updated_at DATETIME(6) NULL,
+                    PRIMARY KEY (id)
+                )
+            """);
+            // Check if platform_wallets is empty, if so, insert the first row
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM platform_wallets")) {
+                if (rs.next() && rs.getLong(1) == 0) {
+                    stmt.execute("INSERT INTO platform_wallets (id, balance, updated_at) VALUES (1, 0, NOW())");
+                    log.info("[Migration] platform_wallets: default row inserted");
+                }
+            }
+
             log.info("[Migration] Schema migration completed successfully.");
 
         } catch (Exception e) {

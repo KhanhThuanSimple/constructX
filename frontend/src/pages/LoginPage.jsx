@@ -23,7 +23,8 @@ const LoginPage = () => {
       const { data } = response.data;
       setAuth(data, data.token);
       toast.success('Đăng nhập thành công!');
-      navigate('/dashboard');
+      const redirectPath = location.state?.redirect || new URLSearchParams(location.search).get('redirect') || '/dashboard';
+      navigate(redirectPath, { state: location.state });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Đăng nhập thất bại');
     } finally {

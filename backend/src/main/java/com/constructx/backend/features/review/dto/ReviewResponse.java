@@ -18,5 +18,9 @@ public class ReviewResponse {
     private Long referenceId;
     private Integer rating;
     private String comment;
+    private Integer qualityScore;
+    private Integer communicationScore;
+    private Integer progressScore;
     private LocalDateTime createdAt;
 }
+

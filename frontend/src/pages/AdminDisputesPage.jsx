@@ -162,6 +162,10 @@ const AdminDisputesPage = () => {
   };
 
   const handleResolveDispute = async () => {
+    if (!resolutionType) {
+      toast.error('Vui lòng chọn loại quyết định');
+      return;
+    }
     if (!resolutionText.trim()) {
       toast.error('Vui lòng nhập văn bản phán quyết phân xử');
       return;
@@ -200,17 +204,23 @@ const AdminDisputesPage = () => {
       return;
     }
 
+    setSendingMessage(true);
     try {
       const response = await api.post(`/admin/disputes/${selectedDispute.id}/messages`, {
         content: messageText.trim(),
       });
-      const updated = response.data.data;
-      setSelectedDispute(updated);
-      setDisputes((prev) => prev.map((d) => (d.id === selectedDispute.id ? updated : d)));
+      
+      // Update selected dispute and dispute list with the updated message list
+      const updatedDispute = response.data.data;
+      setSelectedDispute(updatedDispute);
+      setDisputes(prev => prev.map(d => d.id === updatedDispute.id ? updatedDispute : d));
       setMessageText('');
+      toast.success('Tin nhắn đã được gửi tới phòng chat 3 bên');
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Không thể gửi tin nhắn đối chất');
+      toast.error('Không thể gửi tin nhắn');
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -222,9 +232,15 @@ const AdminDisputesPage = () => {
   const getStatusBadge = (status) => {
     if (status === 'PENDING') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-100 rounded-full text-xs font-bold">
-          <Clock size={12} className="animate-spin-slow" />
-          Chờ giải quyết
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-600 border border-rose-100 animate-pulse">
+          <Clock size={12} /> Chờ phân xử
+        </span>
+      );
+    }
+    if (status === 'RESOLVED') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 border border-emerald-100">
+          <CheckCircle2 size={12} /> Đã giải quyết
         </span>
       );
     }
@@ -527,8 +543,18 @@ const AdminDisputesPage = () => {
                           ))
                         )}
                       </div>
-                    )}
-                  </div>
+                      
+                      {aiSummary ? (
+                        <div className="bg-white/90 backdrop-blur-xs rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed border border-emerald-100/60 shadow-inner max-h-60 overflow-y-auto whitespace-pre-line">
+                          {aiSummary}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400">
+                          AI sẽ tự động đọc lịch sử cuộc trò chuyện đối chất 3 bên bên dưới và đưa ra nhận định, tóm tắt lý lẽ của cả 2 phía kèm theo đề xuất tỷ lệ hoàn tiền tối ưu cho Admin tham khảo.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Chat đối chất trực tuyến 3 bên */}
                   <div className="space-y-3.5">
@@ -585,7 +611,82 @@ const AdminDisputesPage = () => {
                         Gửi
                       </button>
                     </div>
+
+                    {/* Chat messages box */}
+                    <div className="h-64 space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50/50 p-4 shadow-inner">
+                      {selectedDispute.messages && selectedDispute.messages.length > 0 ? (
+                        selectedDispute.messages.map((message) => {
+                          // Định dạng hiển thị tin nhắn dựa trên vai trò người gửi
+                          const isSystem = message.author.includes('HỆ THỐNG');
+                          const isAdminSender = message.author.includes('ADMIN') || message.author.includes('Quản trị');
+                          
+                          if (isSystem) {
+                            return (
+                              <div key={message.id} className="flex justify-center my-2">
+                                <span className="bg-slate-200/60 text-slate-500 font-bold text-[9px] px-3 py-1 rounded-full border border-slate-300/30 uppercase tracking-wider text-center">
+                                  ⚙️ {message.content}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={message.id} className={`flex flex-col ${isAdminSender ? 'items-end' : 'items-start'}`}>
+                              <div className={`max-w-[85%] rounded-2xl p-3 shadow-xs border text-xs leading-relaxed ${
+                                isAdminSender
+                                  ? 'bg-[#1a4f3a] text-white border-emerald-800'
+                                  : message.author.includes('CLIENT') || message.author.includes('Khách')
+                                    ? 'bg-white text-slate-700 border-slate-200/60'
+                                    : 'bg-emerald-50 text-slate-700 border-emerald-100'
+                              }`}>
+                                <p className={`text-[9px] font-bold mb-1 ${isAdminSender ? 'text-emerald-200' : 'text-slate-400'}`}>
+                                  {message.author}
+                                </p>
+                                <p className="whitespace-pre-wrap">{message.content}</p>
+                              </div>
+                              <span className="text-[9px] text-slate-400 font-semibold mt-1 px-1">
+                                {new Date(message.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 p-4">
+                          <MessageSquare size={24} className="text-slate-300 mb-1.5" />
+                          <p className="text-[11px] font-bold">Chưa có cuộc trò chuyện đối chất nào</p>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Chat input box */}
+                    {selectedDispute.status === 'PENDING' && (
+                      <div className="flex gap-2 items-end">
+                        <textarea
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          rows={1}
+                          placeholder="Chỉ đạo, hướng dẫn hoặc gửi tin nhắn đối chất..."
+                          className="flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#1a4f3a] focus:bg-white focus:ring-2 focus:ring-[#1a4f3a]/15 transition-all max-h-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={sendingMessage || !messageText.trim()}
+                          className="p-2.5 bg-[#1a4f3a] hover:bg-[#163b2d] text-white rounded-xl transition-all duration-300 shadow-xs disabled:opacity-40"
+                        >
+                          <Send size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
+
                 </div>
 
                 {/* 3. Panel Xử lý phán quyết phân xử dưới bottom */}

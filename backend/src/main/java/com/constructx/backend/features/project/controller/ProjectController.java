@@ -47,9 +47,11 @@ public class ProjectController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<Project>> updateProjectStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<ApiResponse<Project>> updateProjectStatus(@PathVariable Long id,
+            @RequestParam String status) {
         try {
-            return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái thành công", projectService.updateProjectStatus(id, status)));
+            return ResponseEntity.ok(
+                    ApiResponse.ok("Cập nhật trạng thái thành công", projectService.updateProjectStatus(id, status)));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

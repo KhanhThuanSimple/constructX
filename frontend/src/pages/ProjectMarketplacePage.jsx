@@ -35,7 +35,7 @@ const ProjectMarketplacePage = () => {
 
   const GoToProjectDetail = (projectId) => {
     console.log('chạy vào đây r:', projectId);
-    navigate(`/projectsv2/${projectId}`);
+    navigate(`/projects/${projectId}`);
   };
 
   return (

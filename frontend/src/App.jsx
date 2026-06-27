@@ -12,7 +12,6 @@ import ShopPage from './pages/shop/ShopPage';
 import ShopProductDetailPage from './pages/shop/ShopProductDetailPage';
 import AdminProductsPage from './pages/AdminProductsPage';
 import ProfilePage from './pages/ProfilePage';
-import ProductionLogPage from './pages/ProductionLogPage';
 import PortfolioPage from './pages/PortfolioPage';
 import ContractorProfilePage from './pages/ContractorProfilePage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
@@ -100,9 +99,11 @@ function App() {
 
         <Route path="/production-log" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
-            <ProductionLogPage />
+            <ProjectMarketplacePage />
           </ProtectedRoute>
         } />
+
+        <Route path="/production-log" element={<Navigate to="/contracts" replace />} />
 
         <Route path="/portfolio" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
@@ -170,7 +171,7 @@ function App() {
 
         <Route path="/admin/users" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <AdminUsersPage />
+            <AdminAllUsersPage />
           </ProtectedRoute>
         } />
         <Route path="/admin/all-users" element={

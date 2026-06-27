@@ -9,4 +9,8 @@ public class ReviewRequest {
     private String referenceType; // ORDER | PROJECT
     private Long referenceId;
     private Long revieweeId;     // id của người được đánh giá
+    private Integer qualityScore;      // 1-5
+    private Integer communicationScore;  // 1-5
+    private Integer progressScore;       // 1-5
 }
+
