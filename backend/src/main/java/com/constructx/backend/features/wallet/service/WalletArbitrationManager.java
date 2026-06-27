@@ -19,10 +19,18 @@ public class WalletArbitrationManager {
     private final WalletCoreManager walletCoreManager;
 
     /**
-     * PHÂN XỬ TRANH CHẤP DỰ ÁN HOÀN TIỀN THEO TỶ LỆ PHẦN TRĂM
+     * PHÂN XỬ TRANH CHẤP DỰ ÁN HOÀN TIỀN THEO TỶ LỆ PHẦN TRĂM (HỖ TRỢ NHIỀU GIAI ĐOẠN)
      */
     @Transactional
-    public void resolveProjectDispute(Long lockTransactionId, Long constructorId, double userPercent, double constructorPercent, String projectCode) {
+    public void resolveProjectDispute(
+            Long lockTransactionId, 
+            Long constructorId, 
+            double userPercent, 
+            double constructorPercent, 
+            String projectCode,
+            Long customerRemainingEscrow,
+            Long contractorLockedEscrow
+    ) {
         if (userPercent + constructorPercent != 100.0) {
             throw new IllegalArgumentException("Tổng tỷ lệ phân chia cho hai bên phải bằng 100%");
         }
@@ -34,24 +42,26 @@ public class WalletArbitrationManager {
         Wallet constructorWallet = walletRepository.findByUserId(constructorId)
                 .orElseThrow(() -> new RuntimeException("Ví của nhà thầu không tồn tại"));
 
-        Long totalLockedAmount = lockTransaction.getAmount();
+        // Quỹ Tranh Chấp Thực Tế (D_pool = customerRemainingEscrow + contractorLockedEscrow)
+        long disputePool = customerRemainingEscrow + contractorLockedEscrow;
 
         // Tính toán tài chính bằng BigDecimal
-        BigDecimal totalFund = BigDecimal.valueOf(totalLockedAmount);
+        BigDecimal totalFund = BigDecimal.valueOf(disputePool);
         BigDecimal userRate = BigDecimal.valueOf(userPercent).divide(BigDecimal.valueOf(100.0));
 
         Long userRefundShare = totalFund.multiply(userRate).setScale(0, RoundingMode.HALF_UP).longValue();
-        Long constructorRevenueShare = totalLockedAmount - userRefundShare; // Triệt tiêu sai số 1 đồng lẻ
+        Long constructorRevenueShare = disputePool - userRefundShare; // Triệt tiêu sai số 1 đồng lẻ
 
-        // Thực thi phân bổ dòng tiền
-        walletCoreManager.executeDisputeRefundDistribution(
-                userWallet, constructorWallet, totalLockedAmount, userRefundShare, constructorRevenueShare, projectCode
+        // Thực thi phân bổ dòng tiền nhiều giai đoạn
+        walletCoreManager.executeMultiStageDisputeRefundDistribution(
+                userWallet, constructorWallet, customerRemainingEscrow, contractorLockedEscrow, userRefundShare, constructorRevenueShare, projectCode
         );
 
         // Đóng trạng thái hóa đơn khóa gốc
         lockTransaction.setStatus(Transaction.Status.FAILED);
         lockTransaction.setDescription(lockTransaction.getDescription() +
-                String.format(" | [Hội đồng giải quyết tranh chấp] Hoàn trả User %s%%, Trả Constructor %s%%", userPercent, constructorPercent));
+                String.format(" | [Hội đồng giải quyết tranh chấp nhiều giai đoạn] Quỹ tranh chấp: %d. Hoàn trả User %s%% (%d), Trả Constructor %s%% (%d)", 
+                        disputePool, userPercent, userRefundShare, constructorPercent, constructorRevenueShare));
         transactionRepository.save(lockTransaction);
     }
 }

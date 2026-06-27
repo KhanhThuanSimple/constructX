@@ -87,6 +87,15 @@ public class DisbursementService {
         // Kiểm tra tổng giải ngân không vượt 80% agreedPrice (khoản cuối 20% khi hoàn công)
         long agreedPrice = contract.getAgreedPrice() != null ? contract.getAgreedPrice() : 0L;
         long alreadyDisbursed = disbursementRepository.sumApprovedByContractId(contract.getId());
+
+        // Kiểm tra số tiền yêu cầu của giai đoạn này không vượt quá hạn mức tối đa cho phép của giai đoạn (phaseThreshold %)
+        long stageMaxAllowed = Math.round(agreedPrice * (req.getPhaseThreshold() / 100.0));
+        if (alreadyDisbursed + req.getAmount() > stageMaxAllowed) {
+            throw new RuntimeException(String.format(
+                    "Số tiền yêu cầu giải ngân vượt quá hạn mức tối đa cho phép của giai đoạn %s%% (%s). Đã giải ngân: %s. Còn lại tối đa: %s.",
+                    req.getPhaseThreshold(), fmtVnd(stageMaxAllowed), fmtVnd(alreadyDisbursed), fmtVnd(stageMaxAllowed - alreadyDisbursed)));
+        }
+
         long maxAllowed = Math.round(agreedPrice * MAX_INTERIM_DISBURSEMENT_RATIO);
         if (alreadyDisbursed + req.getAmount() > maxAllowed)
             throw new RuntimeException(String.format(
@@ -111,13 +120,16 @@ public class DisbursementService {
                 .progressAtRequest(currentProgress)
                 .note(req.getNote())
                 .status(DisbursementRequest.Status.PENDING)
+                .adminVerified(true) // Bỏ qua giai đoạn admin duyệt - tự động xác nhận
+                .adminVerifiedAt(LocalDateTime.now())
+                .adminVerifyNote("Hệ thống tự động xác nhận")
                 .build();
 
         DisbursementRequest saved = disbursementRepository.save(disbursement);
 
         notificationService.createNotification(
                 contract.getClient(), Notification.NotifType.PAYMENT_SUCCESS,
-                String.format("Nha thau yeu cau giai ngan %s giai doan '%s' - HD %s. Vui long cho Admin xac nhan truoc.",
+                String.format("Nha thau yeu cau giai ngan %s giai doan '%s' - HD %s. Vui long vao trang Tien do de duyet.",
                         fmtVnd(req.getAmount()), req.getPhaseLabel(), contract.getContractNumber()));
 
         // Notify Admin để verify

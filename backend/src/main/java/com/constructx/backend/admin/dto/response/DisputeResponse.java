@@ -12,6 +12,8 @@ public class DisputeResponse {
     private Long id;
     private Long projectId;
     private String projectName;
+    private Long contractId;
+    private String contractNumber;
     private String customerName;
     private String contractorName;
     private String reason;
@@ -22,4 +24,10 @@ public class DisputeResponse {
     private Long refundAmount;
     private LocalDateTime createdAt;
     private List<DisputeMessageResponse> messages;
+
+    // Phân rã tài chính nhiều giai đoạn phục vụ FE hiển thị trực quan
+    private Long customerRemainingEscrow;
+    private Long contractorLockedEscrow;
+    private Long disputePool;
+    private Boolean isDisputed;
 }

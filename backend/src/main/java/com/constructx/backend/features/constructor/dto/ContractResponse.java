@@ -55,6 +55,9 @@ public class ContractResponse {
     private Boolean warrantyReleased;
     private String warrantyEndDate;
     private LocalDateTime completedAt;
+    private Long disputeAmount;
+    private String disputeReason;
+    private Boolean isDisputed;
 
     @Data
     @Builder

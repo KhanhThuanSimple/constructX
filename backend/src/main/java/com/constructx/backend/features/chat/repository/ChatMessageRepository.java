@@ -11,6 +11,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
+    java.util.List<ChatMessage> findByRoomIdOrderByCreatedAtAsc(Long roomId);
+
     Page<ChatMessage> findByRoomId(Long roomId, Pageable pageable);
 
     @Query("SELECT COUNT(m) FROM ChatMessage m WHERE m.room.id = :roomId AND m.id > :lastReadMessageId")

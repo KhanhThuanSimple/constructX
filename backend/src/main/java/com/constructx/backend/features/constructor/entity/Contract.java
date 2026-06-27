@@ -186,6 +186,10 @@ public class Contract {
     @JoinColumn(name = "order_id")
     private com.constructx.backend.features.order.entity.Order sourceOrder;
 
+    @Builder.Default
+    @Column(name = "is_disputed", nullable = false)
+    private Boolean isDisputed = false;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Status status = Status.PENDING_REVIEW;

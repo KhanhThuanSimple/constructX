@@ -130,4 +130,48 @@ public class AdminWalletController {
             return ResponseEntity.ok(Map.of("success", false, "error", "Giao dịch thất bại. Hệ thống đã ghi nhận đóng hóa đơn kẹt."));
         }
     }
+
+    /**
+     * API LẤY THÔNG TIN VÍ NỀN TẢNG & LỊCH SỬ GIAO DỊCH (LỢI TỨC/HOA HỒNG)
+     * GET /api/wallet/admin/platform-wallet
+     */
+    @GetMapping("/admin/platform-wallet")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getPlatformWalletDetails() {
+        log.info("[ADMIN] Đang truy xuất thông tin ví nền tảng.");
+        var wallet = adminWalletService.getOrCreatePlatformWallet();
+        var transactions = adminWalletService.getPlatformTransactions();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "wallet", wallet,
+                "transactions", transactions
+        ));
+    }
+
+    /**
+     * API ADMIN RÚT TIỀN LỢI TỨC TỪ VÍ NỀN TẢNG
+     * POST /api/wallet/admin/platform-wallet/withdraw
+     */
+    @PostMapping("/admin/platform-wallet/withdraw")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> withdrawPlatformWallet(@RequestBody Map<String, Object> payload) {
+        try {
+            Long amount = Long.parseLong(payload.get("amount").toString());
+            String description = payload.getOrDefault("description", "Admin rút tiền lợi tức từ nền tảng").toString();
+            log.info("[ADMIN] Yêu cầu rút lợi tức từ ví nền tảng. Số tiền: {}, Mô tả: {}", amount, description);
+            
+            var wallet = adminWalletService.withdrawPlatformWallet(amount, description);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Rút tiền lợi tức thành công!",
+                    "wallet", wallet
+            ));
+        } catch (Exception e) {
+            log.error("Lỗi khi rút tiền lợi tức từ ví nền tảng", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
 }

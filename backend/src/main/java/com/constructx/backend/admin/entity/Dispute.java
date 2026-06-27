@@ -2,6 +2,7 @@ package com.constructx.backend.admin.entity;
 
 import com.constructx.backend.features.project.entity.Project;
 import com.constructx.backend.features.user.entity.User;
+import com.constructx.backend.features.constructor.entity.Contract;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,8 +25,12 @@ public class Dispute {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id", nullable = true)
     private Project project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id", nullable = true)
+    private Contract contract;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
@@ -51,6 +56,9 @@ public class Dispute {
     private String resolutionType;
 
     private Long refundAmount;
+
+    @Column(name = "chat_room_id")
+    private Long chatRoomId;
 
     @OneToMany(mappedBy = "dispute", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

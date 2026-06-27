@@ -18,7 +18,14 @@ import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.entity.Wallet;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.entity.PlatformWallet;
+import com.constructx.backend.features.wallet.entity.PlatformTransaction;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.repository.PlatformWalletRepository;
+import com.constructx.backend.features.wallet.repository.PlatformTransactionRepository;
 import com.constructx.backend.features.wallet.service.WalletCoreManager;
+import com.constructx.backend.admin.entity.Dispute;
+import com.constructx.backend.admin.repository.DisputeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -54,6 +61,9 @@ public class ContractService {
     private final NotificationService notificationService;
     private final BidService bidService;
     private final OrderRepository orderRepository;
+    private final PlatformWalletRepository platformWalletRepository;
+    private final DisputeRepository disputeRepository;
+    private final PlatformTransactionRepository platformTransactionRepository;
 
     private User getCurrentUser() {
         return userRepository.findByEmail(
@@ -353,10 +363,12 @@ public class ContractService {
         long customerEscrow    = c.getCustomerDepositAmount() != null ? c.getCustomerDepositAmount() : 0L;
         long contractorDeposit = c.getContractorDepositAmount() != null ? c.getContractorDepositAmount() : 0L;
 
+        // 5% phí nền tảng
+        long platformFeeAmt = Math.round(agreedPrice * 0.05);
         // 5% warranty hold — giữ lại trong ví nhà thầu (lockedAmount) 6 tháng
         long warrantyAmt  = Math.round(agreedPrice * WARRANTY_HOLD_RATE);
-        // 95% thanh toán ngay
-        long immediateAmt = agreedPrice - warrantyAmt;
+        // 90% giải ngân ngay cho nhà thầu sau khi trừ phí nền tảng 5% và bảo hành 5%
+        long immediateAmt = agreedPrice - platformFeeAmt - warrantyAmt;
 
         // Unlock escrow 100% từ ví Customer (giải phóng lockedAmount)
         if (Boolean.TRUE.equals(c.getCustomerDepositLocked()) && customerEscrow > 0) {
@@ -376,6 +388,29 @@ public class ContractService {
         }
 
         // Giải ngân 95% ngay cho nhà thầu
+        // Thu phí hoa hồng 5% chuyển về ví PlatformWallet
+        PlatformWallet platformWallet = platformWalletRepository.findById(1L)
+                .orElseGet(() -> PlatformWallet.builder().id(1L).balance(0L).build());
+        platformWallet.setBalance(platformWallet.getBalance() + platformFeeAmt);
+        platformWalletRepository.save(platformWallet);
+
+        // Ghi nhận PlatformTransaction để truy xuất dòng tiền nền tảng
+        platformTransactionRepository.save(PlatformTransaction.builder()
+                .amount(platformFeeAmt)
+                .type(PlatformTransaction.Type.COMMISSION)
+                .referenceId(c.getContractNumber())
+                .description("Phí hoa hồng 5% từ hợp đồng hoàn thành: " + c.getContractNumber())
+                .build());
+
+        // Ghi nhận transaction phí nền tảng
+        Wallet clientWallet = walletRepository.findByUserId(c.getClient().getId()).orElse(null);
+        if (clientWallet != null) {
+            walletCoreManager.recordTransaction(clientWallet, platformFeeAmt, Transaction.Type.RELEASE, 
+                    "CONSTRUCTX_COMMISSION", "CTR-COMM-" + c.getContractNumber(),
+                    "Khấu trừ 5% phí hoa hồng nền tảng: " + fmtVnd(platformFeeAmt));
+        }
+
+        // Giải ngân 90% ngay cho nhà thầu
         Wallet contractorWallet = walletRepository.findByUserId(c.getContractor().getId())
                 .orElseThrow(() -> new RuntimeException("Vi nha thau khong ton tai"));
 
@@ -712,6 +747,16 @@ public class ContractService {
                                 .build())
                         .collect(Collectors.toList());
 
+        Long disputeAmt = null;
+        String disputeReas = null;
+        if (Boolean.TRUE.equals(c.getIsDisputed())) {
+            var disputeOpt = disputeRepository.findFirstByContractIdOrderByCreatedAtDesc(c.getId());
+            if (disputeOpt.isPresent()) {
+                disputeAmt = disputeOpt.get().getAmount();
+                disputeReas = disputeOpt.get().getReason();
+            }
+        }
+
         return ContractResponse.builder()
                 .id(c.getId())
                 .contractNumber(c.getContractNumber())
@@ -754,6 +799,9 @@ public class ContractService {
                 .warrantyReleased(c.getWarrantyReleased())
                 .warrantyEndDate(c.getWarrantyEndDate() != null ? c.getWarrantyEndDate().toLocalDate().toString() : null)
                 .completedAt(c.getCompletedAt())
+                .disputeAmount(disputeAmt)
+                .disputeReason(disputeReas)
+                .isDisputed(c.getIsDisputed())
                 .build();
     }
 }

@@ -190,4 +190,48 @@ public class WalletCoreManager {
                 .description("Nhận thanh toán một phần từ phân xử tranh chấp dự án: " + projectCode).createdAt(LocalDateTime.now()).build();
         transactionRepository.save(constructorTrans);
     }
+
+    /**
+     * PHÂN CHIA TIỀN TRANH CHẤP NHIỀU GIAI ĐOẠN THEO PHẦN TRĂM (MÔ HÌNH SỔ CÁI BẢO TOÀN DÒNG TIỀN)
+     */
+    @Transactional
+    public void executeMultiStageDisputeRefundDistribution(
+            Wallet userWallet, Wallet constructorWallet,
+            Long customerRemainingEscrow, Long contractorLockedEscrow,
+            Long userRefundShare, Long constructorRevenueShare,
+            String projectCode) {
+
+        // 1. Đối với khách hàng:
+        // Giải phóng lượng tiền còn lại trong ví của khách hàng
+        userWallet.setLockedAmount(Math.max(0L, userWallet.getLockedAmount() - customerRemainingEscrow));
+        
+        // Điều chỉnh số dư tổng (Balance): delta = userRefundShare - customerRemainingEscrow
+        long userBalanceDelta = userRefundShare - customerRemainingEscrow;
+        userWallet.setBalance(userWallet.getBalance() + userBalanceDelta);
+        walletRepository.save(userWallet);
+
+        // 2. Đối với nhà thầu:
+        // Giải phóng lượng tiền bảo đảm đang khóa ở ví nhà thầu
+        constructorWallet.setLockedAmount(Math.max(0L, constructorWallet.getLockedAmount() - contractorLockedEscrow));
+        
+        // Điều chỉnh số dư tổng (Balance): delta = constructorRevenueShare - contractorLockedEscrow
+        long contractorBalanceDelta = constructorRevenueShare - contractorLockedEscrow;
+        constructorWallet.setBalance(constructorWallet.getBalance() + contractorBalanceDelta);
+        walletRepository.save(constructorWallet);
+
+        // 3. Ghi nhận Transaction logs cho cả hai bên
+        Transaction userTrans = Transaction.builder()
+                .wallet(userWallet).amount(userRefundShare).type(Transaction.Type.RELEASE).status(Transaction.Status.SUCCESS)
+                .paymentGateway("CONSTRUCTX_ARBITRATION").gatewayOrderId("DISP-USER-" + projectCode)
+                .description(String.format("Nhận tiền phân xử tranh chấp dự án: %s (Quỹ còn lại: %d, Hoàn trả: %d)", projectCode, customerRemainingEscrow, userRefundShare))
+                .createdAt(LocalDateTime.now()).build();
+        transactionRepository.save(userTrans);
+
+        Transaction constructorTrans = Transaction.builder()
+                .wallet(constructorWallet).amount(constructorRevenueShare).type(Transaction.Type.REVENUE).status(Transaction.Status.SUCCESS)
+                .paymentGateway("CONSTRUCTX_ARBITRATION").gatewayOrderId("DISP-CONS-" + projectCode)
+                .description(String.format("Nhận tiền phân xử tranh chấp dự án: %s (Quỹ khóa: %d, Được nhận: %d)", projectCode, contractorLockedEscrow, constructorRevenueShare))
+                .createdAt(LocalDateTime.now()).build();
+        transactionRepository.save(constructorTrans);
+    }
 }

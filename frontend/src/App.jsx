@@ -19,6 +19,11 @@ import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminPlatformWalletPage from './pages/AdminPlatformWalletPage';
+import CreateProjectPage from './pages/CreateProjectPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProjectListPage from './pages/ProjectListPage';
+import ProjectMarketplacePage from './pages/ProjectMarketplacePage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ChatPage from './pages/ChatPage';
@@ -32,6 +37,9 @@ import FurnitureDesignerPage from './pages/shop/FurnitureDesignerPage';
 import OrderBiddingPage from './pages/OrderBiddingPage';
 import AdminAllUsersPage from './pages/AdminAllUsersPage';
 import ContractProgressPage from './pages/ContractProgressPage';
+import ContractDisbursementsPage from './pages/ContractDisbursementsPage';
+import ContractReviewPage from './pages/ContractReviewPage';
+import ContractDisputePage from './pages/ContractDisputePage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -69,10 +77,26 @@ function App() {
         } />
 
         <Route path="/dashboard" element={<Navigate to="/" />} />
-        <Route path="/projects" element={<Navigate to="/" />} />
-        <Route path="/projects/new" element={<Navigate to="/" />} />
-        <Route path="/projects/:id" element={<Navigate to="/" />} />
-        <Route path="/projects/browse" element={<Navigate to="/" />} />
+        <Route path="/projects" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
+            <ProjectListPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/new" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER']}>
+            <CreateProjectPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/:id" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/browse" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProjectMarketplacePage />
+          </ProtectedRoute>
+        } />
 
         <Route path="/production-log" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
@@ -138,6 +162,12 @@ function App() {
           </ProtectedRoute>
         } />
 
+        <Route path="/admin/platform-wallet" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminPlatformWalletPage />
+          </ProtectedRoute>
+        } />
+
         <Route path="/admin/users" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminUsersPage />
@@ -176,6 +206,24 @@ function App() {
         <Route path="/contracts/:contractId/progress" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ContractProgressPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/disbursements" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractDisbursementsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/review" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractReviewPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/dispute" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractDisputePage />
           </ProtectedRoute>
         } />
 

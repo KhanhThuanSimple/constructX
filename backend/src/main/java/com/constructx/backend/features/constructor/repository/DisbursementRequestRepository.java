@@ -15,6 +15,10 @@ public interface DisbursementRequestRepository extends JpaRepository<Disbursemen
            "WHERE d.contract.id = :contractId AND d.status = 'APPROVED'")
     Long sumApprovedByContractId(@Param("contractId") Long contractId);
 
+    @Query("SELECT COALESCE(SUM(d.lockedAmount), 0) FROM DisbursementRequest d " +
+           "WHERE d.contract.id = :contractId AND d.status = 'APPROVED' AND d.fullyUnlocked = false")
+    Long sumLockedAndNotUnlockedByContractId(@Param("contractId") Long contractId);
+
     boolean existsByContractIdAndPhaseThresholdAndStatusIn(
         Long contractId, Integer phaseThreshold, List<DisbursementRequest.Status> statuses);
 }

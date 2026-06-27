@@ -7,4 +7,6 @@ public class DisputeResolutionRequest {
     private String resolution;
     private String resolutionType;
     private Long refundAmount;
+    private Double customerPercent;
+    private Double contractorPercent;
 }

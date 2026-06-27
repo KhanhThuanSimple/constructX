@@ -1,10 +1,15 @@
 package com.constructx.backend.features.wallet.service;
 
 import com.constructx.backend.features.wallet.entity.Transaction;
+import com.constructx.backend.features.wallet.entity.PlatformWallet;
+import com.constructx.backend.features.wallet.entity.PlatformTransaction;
 import com.constructx.backend.features.wallet.repository.TransactionRepository;
+import com.constructx.backend.features.wallet.repository.PlatformWalletRepository;
+import com.constructx.backend.features.wallet.repository.PlatformTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -12,6 +17,8 @@ public class AdminWalletService {
 
     private final TransactionRepository transactionRepository;
     private final WalletCoreManager walletCoreManager;
+    private final PlatformWalletRepository platformWalletRepository;
+    private final PlatformTransactionRepository platformTransactionRepository;
 
     @Transactional
     public void approveWithdrawRequest(Long transactionId) {
@@ -43,5 +50,41 @@ public class AdminWalletService {
             throw new RuntimeException("Loại giao dịch không hợp lệ");
         }
         walletCoreManager.executeUnlockAmount(transaction, reason);
+    }
+
+    @Transactional
+    public PlatformWallet getOrCreatePlatformWallet() {
+        return platformWalletRepository.findById(1L)
+                .orElseGet(() -> platformWalletRepository.save(PlatformWallet.builder().id(1L).balance(0L).build()));
+    }
+
+    public List<PlatformTransaction> getPlatformTransactions() {
+        return platformTransactionRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Transactional
+    public PlatformWallet withdrawPlatformWallet(Long amount, String description) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Số tiền rút phải lớn hơn 0");
+        }
+        
+        PlatformWallet wallet = getOrCreatePlatformWallet();
+        if (wallet.getBalance() < amount) {
+            throw new RuntimeException("Số dư ví nền tảng không đủ để thực hiện rút tiền (Yêu cầu: " + amount + ", Hiện tại: " + wallet.getBalance() + ")");
+        }
+        
+        // Trừ tiền trong ví nền tảng
+        wallet.setBalance(wallet.getBalance() - amount);
+        PlatformWallet updatedWallet = platformWalletRepository.save(wallet);
+        
+        // Ghi nhận giao dịch rút tiền nền tảng
+        platformTransactionRepository.save(PlatformTransaction.builder()
+                .amount(amount)
+                .type(PlatformTransaction.Type.WITHDRAW)
+                .referenceId("WITHDRAW-" + System.currentTimeMillis())
+                .description(description != null && !description.trim().isEmpty() ? description : "Admin rút tiền lợi tức khỏi hệ thống")
+                .build());
+                
+        return updatedWallet;
     }
 }
