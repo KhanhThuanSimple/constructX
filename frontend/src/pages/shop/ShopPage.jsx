@@ -210,7 +210,7 @@ export default function ShopPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 md:py-32">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-white/80 text-xs font-medium mb-6">
-              <Sparkles size={13} /> Bộ sưu tập nội thất 2025 — Mới cập nhật
+              <Sparkles size={13} /> Bộ sưu tập nội thất 2026 — Mới cập nhật
             </div>
             <h1 className="text-4xl md:text-6xl font-display font-bold text-white leading-tight mb-6">
               Không gian sống<br />

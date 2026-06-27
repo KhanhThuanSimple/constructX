@@ -1,20 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
-import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import useAuthStore from '../store/useAuthStore';
 import {
-  Camera, CheckCircle2, Clock, DollarSign, ImagePlus,
-  Loader2, Lock, Unlock, X, ChevronLeft, AlertCircle,
-  TrendingUp, ShieldCheck, UserCheck, AlertTriangle,
-  ArrowRight, BadgeCheck
+  Camera, CheckCircle2, DollarSign, Loader2, Shield, TrendingUp, X,
+  AlertCircle, Calendar, ShieldCheck, UserCheck, BadgeCheck, Unlock, Lock,
+  AlertTriangle, ImagePlus, Clock, Scale
 } from 'lucide-react';
-
-const fmt = (n) =>
-  n == null ? '—' :
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
-    .format(n).replace('₫', 'đ');
+import api from '../services/api';
+import Layout from '../components/Layout';
+import ContractHeader from '../components/ContractHeader';
+import useAuthStore from '../store/useAuthStore';
 
 const PHASES = [
   { label: 'Khởi công',           threshold: 20  },
@@ -22,6 +17,8 @@ const PHASES = [
   { label: 'Hoàn thiện',          threshold: 80  },
   { label: 'Bàn giao công trình', threshold: 100 },
 ];
+
+const fmt = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
 /**
  * Luồng giải ngân 5 bước:
@@ -135,6 +132,7 @@ export default function ContractProgressPage() {
   const { contractId } = useParams();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  
   const isContractor = user?.role === 'CONTRACTOR';
   const isCustomer   = user?.role === 'CUSTOMER';
   const isAdmin      = user?.role === 'ADMIN';
@@ -154,24 +152,17 @@ export default function ContractProgressPage() {
   const [hasReviewed, setHasReviewed] = useState(false);
 
   // Modals
-  const [showLogModal, setShowLogModal]       = useState(false);
-  const [showDisbModal, setShowDisbModal]     = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectTarget, setRejectTarget]       = useState(null);
-  const [rejectReason, setRejectReason]       = useState('');
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyTarget, setVerifyTarget]       = useState(null);
-  const [verifyNote, setVerifyNote]           = useState('');
-
-  const [submitting, setSubmitting] = useState(null); // id đang xử lý
-  const [uploading, setUploading]   = useState(false);
+  const [showLogModal, setShowLogModal]   = useState(false);
+  const [submitting, setSubmitting]       = useState(null); // 'log'
+  const [uploading, setUploading]         = useState(false);
 
   // Log form
   const [logForm, setLogForm] = useState({
     progressPercent: '', description: '', imageUrls: [], phaseLabel: '',
   });
 
-  // Disbursement form — tỉ lệ mặc định 30% immediate / 70% locked
+  // Disbursement Form Modal
+  const [showDisbModal, setShowDisbModal] = useState(false);
   const [disbForm, setDisbForm] = useState({
     phaseLabel: PHASES[0].label,
     phaseThreshold: PHASES[0].threshold,
@@ -180,17 +171,29 @@ export default function ContractProgressPage() {
     note: '',
   });
 
-  useEffect(() => { fetchAll(); }, [contractId]);
+  // Verify Modal
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyTarget, setVerifyTarget] = useState(null);
+  const [verifyNote, setVerifyNote] = useState('');
+
+  // Reject Modal
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  useEffect(() => {
+    fetchAll();
+  }, [contractId]);
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [contractRes, logsRes, disbRes, progressRes] = await Promise.all([
+      const [cRes, lRes, dRes] = await Promise.all([
         api.get(`/contracts/${contractId}`),
         api.get(`/contracts/${contractId}/construction-logs`),
         api.get(`/contracts/${contractId}/disbursements`),
-        api.get(`/contracts/${contractId}/progress`),
       ]);
+
       const contractData = contractRes.data.data;
       setContract(contractData);
       setLogs(logsRes.data.data || []);
@@ -213,36 +216,44 @@ export default function ContractProgressPage() {
     }
   };
 
-  // Upload ảnh Cloudinary
   const handleUploadImage = async (file) => {
     if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
     setUploading(true);
     try {
-      const cloudName    = import.meta.env.VITE_CLOUD_NAME;
-      const uploadPreset = import.meta.env.VITE_UPLOAD_PRESET;
-      if (!cloudName || !uploadPreset) { toast.error('Thiếu cấu hình Cloudinary'); return; }
-      const data = new FormData();
-      data.append('file', file);
-      data.append('upload_preset', uploadPreset);
-      const res    = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: data });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result?.error?.message || 'Upload thất bại');
-      setLogForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, result.secure_url] }));
-      toast.success('Upload ảnh thành công');
+      const response = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setLogForm((prev) => ({
+        ...prev,
+        imageUrls: [...prev.imageUrls, response.data.url],
+      }));
+      toast.success('Đã tải lên ảnh');
     } catch (e) {
-      toast.error(e.message || 'Upload thất bại');
+      toast.error('Lỗi khi tải lên hình ảnh');
     } finally {
       setUploading(false);
     }
   };
 
-  const removeImage = (idx) =>
-    setLogForm(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== idx) }));
+  const removeImage = (index) => {
+    setLogForm((prev) => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+    }));
+  };
 
-  // Gửi nhật ký
   const submitLog = async () => {
     if (!logForm.progressPercent) return toast.error('Vui lòng nhập % tiến độ');
+    if (Number(logForm.progressPercent) < progress) {
+      return toast.error(`Tiến độ cập nhật không được nhỏ hơn tiến độ hiện tại (${progress}%)`);
+    }
+    if (Number(logForm.progressPercent) > 100) {
+      return toast.error('Tiến độ không được lớn hơn 100%');
+    }
     if (!logForm.description.trim()) return toast.error('Vui lòng nhập mô tả công việc');
+    
     setSubmitting('log');
     try {
       await api.post('/construction-logs', {
@@ -266,7 +277,6 @@ export default function ContractProgressPage() {
   // Gửi yêu cầu giải ngân (Contractor)
   const submitDisbursement = async () => {
     if (!disbForm.amount || Number(disbForm.amount) <= 0) return toast.error('Vui lòng nhập số tiền hợp lệ');
-    // Validate: phase phải đạt được (phòng trường hợp browser bỏ qua disabled)
     if (progress < disbForm.phaseThreshold) {
       return toast.error(`Tiến độ hiện tại (${progress}%) chưa đạt ngưỡng ${disbForm.phaseThreshold}% của giai đoạn này.`);
     }
@@ -292,7 +302,6 @@ export default function ContractProgressPage() {
 
   // Mở modal disbursement — auto-select phase phù hợp với tiến độ hiện tại
   const openDisbModal = () => {
-    // Tìm phase cao nhất mà progress đã đạt
     const eligiblePhases = PHASES.filter(ph => progress >= ph.threshold);
     const bestPhase = eligiblePhases.length > 0
       ? eligiblePhases[eligiblePhases.length - 1]
@@ -429,7 +438,7 @@ export default function ContractProgressPage() {
 
   const totalDisbursed  = disbursements.filter(d => d.status === 'APPROVED').reduce((s, d) => s + (d.amount || 0), 0);
   const totalLocked     = disbursements.filter(d => d.status === 'APPROVED' && !d.fullyUnlocked).reduce((s, d) => s + (d.lockedAmount || 0), 0);
-  const maxDisbursable  = contract ? Math.round((contract.agreedPrice || 0) * 0.8) : 0;
+  const maxDisbursable  = Math.round((contract?.agreedPrice || 0) * 0.80);
   const pendingCount    = disbursements.filter(d => d.status === 'PENDING').length;
 
   if (loading) return (
@@ -439,49 +448,64 @@ export default function ContractProgressPage() {
   );
   if (!contract) return null;
 
+  if (contract.isDisputed) {
+    return (
+      <Layout title="Tiến độ & Nhật ký thi công">
+        <div className="max-w-md mx-auto my-12 bg-white rounded-2xl border border-red-150 p-6 text-center shadow-sm space-y-4">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-500">
+            <Shield size={32} className="animate-pulse" />
+          </div>
+          <h2 className="text-lg font-extrabold text-gray-900">Hợp đồng đang bị đóng băng tranh chấp</h2>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Hợp đồng này hiện đang ở trạng thái tranh chấp và mọi tính năng cập nhật tiến độ thi công đã bị vô hiệu hóa tạm thời để bảo toàn tài chính. Vui lòng di chuyển đến trang giải quyết tranh chấp để gửi bằng chứng hoặc thảo luận đối chất.
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => navigate(`/contracts/${contract.id}/dispute`)}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-sm text-xs flex items-center justify-center gap-1.5"
+            >
+              <Shield size={14} />
+              Đi tới trang Giải quyết Tranh chấp
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout title="Tiến độ thi công">
+    <Layout title="Tiến độ & Nhật ký thi công">
       <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header dùng chung */}
+        <ContractHeader
+          contract={contract}
+          progress={progress}
+          totalDisbursed={totalDisbursed}
+          totalLocked={totalLocked}
+          activeTab="progress"
+        />
 
-        {/* Back */}
-        <button onClick={() => navigate('/contracts')}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
-          <ChevronLeft size={15}/> Quay lại hợp đồng
-        </button>
-
-        {/* Header card */}
+        {/* Card Tiến độ & Stepper */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex flex-wrap justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Hợp đồng</p>
-              <h2 className="text-xl font-bold text-gray-900">
-                {contract.projectName || contract.orderCode || contract.contractNumber}
-              </h2>
-              <p className="text-xs text-gray-400 font-mono mt-0.5">{contract.contractNumber}</p>
-              <div className="flex gap-3 mt-3 text-sm text-gray-600 flex-wrap">
-                <span>Khách hàng: <strong>{contract.clientName}</strong></span>
-                <span className="text-gray-300">|</span>
-                <span>Nhà thầu: <strong>{contract.contractorName}</strong></span>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-400">Giá trị HĐ</p>
-              <p className="text-2xl font-bold text-primary">{fmt(contract.agreedPrice)}</p>
-              <div className="text-xs text-gray-400 mt-1 space-y-0.5">
-                <p>Đã giải ngân: <strong className="text-green-600">{fmt(totalDisbursed)}</strong></p>
-                {totalDisbursed < maxDisbursable && (
-                  <p>Còn tối đa 80%: <strong className="text-amber-600">{fmt(maxDisbursable - totalDisbursed)}</strong></p>
-                )}
-                {totalDisbursed >= maxDisbursable && (
-                  <p>Chờ hoàn công (20%): <strong className="text-amber-600">{fmt((contract.agreedPrice || 0) - totalDisbursed)}</strong></p>
-                )}
-              </div>
-              {totalLocked > 0 && (
-                <p className="text-xs text-amber-600 flex items-center gap-1 justify-end mt-0.5">
-                  <Lock size={10}/> Đang đóng băng: {fmt(totalLocked)}
-                </p>
-              )}
-            </div>
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-500 font-semibold">Tổng quan Tiến độ Công việc</span>
+            <span className="font-extrabold text-primary text-base">{progress}%</span>
+          </div>
+          
+          <div className="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-5 bg-primary rounded-full transition-all duration-700"
+              style={{ width: `${progress}%` }}
+            />
+            {PHASES.map(p => (
+              <div
+                key={p.threshold}
+                className="absolute top-0 bottom-0 w-px bg-white/60"
+                style={{ left: `${p.threshold}%` }}
+                title={p.label}
+              />
+            ))}
           </div>
 
           {/* Dispute & Review Action Buttons */}
@@ -524,14 +548,14 @@ export default function ContractProgressPage() {
             <div className="flex justify-between mt-2">
               {PHASES.map(p => (
                 <div key={p.threshold} className="text-center" style={{ width: '25%' }}>
-                  <div className={`w-3 h-3 rounded-full mx-auto mb-1 border-2 ${
-                    progress >= p.threshold ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+                  <div className={`w-3 h-3 rounded-full mx-auto mb-1 border-2 transition-all ${
+                    reached ? 'bg-primary border-primary' : 'bg-white border-gray-300'
                   }`}/>
-                  <p className="text-[9px] text-gray-400 hidden sm:block">{p.label}</p>
+                  <p className={`text-[10px] hidden sm:block ${reached ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>{p.label}</p>
                   <p className="text-[9px] font-bold text-gray-500">{p.threshold}%</p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -565,7 +589,7 @@ export default function ContractProgressPage() {
           ].map(s => (
             <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
               <p className="text-[10px] text-gray-400 uppercase tracking-widest">{s.label}</p>
-              <p className={`text-lg font-bold mt-1 ${s.color}`}>{s.value}</p>
+              <p className={`text-sm sm:text-base font-bold mt-1 ${s.color}`}>{s.value}</p>
             </div>
           ))}
         </div>
@@ -584,32 +608,8 @@ export default function ContractProgressPage() {
           </div>
         )}
 
-        {/* Luồng giải ngân — info box */}
-        <div className="bg-gradient-to-r from-primary/5 to-blue-50 border border-primary/20 rounded-2xl p-4">
-          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <ArrowRight size={13}/> Quy trình giải ngân 5 bước
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {[
-              { n: 1, label: 'Contractor gửi',   cls: 'bg-gray-100 text-gray-700' },
-              { n: 2, label: 'Admin xác nhận',   cls: 'bg-amber-100 text-amber-700' },
-              { n: 3, label: 'Customer duyệt',   cls: 'bg-blue-100 text-blue-700' },
-              { n: 4, label: '30% ngay / 70% locked', cls: 'bg-green-100 text-green-700' },
-              { n: 5, label: 'Auto-unlock mốc sau', cls: 'bg-purple-100 text-purple-700' },
-            ].map((s, i, arr) => (
-              <React.Fragment key={s.n}>
-                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-semibold ${s.cls}`}>
-                  <span className="w-4 h-4 rounded-full bg-white/60 flex items-center justify-center text-[10px] font-bold">{s.n}</span>
-                  {s.label}
-                </span>
-                {i < arr.length - 1 && <ArrowRight size={13} className="text-gray-300 self-center"/>}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <div className="flex gap-1 bg-gray-150 rounded-xl p-1">
           {[
             { key: 'logs',          label: 'Nhật ký thi công', icon: <Camera size={14}/> },
             { key: 'disbursements', label: `Giải ngân${pendingCount > 0 ? ` (${pendingCount})` : ''}`, icon: <DollarSign size={14}/> },
@@ -623,127 +623,139 @@ export default function ContractProgressPage() {
           ))}
         </div>
 
-        {/* ── Tab: Nhật ký ── */}
+        {/* Tab content: logs */}
         {activeTab === 'logs' && (
           <div className="space-y-4">
-            {isContractor && contract.status === 'ACTIVE' && (
-              <div className="flex justify-end">
-                <button onClick={() => setShowLogModal(true)} disabled={contract.isDisputed}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <Camera size={16}/> Cập nhật tiến độ
+            {/* Tiêu đề mục nhật ký & Nút thêm */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <Camera size={16} className="text-primary" />
+                Dòng thời gian Nhật ký Thi công
+              </h3>
+              {isContractor && contract.status === 'ACTIVE' && (
+                <button
+                  onClick={() => setShowLogModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
+                >
+                  <Camera size={12}/> Cập nhật tiến độ mới
                 </button>
-              </div>
-            )}
+              )}
+            </div>
+
             {logs.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center">
-                <Camera size={36} className="mx-auto text-gray-200 mb-3"/>
-                <p className="text-gray-400">Chưa có nhật ký thi công nào</p>
+              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-16 text-center">
+                <Camera size={40} className="mx-auto text-gray-200 mb-3" />
+                <p className="text-gray-400 font-semibold text-sm">Chưa có nhật ký thi công nào được đăng tải</p>
+                <p className="text-xs text-gray-300 mt-1">Nhật ký hàng ngày sẽ được nhà thầu cập nhật tại đây để báo cáo tiến trình công việc.</p>
               </div>
             ) : (
-              logs.map(log => (
-                <div key={log.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {log.phaseLabel && (
-                          <span className="px-2.5 py-1 bg-primary-bg text-primary rounded-full text-xs font-bold">{log.phaseLabel}</span>
-                        )}
-                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-bold">
-                          {log.progressPercent}% tiến độ
-                        </span>
+              <div className="space-y-4 relative before:absolute before:top-2 before:bottom-2 before:left-6 before:w-0.5 before:bg-gray-100">
+                {logs.map((log) => (
+                  <div key={log.id} className="relative pl-12">
+                    {/* Timeline Dot */}
+                    <div className="absolute left-4 top-1.5 w-4.5 h-4.5 rounded-full border-4 border-white bg-primary shadow-sm flex items-center justify-center" />
+                    
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:border-gray-200 transition-colors">
+                      <div className="flex justify-between items-start mb-3 gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {log.phaseLabel && (
+                              <span className="px-2.5 py-0.5 bg-primary-bg text-primary rounded-full text-[10px] font-bold">
+                                {log.phaseLabel}
+                              </span>
+                            )}
+                            <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">
+                              {log.progressPercent}% tiến độ
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            Cập nhật bởi: <strong className="text-gray-600">{log.contractorName}</strong> • {new Date(log.createdAt).toLocaleString('vi-VN')}
+                          </p>
+                        </div>
+                        <TrendingUp size={16} className="text-green-400 shrink-0" />
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {log.contractorName} • {new Date(log.createdAt).toLocaleString('vi-VN')}
-                      </p>
+                      
+                      <p className="text-xs sm:text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{log.description}</p>
+                      
+                      {log.imageUrls?.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
+                          {log.imageUrls.map((url, i) => (
+                            <a href={url} target="_blank" rel="noreferrer" key={i} className="group overflow-hidden rounded-xl border border-gray-100 h-28 sm:h-32 block">
+                              <img
+                                src={url}
+                                alt="Minh chứng thi công"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <TrendingUp size={18} className="text-green-400 shrink-0"/>
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed mb-4">{log.description}</p>
-                  {log.imageUrls?.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {log.imageUrls.map((url, i) => (
-                        <img key={i} src={url} alt="" className="h-32 w-full object-cover rounded-xl border border-gray-100"/>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         )}
 
-        {/* ── Tab: Giải ngân ── */}
+        {/* Tab content: disbursements */}
         {activeTab === 'disbursements' && (
           <div className="space-y-4">
-            {isContractor && contract.status === 'ACTIVE' && (
-              <div className="flex justify-end">
-                <button onClick={openDisbModal} disabled={contract.isDisputed}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <DollarSign size={16}/> Yêu cầu giải ngân
+            {/* Tiêu đề & Nút thêm */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <DollarSign size={16} className="text-primary" />
+                Yêu cầu Giải ngân
+              </h3>
+              {isContractor && contract.status === 'ACTIVE' && (
+                <button
+                  onClick={openDisbModal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
+                >
+                  <DollarSign size={12}/> Yêu cầu giải ngân mới
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {disbursements.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center">
-                <DollarSign size={36} className="mx-auto text-gray-200 mb-3"/>
-                <p className="text-gray-400">Chưa có yêu cầu giải ngân nào</p>
+              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-16 text-center">
+                <DollarSign size={40} className="mx-auto text-gray-200 mb-3" />
+                <p className="text-gray-400 font-semibold text-sm">Chưa có yêu cầu giải ngân nào</p>
+                <p className="text-xs text-gray-300 mt-1">Yêu cầu thanh toán theo tiến độ sẽ hiển thị tại đây.</p>
               </div>
             ) : (
               disbursements.map(d => {
                 const st = getDisbStatus(d);
                 return (
-                  <div key={d.id} className={`bg-white rounded-2xl border shadow-sm p-5 ${
-                    d.status === 'PENDING' && d.adminVerified ? 'border-blue-200' :
-                    d.status === 'PENDING' ? 'border-amber-200' :
-                    d.status === 'APPROVED' ? 'border-green-200' : 'border-gray-100'
+                  <div key={d.id} className={`bg-white rounded-2xl border shadow-sm p-5 transition-all ${
+                    d.status === 'PENDING' && d.adminVerified ? 'border-blue-200 bg-blue-50/5' :
+                    d.status === 'PENDING' ? 'border-amber-250 bg-amber-50/5' :
+                    d.status === 'APPROVED' ? 'border-green-250 bg-green-50/5' : 'border-gray-100'
                   }`}>
-                    {/* Header */}
-                    <div className="flex flex-wrap justify-between gap-3 mb-3">
+                    <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${st.cls}`}>
-                            {st.icon} {st.label}
-                          </span>
-                          <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-full text-[10px] font-bold">
                             {d.phaseLabel} ({d.phaseThreshold}%)
                           </span>
-                          {d.fullyUnlocked && (
-                            <span className="flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold">
-                              <Unlock size={11}/> Đã unlock hết
-                            </span>
-                          )}
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
+                            {st.icon} {st.label}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-400">
-                          Tiến độ lúc yêu cầu: {d.progressAtRequest}% • {new Date(d.createdAt).toLocaleString('vi-VN')}
+                        <p className="text-[10px] text-gray-400 mt-1.5">
+                          Mã yêu cầu: <strong className="text-gray-600">#{d.id}</strong> • {new Date(d.createdAt).toLocaleString('vi-VN')}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-primary">{fmt(d.amount)}</p>
-                        {d.status === 'APPROVED' && (
-                          <div className="text-xs mt-1 space-y-0.5">
-                            <p className="text-green-600 font-semibold">
-                              ✅ {fmt(d.immediateAmount)} vào ví ngay ({Math.round((d.immediateRatio || 0.3) * 100)}%)
-                            </p>
-                            {d.lockedAmount > 0 && !d.fullyUnlocked && (
-                              <p className="text-amber-600 flex items-center gap-1 justify-end">
-                                <Lock size={10}/> {fmt(d.lockedAmount)} đóng băng — chờ mốc tiếp theo
-                              </p>
-                            )}
-                            {d.fullyUnlocked && (
-                              <p className="text-gray-500 flex items-center gap-1 justify-end text-[10px]">
-                                <Unlock size={10}/> Đã mở khóa toàn bộ
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        <p className="text-xs text-gray-400">Số tiền yêu cầu</p>
+                        <p className="text-sm font-black text-slate-800 mt-0.5">{fmt(d.amount)}</p>
                       </div>
                     </div>
 
-                    {d.note && <p className="text-xs text-gray-600 mb-3 bg-gray-50 rounded-lg p-2">📝 {d.note}</p>}
+                    {d.note && <p className="text-xs text-gray-600 mb-3 bg-gray-50 rounded-lg p-2.5 border border-slate-100/50">📝 {d.note}</p>}
                     {d.rejectReason && (
-                      <p className="text-xs text-red-600 mb-3 bg-red-50 rounded-lg p-2 flex items-start gap-1.5">
-                        <AlertTriangle size={11} className="mt-0.5 shrink-0"/> Từ chối: {d.rejectReason}
+                      <p className="text-xs text-red-600 mb-3 bg-red-50 rounded-lg p-2.5 border border-red-100/50 flex items-start gap-1.5">
+                        <AlertTriangle size={11} className="mt-0.5 shrink-0"/> <strong>Từ chối:</strong> {d.rejectReason}
                       </p>
                     )}
 
@@ -769,134 +781,130 @@ export default function ContractProgressPage() {
         )}
       </div>
 
-      {/* ── Modal: Nhật ký thi công ── */}
+      {/* Modal: Thêm Nhật ký thi công */}
       {showLogModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl p-7 relative max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setShowLogModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+            <button
+              onClick={() => setShowLogModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors"
+            >
               <X size={20}/>
             </button>
-            <h2 className="text-xl font-bold text-gray-800 mb-5">Cập nhật tiến độ thi công</h2>
+            
+            <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Camera size={20} className="text-primary" />
+              Cập nhật tiến độ thi công
+            </h2>
+            <p className="text-xs text-gray-500 mb-5">Đăng tải báo cáo công việc và hình ảnh thực tế thi công tại công trường.</p>
+            
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Giai đoạn</label>
-                <select value={logForm.phaseLabel}
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Giai đoạn thi công</label>
+                <select
+                  value={logForm.phaseLabel}
                   onChange={e => setLogForm(p => ({ ...p, phaseLabel: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary">
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary transition-all"
+                >
                   <option value="">-- Chọn giai đoạn --</option>
                   {PHASES.map(ph => <option key={ph.threshold} value={ph.label}>{ph.label}</option>)}
                 </select>
               </div>
+              
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">% Tiến độ (hiện tại: {progress}%)</label>
-                <input type="number" min={progress} max={100} value={logForm.progressPercent}
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                  % Tiến độ công việc đạt được (Hiện tại: {progress}%)
+                </label>
+                <input
+                  type="number"
+                  min={progress}
+                  max={100}
+                  value={logForm.progressPercent}
                   onChange={e => setLogForm(p => ({ ...p, progressPercent: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary"
-                  placeholder={`Từ ${progress}% đến 100%`}/>
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary transition-all"
+                  placeholder={`Vui lòng nhập giá trị từ ${progress}% đến 100%`}
+                />
               </div>
+              
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Mô tả công việc đã thực hiện</label>
-                <textarea rows={4} value={logForm.description}
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Mô tả chi tiết công việc đã làm</label>
+                <textarea
+                  rows={4}
+                  value={logForm.description}
                   onChange={e => setLogForm(p => ({ ...p, description: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none"
-                  placeholder="Mô tả chi tiết công việc đã hoàn thành..."/>
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none transition-all"
+                  placeholder="Mô tả cụ thể hạng mục hoàn thành, vật liệu lắp đặt, nhân sự thực hiện..."
+                />
               </div>
+              
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                  Ảnh minh chứng ({logForm.imageUrls.length}/6)
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                  Hình ảnh thực tế minh chứng ({logForm.imageUrls.length}/6)
                 </label>
                 <div className="grid grid-cols-3 gap-2 mb-2">
                   {logForm.imageUrls.map((url, i) => (
-                    <div key={i} className="relative">
-                      <img src={url} alt="" className="h-20 w-full object-cover rounded-xl border border-gray-100"/>
-                      <button onClick={() => removeImage(i)}
-                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs">
+                    <div key={i} className="relative h-20 rounded-xl overflow-hidden border border-gray-100">
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <button
+                        onClick={() => removeImage(i)}
+                        className="absolute top-1.5 right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors shadow"
+                      >
                         <X size={10}/>
                       </button>
                     </div>
                   ))}
                   {logForm.imageUrls.length < 6 && (
-                    <label className="h-20 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
-                      {uploading ? <Loader2 size={18} className="animate-spin text-primary"/> : <ImagePlus size={18} className="text-gray-400"/>}
-                      <span className="text-[10px] text-gray-400 mt-1">{uploading ? 'Đang tải...' : 'Thêm ảnh'}</span>
+                    <label className="h-20 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-primary transition-colors">
+                      {uploading ? (
+                        <Loader2 size={18} className="animate-spin text-primary"/>
+                      ) : (
+                        <ImagePlus size={18} className="text-gray-400"/>
+                      )}
+                      <span className="text-[10px] text-gray-400 mt-1 font-medium">
+                        {uploading ? 'Đang tải...' : 'Thêm ảnh'}
+                      </span>
                       <input type="file" hidden accept="image/*" onChange={e => handleUploadImage(e.target.files[0])}/>
                     </label>
                   )}
                 </div>
               </div>
-              <button disabled={submitting === 'log' || uploading} onClick={submitLog}
-                className="w-full py-3.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50 text-sm">
-                {submitting === 'log' ? 'Đang lưu...' : 'Lưu nhật ký'}
+              
+              <button
+                disabled={submitting === 'log' || uploading}
+                onClick={submitLog}
+                className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-light disabled:opacity-50 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                {submitting === 'log' ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Đang lưu nhật ký...
+                  </>
+                ) : (
+                  'Lưu nhật ký & Cập nhật tiến độ'
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Modal: Yêu cầu giải ngân ── */}
+      {/* Modal: Yêu cầu giải ngân */}
       {showDisbModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-7 relative">
-            <button onClick={() => setShowDisbModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600">
-              <X size={20}/>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowDisbModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X size={18}/>
             </button>
-            <h2 className="text-xl font-bold text-gray-800 mb-1">Yêu cầu giải ngân</h2>
-            <p className="text-xs text-gray-400 mb-4">
-              Tiến độ hiện tại: {progress}% •{' '}
-              {maxDisbursable - totalDisbursed > 0
-                ? <>Có thể yêu cầu tối đa: <strong className="text-amber-600">{fmt(maxDisbursable - totalDisbursed)}</strong></>
-                : <span className="text-amber-600 font-semibold">Đã đạt giới hạn 80% — chờ Admin xác nhận hoàn công</span>
-              }
-            </p>
-
-            {/* Info luồng */}
-            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-xs text-blue-800 mb-4">
-              <AlertCircle size={13} className="mt-0.5 shrink-0"/>
-              <span>Sau khi gửi: <strong>Admin xác nhận</strong> → <strong>Khách duyệt</strong> → <strong>30% ngay / 70% locked</strong> đến mốc tiếp theo.</span>
-            </div>
-
+            <h3 className="font-bold text-gray-900 mb-4">Gửi yêu cầu giải ngân</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Giai đoạn</label>
-                {/* Chỉ hiển thị phase đã đạt — loại bỏ vấn đề disabled option */}
-                <div className="space-y-2">
-                  {PHASES.map(ph => {
-                    const reached = progress >= ph.threshold;
-                    const isSelected = disbForm.phaseLabel === ph.label;
-                    return (
-                      <button
-                        key={ph.threshold}
-                        type="button"
-                        disabled={!reached}
-                        onClick={() => reached && setDisbForm(prev => ({
-                          ...prev,
-                          phaseLabel: ph.label,
-                          phaseThreshold: ph.threshold
-                        }))}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm transition-all ${
-                          !reached
-                            ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                            : isSelected
-                            ? 'bg-primary border-primary text-white font-bold'
-                            : 'bg-white border-gray-200 text-gray-700 hover:border-primary hover:bg-primary/5'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${reached ? (isSelected ? 'bg-white' : 'bg-green-400') : 'bg-gray-200'}`}/>
-                          {ph.label}
-                        </span>
-                        <span className={`text-xs font-semibold ${isSelected ? 'text-white/80' : reached ? 'text-green-600' : 'text-gray-300'}`}>
-                          {ph.threshold}% {reached ? '✓ Đạt' : '— Chưa đạt'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {PHASES.every(ph => progress < ph.threshold) && (
-                  <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
-                    <AlertCircle size={11}/> Tiến độ chưa đạt mốc nào để yêu cầu giải ngân.
-                  </p>
-                )}
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Chọn giai đoạn đạt mốc</label>
+                <select value={disbForm.phaseLabel} onChange={e => {
+                  const selectedPh = PHASES.find(p => p.label === e.target.value);
+                  setDisbForm(p => ({ ...p, phaseLabel: e.target.value, phaseThreshold: selectedPh ? selectedPh.threshold : PHASES[0].threshold }));
+                }} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary">
+                  {PHASES.map(ph => <option key={ph.threshold} value={ph.label}>{ph.label} ({ph.threshold}%)</option>)}
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1.5 block">Số tiền yêu cầu (VND)</label>
@@ -905,8 +913,6 @@ export default function ContractProgressPage() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary"
                   placeholder="Nhập số tiền..."/>
               </div>
-
-              {/* Tỉ lệ mới: 30% immediate / 70% locked */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block">
                   Tỉ lệ nhận ngay: <strong className="text-primary">{disbForm.immediateRatio}%</strong>
@@ -929,7 +935,6 @@ export default function ContractProgressPage() {
                   </div>
                 )}
               </div>
-
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1.5 block">Ghi chú (tuỳ chọn)</label>
                 <textarea rows={2} value={disbForm.note}
@@ -937,7 +942,6 @@ export default function ContractProgressPage() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none"
                   placeholder="Mô tả công việc đã hoàn thành..."/>
               </div>
-
               <button disabled={submitting === 'disb'} onClick={submitDisbursement}
                 className="w-full py-3.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50 text-sm">
                 {submitting === 'disb' ? 'Đang gửi...' : 'Gửi yêu cầu giải ngân'}
@@ -947,7 +951,7 @@ export default function ContractProgressPage() {
         </div>
       )}
 
-      {/* ── Modal: Admin verify ── */}
+      {/* Modal: Admin verify */}
       {showVerifyModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
@@ -980,7 +984,7 @@ export default function ContractProgressPage() {
         </div>
       )}
 
-      {/* ── Modal: Từ chối ── */}
+      {/* Modal: Từ chối */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">

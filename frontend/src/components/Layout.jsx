@@ -24,10 +24,15 @@ const Sidebar = () => {
       ],
     },
     {
-      group: 'Quản lý Đơn hàng',
+      group: 'Quản lý Thi công',
       items: [
-        { id: 'orders',    label: 'Đơn hàng của tôi', icon: <ShoppingCart size={20} />, path: '/orders' },
-        { id: 'contracts', label: 'Hợp đồng',         icon: <FileText size={20} />,     path: '/contracts' },
+        { id: 'orders',    label: 'Đơn hàng của tôi',     icon: <ShoppingCart size={20} />, path: '/orders' },
+        { id: 'contracts',      label: 'Quản lý hợp đồng' ,     icon: <Camera size={20} />,       path: '/contracts' },
+
+        { id: 'logs',      label: 'Nhật ký thi công',     icon: <Camera size={20} />,       path: '/contracts?view=progress' },
+        { id: 'payments',  label: 'Giải ngân & Escrow',   icon: <Wallet size={20} />,       path: '/contracts?view=disbursements' },
+        { id: 'reviews',   label: 'Nghiệm thu & Đánh giá', icon: <ClipboardCheck size={20} />,path: '/contracts?view=reviews' },
+        { id: 'disputes',  label: 'Tranh chấp & Khiếu nại',icon: <Shield size={20} />,        path: '/contracts?view=disputes' },
       ],
     },
     {
@@ -51,8 +56,13 @@ const Sidebar = () => {
     {
       group: 'Công việc & Dự án',
       items: [
-        { id: 'order-bidding', label: 'Đấu thầu đơn hàng',    icon: <Gavel size={20} />,    path: '/order-bidding' },
-        { id: 'contracts',     label: 'Hợp đồng & Thi công',  icon: <FileText size={20} />, path: '/contracts' },
+        { id: 'order-bidding', label: 'Đấu thầu đơn hàng',      icon: <Gavel size={20} />,    path: '/order-bidding' },
+                { id: 'contracts',      label: 'Quản lý hợp đồng' ,     icon: <Camera size={20} />,       path: '/contracts' },
+
+        { id: 'logs',          label: 'Nhật ký thi công',       icon: <Camera size={20} />,   path: '/contracts?view=progress' },
+        { id: 'payments',      label: 'Giải ngân & Escrow',     icon: <Wallet size={20} />,   path: '/contracts?view=disbursements' },
+        { id: 'reviews',       label: 'Nghiệm thu & Đánh giá',   icon: <ClipboardCheck size={20} />,path: '/contracts?view=reviews' },
+        { id: 'disputes',      label: 'Tranh chấp & Khiếu nại',   icon: <Shield size={20} />,   path: '/contracts?view=disputes' },
       ],
     },
     {
@@ -99,6 +109,7 @@ const Sidebar = () => {
       items: [
         { id: 'disputes',     label: 'Tranh chấp',    icon: <Shield size={20} />,        path: '/admin/disputes' },
         { id: 'allowances',   label: 'Duyệt tiền',    icon: <Wallet size={20} />,        path: '/admin/AdminWithdrawalsPage' },
+        { id: 'platform-wallet', label: 'Ví nền tảng', icon: <Wallet size={20} />,       path: '/admin/platform-wallet' },
         { id: 'chat-monitor', label: 'Giám sát chat', icon: <MessageCircle size={20} />, path: '/admin/chat' },
       ],
     },

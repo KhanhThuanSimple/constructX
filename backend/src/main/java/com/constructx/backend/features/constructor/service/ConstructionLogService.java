@@ -52,6 +52,9 @@ public class ConstructionLogService {
             throw new RuntimeException("Ban khong phai nha thau cua hop dong nay");
         if (contract.getStatus() != Contract.Status.ACTIVE)
             throw new RuntimeException("Chi cap nhat nhat ky khi hop dong dang ACTIVE");
+        if (Boolean.TRUE.equals(contract.getIsDisputed())) {
+            throw new RuntimeException("Hợp đồng đang có tranh chấp và bị đóng băng. Không thể cập nhật tiến độ.");
+        }
 
         // Validate tiến độ mới phải >= tiến độ hiện tại
         int currentProgress = constructionLogRepository

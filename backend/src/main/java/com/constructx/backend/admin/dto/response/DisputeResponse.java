@@ -25,4 +25,10 @@ public class DisputeResponse {
     private Long chatRoomId;
     private LocalDateTime createdAt;
     private List<DisputeMessageResponse> messages;
+
+    // Phân rã tài chính nhiều giai đoạn phục vụ FE hiển thị trực quan
+    private Long customerRemainingEscrow;
+    private Long contractorLockedEscrow;
+    private Long disputePool;
+    private Boolean isDisputed;
 }

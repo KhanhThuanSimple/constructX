@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   FileText, CheckCircle, Clock, XCircle, AlertCircle,
   ChevronDown, ChevronUp, User as UserIcon, Calendar,
-  ArrowRight, PenLine, Printer, Download, Building2,
-  Phone, Mail, DollarSign, Shield, TrendingUp, Star
+  ArrowRight, PenLine, Printer, Building2, Phone, Wallet,
+  Camera, ClipboardCheck, Shield, Lock, Unlock, MessageSquare, TrendingUp,
+  Loader2
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -16,14 +17,14 @@ const fmt = (n) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
 
 const STATUS_CONFIG = {
-  PENDING_REVIEW:    { label: 'Chờ Admin duyệt',  icon: <Clock size={14}/>,        cls: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400 animate-pulse' },
-  WAITING_SIGNATURE: { label: 'Chờ ký kết',        icon: <PenLine size={14}/>,      cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
-  ACTIVE:            { label: 'Đang thi công',      icon: <CheckCircle size={14}/>,  cls: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
-  COMPLETED:         { label: 'Hoàn thành',         icon: <CheckCircle size={14}/>,  cls: 'bg-primary-bg text-primary',   dot: 'bg-primary' },
-  CANCELLED:         { label: 'Đã hủy',             icon: <XCircle size={14}/>,      cls: 'bg-red-100 text-red-600',      dot: 'bg-red-400' },
+  PENDING_REVIEW:    { label: 'Chờ Admin duyệt',  icon: <Clock size={13}/>,        cls: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400 animate-pulse' },
+  WAITING_SIGNATURE: { label: 'Chờ ký kết',        icon: <PenLine size={13}/>,      cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
+  ACTIVE:            { label: 'Đang thi công',      icon: <CheckCircle size={13}/>,  cls: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
+  COMPLETED:         { label: 'Hoàn thành',         icon: <CheckCircle size={13}/>,  cls: 'bg-primary-bg text-primary',   dot: 'bg-primary' },
+  CANCELLED:         { label: 'Đã hủy',             icon: <XCircle size={13}/>,      cls: 'bg-red-100 text-red-600',      dot: 'bg-red-400' },
 };
 
-/* ── In hợp đồng ── */
+/* ── In hợp đồng văn bản pháp lý ── */
 function printContract(c) {
   const win = window.open('', '_blank');
   const today = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -180,39 +181,25 @@ function printContract(c) {
 export default function ContractsPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // view: 'progress' (Nhật ký), 'disbursements' (Giải ngân), 'reviews' (Nghiệm thu), 'disputes' (Tranh chấp), 'all' (Tất cả)
+  const currentView = searchParams.get('view') || 'all';
+
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [signing, setSigning] = useState(null);
 
-  // Review states
-  const [reviewedItems, setReviewedItems] = useState(new Set());
-  const [reviewModal, setReviewModal] = useState(null); // { contract }
-  const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
-  const [submittingReview, setSubmittingReview] = useState(false);
-
-  useEffect(() => { fetchContracts(); }, []);
+  useEffect(() => {
+    fetchContracts();
+  }, []);
 
   const fetchContracts = async () => {
+    setLoading(true);
     try {
       const res = await api.get('/contracts/my');
-      const data = res.data.data || [];
-      setContracts(data);
-
-      // Check which completed contracts are already reviewed
-      const completedContracts = data.filter(c => c.status === 'COMPLETED');
-      if (completedContracts.length > 0) {
-        Promise.all(completedContracts.map(c => {
-          const refType = c.projectId ? 'PROJECT' : 'ORDER';
-          const refId = c.projectId || c.orderId;
-          if (!refId) return Promise.resolve(null);
-          return api.get(`/reviews/check?referenceType=${refType}&referenceId=${refId}`)
-            .then(r => r.data.data ? `${refType}_${refId}` : null)
-            .catch(() => null);
-        })).then(results => {
-          setReviewedItems(new Set(results.filter(Boolean)));
-        });
-      }
+      setContracts(res.data.data || []);
     } catch {
       toast.error('Không thể tải danh sách hợp đồng');
     } finally {
@@ -225,7 +212,7 @@ export default function ContractsPage() {
     setSigning(contractId);
     try {
       await api.post(`/contracts/${contractId}/sign`);
-      toast.success('✅ Ký hợp đồng thành công! Dự án chính thức bắt đầu thi công.');
+      toast.success('✅ Ký hợp đồng thành công! Hợp đồng chính thức bắt đầu thi công.');
       fetchContracts();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Lỗi khi ký hợp đồng');
@@ -234,298 +221,345 @@ export default function ContractsPage() {
     }
   };
 
-  const handleSubmitReview = async () => {
-    if (!reviewModal) return;
-    if (!reviewData.comment.trim()) { toast.error('Vui lòng nhập nhận xét'); return; }
-    setSubmittingReview(true);
-    try {
-      const refType = reviewModal.projectId ? 'PROJECT' : 'ORDER';
-      const refId = reviewModal.projectId || reviewModal.orderId;
-      await api.post('/reviews', {
-        rating: reviewData.rating,
-        comment: reviewData.comment,
-        referenceType: refType,
-        referenceId: refId,
-        revieweeId: reviewModal.contractorId,
-      });
-      toast.success('🌟 Cảm ơn bạn đã đánh giá!');
-      setReviewedItems(prev => new Set([...prev, `${refType}_${refId}`]));
-      setReviewModal(null);
-      setReviewData({ rating: 5, comment: '' });
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Lỗi gửi đánh giá');
-    } finally { setSubmittingReview(false); }
+  // 1. Phân loại hợp đồng theo chức năng tùy thuộc vào tham số `view` từ URL
+  const getFilteredContracts = () => {
+    if (currentView === 'progress') {
+      // Chỉ hiện hợp đồng đang thi công hoặc đã hoàn thành và KHÔNG bị tranh chấp
+      return contracts.filter(c => (c.status === 'ACTIVE' || c.status === 'COMPLETED') && !c.isDisputed);
+    }
+    if (currentView === 'disbursements') {
+      // Chỉ hiện hợp đồng đang hoạt động hoặc hoàn thành và KHÔNG bị tranh chấp
+      return contracts.filter(c => (c.status === 'ACTIVE' || c.status === 'COMPLETED') && !c.isDisputed);
+    }
+    if (currentView === 'reviews') {
+      // Hiện các hợp đồng đã hoàn thành hoặc hợp đồng đang thi công và KHÔNG bị tranh chấp
+      return contracts.filter(c => (c.status === 'COMPLETED' || c.status === 'ACTIVE') && !c.isDisputed);
+    }
+    if (currentView === 'disputes') {
+      // Chỉ hiện các hợp đồng đang bị khiếu nại / tranh chấp
+      return contracts.filter(c => c.isDisputed === true);
+    }
+    return contracts; // Mặc định hiển thị tất cả
   };
 
+  const filteredContracts = getFilteredContracts();
+
+  // Tính số lượng cho thống kê tổng quan (chỉ hiện ở view = all)
   const counts = Object.fromEntries(
     Object.keys(STATUS_CONFIG).map(k => [k, contracts.filter(c => c.status === k).length])
   );
 
+  // 2. Thiết lập tiêu đề và mô tả động cho từng Phân hệ chức năng
+  const VIEW_META_MAP = {
+    progress: {
+      title: 'Nhật ký & Tiến độ thi công',
+      desc: 'Giám sát tiến độ phần trăm công việc và hình ảnh báo cáo nhật ký thi công thực tế từ công trình.',
+      icon: <Camera className="text-primary" size={24} />,
+      empty: 'Hiện chưa có hợp đồng nào trong giai đoạn thi công tiến độ.',
+    },
+    disbursements: {
+      title: 'Quản lý Giải ngân & Ví Escrow',
+      desc: 'Yêu cầu thanh toán các cột mốc hoàn thành và kiểm soát phê duyệt giải ngân dòng tiền ký quỹ an toàn.',
+      icon: <Wallet className="text-primary" size={24} />,
+      empty: 'Hiện chưa có hợp đồng nào phát sinh giao dịch giải ngân.',
+    },
+    reviews: {
+      title: 'Nghiệm thu & Đánh giá chất lượng',
+      desc: 'Xác nhận hoàn công công trình đạt 100%, theo dõi thời hạn bảo hành và đánh giá nhà thầu đa tiêu chí.',
+      icon: <ClipboardCheck className="text-primary" size={24} />,
+      empty: 'Hiện chưa có hợp đồng nào hoàn thành chờ nghiệm thu.',
+    },
+    disputes: {
+      title: 'Giải quyết Tranh chấp & Khiếu nại',
+      desc: 'Danh sách các hợp đồng đang phát sinh tranh chấp hoặc khiếu nại tài chính đang được Admin phân xử.',
+      icon: <Shield className="text-red-600 animate-pulse" size={24} />,
+      empty: 'Tuyệt vời! Không có hợp đồng nào đang xảy ra tranh chấp.',
+    },
+    all: {
+      title: 'Hợp đồng của tôi',
+      desc: 'Quản lý và giám sát toàn diện các hợp đồng thi công của bạn trên hệ thống ConstructX.',
+      icon: <FileText className="text-primary" size={24} />,
+      empty: 'Bạn chưa có hợp đồng nào được thiết lập trên hệ thống.',
+    }
+  };
+
+  const viewMeta = VIEW_META_MAP[currentView] || VIEW_META_MAP.all;
+
   return (
-    <>
-    <Layout title="Hợp đồng của tôi">
+    <Layout title={viewMeta.title}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-            <div key={k} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm text-center">
-              <p className="text-[10px] text-gray-500 mb-1 truncate">{v.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{counts[k] || 0}</p>
-            </div>
-          ))}
+        {/* Banner giới thiệu phân hệ động */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-start gap-4">
+          <div className="p-3 bg-primary-bg rounded-xl shrink-0">
+            {viewMeta.icon}
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">{viewMeta.title}</h2>
+            <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{viewMeta.desc}</p>
+          </div>
         </div>
 
-        {/* List */}
-        {loading ? (
-          <div className="text-center py-16 text-gray-400">Đang tải hợp đồng...</div>
-        ) : contracts.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
-            <FileText size={44} className="mx-auto text-gray-200 mb-3" />
-            <p className="text-gray-400 font-medium">Chưa có hợp đồng nào</p>
-            <p className="text-gray-300 text-sm mt-1">
-              {user?.role === 'CUSTOMER'
-                ? 'Tạo dự án hoặc đặt đơn hàng và chọn nhà thầu để tạo hợp đồng tự động.'
-                : 'Gửi báo giá cho dự án hoặc đơn hàng và được khách hàng chọn để có hợp đồng.'}
-            </p>
-            {user?.role === 'CUSTOMER' && (
-              <div className="flex gap-3 justify-center mt-4">
-                <button onClick={() => navigate('/projects/new')}
-                  className="btn btn-primary text-sm px-5 py-2">
-                  Tạo dự án
-                </button>
-                <button onClick={() => navigate('/shop/order')}
-                  className="btn btn-outline text-sm px-5 py-2">
-                  Đặt đơn hàng
-                </button>
+        {/* Chỉ hiển thị Thẻ thống kê số lượng khi ở tab Tổng quan (view === 'all') */}
+        {currentView === 'all' && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+              <div key={k} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm text-center">
+                <p className="text-[10px] text-gray-400 mb-1 truncate font-semibold uppercase tracking-wider">{v.label}</p>
+                <p className="text-2xl font-black text-gray-900">{counts[k] || 0}</p>
               </div>
+            ))}
+          </div>
+        )}
+
+        {/* Danh sách Hợp đồng */}
+        {loading ? (
+          <div className="text-center py-16 text-gray-400 flex items-center justify-center gap-2">
+            <Loader2 className="animate-spin text-primary" size={18} />
+            Đang tải dữ liệu hợp đồng...
+          </div>
+        ) : filteredContracts.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+            <FileText size={40} className="mx-auto text-gray-200 mb-3" />
+            <p className="text-gray-400 font-semibold text-sm">{viewMeta.empty}</p>
+            {currentView === 'all' && (
+              <p className="text-xs text-gray-350 mt-1">
+                {user?.role === 'CUSTOMER'
+                  ? 'Tạo dự án hoặc đặt đơn hàng và chọn nhà thầu để tạo hợp đồng tự động.'
+                  : 'Gửi báo giá cho dự án hoặc đơn hàng và được khách hàng chọn để có hợp đồng.'}
+              </p>
             )}
-            {user?.role === 'CONTRACTOR' && (
-              <div className="flex gap-3 justify-center mt-4">
-                <button onClick={() => navigate('/projects/browse')}
-                  className="btn btn-primary text-sm px-5 py-2">
-                  Tìm dự án
+            
+            {currentView === 'all' && user?.role === 'CUSTOMER' && (
+              <div className="flex gap-3 justify-center mt-5">
+                <button onClick={() => navigate('/projects/new')} className="px-5 py-2.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow transition-colors">
+                  Tạo dự án mới
                 </button>
-                <button onClick={() => navigate('/order-bidding')}
-                  className="btn btn-outline text-sm px-5 py-2">
-                  Đấu thầu đơn hàng
+                <button onClick={() => navigate('/shop/order')} className="px-5 py-2.5 border border-gray-200 text-gray-650 text-xs font-bold rounded-xl hover:bg-gray-50 bg-white transition-colors">
+                  Đặt đơn hàng mới
                 </button>
               </div>
             )}
           </div>
         ) : (
           <div className="space-y-4">
-            {contracts.map(c => {
+            {filteredContracts.map(c => {
               const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.PENDING_REVIEW;
               const isExpanded = expanded === c.id;
 
               return (
-                <div key={c.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                  {/* Header */}
+                <div 
+                  key={c.id} 
+                  className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                    c.isDisputed ? 'border-red-200 ring-2 ring-red-50/50' : 'border-gray-100 hover:border-gray-200'
+                  }`}
+                >
                   <div className="p-5">
+                    {/* Header Thẻ */}
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${st.cls}`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                             {st.icon} {st.label}
                           </span>
+                          {c.isDisputed && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold border border-red-200">
+                              <AlertCircle size={10}/> Tranh chấp
+                            </span>
+                          )}
                         </div>
+                        
                         <h3 className="font-bold text-gray-900 text-base">
                           {c.projectName || c.orderCode || c.contractNumber}
                         </h3>
-                        <p className="text-xs text-gray-400 mt-0.5 font-mono">📄 {c.contractNumber}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 font-mono">Số hợp đồng: {c.contractNumber}</p>
                         {c.orderCode && !c.projectName && (
-                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-[10px] font-bold mt-1">
+                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-[9px] font-bold mt-1.5">
                             📦 Từ đơn hàng {c.orderCode}
                           </span>
                         )}
                       </div>
+                      
                       <div className="text-right shrink-0">
-                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Giá trị HĐ</p>
-                        <p className="text-2xl font-bold text-primary">{fmt(c.agreedPrice)}</p>
+                        <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Giá trị HĐ</p>
+                        <p className="text-xl font-black text-primary">{fmt(c.agreedPrice)}</p>
                         {c.estimatedDays && (
-                          <p className="text-xs text-gray-400">{c.estimatedDays} ngày thi công</p>
+                          <p className="text-[10px] text-gray-400 font-medium">{c.estimatedDays} ngày thi công</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Parties — 3 bên */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                    {/* Đối tác 3 bên */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
                       {[
-                        { icon: <UserIcon size={13}/>, label: 'Bên A — Khách hàng', name: c.clientName },
-                        { icon: <Building2 size={13}/>, label: 'Bên B — Nhà thầu', name: c.contractorName, sub: c.contractorPhone, link: `/contractor/${c.contractorId}` },
-                        { icon: <Shield size={13}/>, label: 'Bên C — ConstructX', name: 'Người chứng thực' },
+                        { icon: <UserIcon size={12} className="text-gray-450"/>, label: 'Bên A — Khách hàng', name: c.clientName },
+                        { icon: <Building2 size={12} className="text-gray-450"/>, label: 'Bên B — Nhà thầu', name: c.contractorName, sub: c.contractorPhone, link: `/contractor/${c.contractorId}` },
+                        { icon: <Shield size={12} className="text-gray-450"/>, label: 'Bên C — ConstructX', name: 'Đại diện giám sát' },
                       ].map((party, i) => (
-                        <div key={i} className="bg-gray-50 rounded-xl p-3">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5 flex items-center gap-1">
+                        <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100/50">
+                          <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1 flex items-center gap-1">
                             {party.icon} {party.label}
                           </p>
                           {party.link ? (
-                            <p onClick={() => navigate(party.link)} className="text-sm font-semibold text-primary cursor-pointer hover:underline">
+                            <p onClick={() => navigate(party.link)} className="text-xs font-bold text-primary cursor-pointer hover:underline">
                               {party.name}
                             </p>
                           ) : (
-                            <p className="text-sm font-semibold text-gray-800">{party.name}</p>
+                            <p className="text-xs font-bold text-gray-800">{party.name}</p>
                           )}
-                          {party.sub && <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><Phone size={10}/> {party.sub}</p>}
+                          {party.sub && <p className="text-[10px] text-gray-450 mt-0.5 flex items-center gap-1"><Phone size={9}/> {party.sub}</p>}
                         </div>
                       ))}
                     </div>
 
-                    {/* Meta */}
-                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-4">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar size={12} /> Tạo: {new Date(c.createdAt).toLocaleDateString('vi-VN')}
-                      </span>
-                      {c.approvedAt && (
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle size={12} className="text-green-500" />
-                          Admin duyệt: {new Date(c.approvedAt).toLocaleDateString('vi-VN')}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Admin note */}
-                    {c.adminNote && (
-                      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
-                        <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                        <span><strong>Ghi chú Admin:</strong> {c.adminNote}</span>
-                      </div>
-                    )}
-
-                    {/* PENDING: hướng dẫn */}
-                    {c.status === 'PENDING_REVIEW' && (
-                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
-                        <Clock size={13} className="mt-0.5 shrink-0" />
-                        <span>Hợp đồng đang chờ Admin kiểm duyệt điều khoản. Bạn sẽ nhận thông báo khi Admin phê duyệt.</span>
-                      </div>
-                    )}
-
-                    {/* WAITING_SIGNATURE: hướng dẫn */}
-                    {c.status === 'WAITING_SIGNATURE' && (
-                      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
-                        <PenLine size={13} className="mt-0.5 shrink-0" />
-                        <span>Hợp đồng đã được duyệt! Vui lòng <strong>đọc kỹ điều khoản</strong> (nhấn "Xem chi tiết") rồi ký xác nhận.</span>
-                      </div>
-                    )}
-
-                    {/* COMPLETED: warranty hold info */}
-                    {c.status === 'COMPLETED' && c.warrantyHoldAmount > 0 && (
-                      <div className={`flex items-start gap-2 rounded-xl p-3 mb-4 text-xs border ${
-                        c.warrantyReleased
-                          ? 'bg-green-50 border-green-200 text-green-800'
-                          : 'bg-amber-50 border-amber-200 text-amber-800'
-                      }`}>
-                        <span className="text-base shrink-0">{c.warrantyReleased ? '✅' : '🔒'}</span>
-                        <div>
-                          {c.warrantyReleased ? (
-                            <span><strong>Bảo hành đã kết thúc.</strong> Toàn bộ {fmt(c.warrantyHoldAmount)} đã được giải ngân cho nhà thầu.</span>
-                          ) : (
-                            <>
-                              <strong>Đang trong thời hạn bảo hành.</strong>
-                              <span className="ml-1">{fmt(c.warrantyHoldAmount)} (5%) được giữ đến <strong>{c.warrantyEndDate ? new Date(c.warrantyEndDate).toLocaleDateString('vi-VN') : '—'}</strong></span>
-                            </>
-                          )}
+                    {/* ── HIỂN THỊ CHI TIẾT TÙY BIẾN THEO CHỨC NĂNG (DYNAMIC VIEW DETAILS) ── */}
+                    
+                    {/* View 1: Nhật ký thi công (Hiển thị thanh tiến độ ngang ngay trên thẻ) */}
+                    {currentView === 'progress' && (
+                      <div className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-150/50">
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-gray-500 font-semibold">Tiến độ thi công hiện tại</span>
+                          <span className="font-extrabold text-primary">Đang ở mốc: {c.status === 'COMPLETED' ? '100' : '—'}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: c.status === 'COMPLETED' ? '100%' : '30%' }}/>
                         </div>
                       </div>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <button
-                        onClick={() => setExpanded(isExpanded ? null : c.id)}
-                        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
-                      >
-                        {isExpanded ? <><ChevronUp size={15}/> Ẩn chi tiết</> : <><ChevronDown size={15}/> Xem điều khoản & lịch sử</>}
-                      </button>
+                    {/* View 2: Giải ngân (Hiển thị các chỉ số tài chính thô) */}
+                    {currentView === 'disbursements' && (
+                      <div className="mb-4 grid grid-cols-2 gap-2 bg-amber-50/20 border border-amber-100 rounded-xl p-3 text-xs">
+                        <div>
+                          <p className="text-gray-400 font-medium">Tiền cọc khách hàng (Locked):</p>
+                          <p className="font-bold text-gray-700">{fmt(c.customerDepositAmount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 font-medium">Ký quỹ nhà thầu (Locked):</p>
+                          <p className="font-bold text-gray-700">{fmt(c.contractorDepositAmount)}</p>
+                        </div>
+                      </div>
+                    )}
 
-                      <div className="flex gap-2 flex-wrap">
-                        {/* Xuất hợp đồng */}
+                    {/* View 3: Nghiệm thu & Bảo hành (Hiển thị thông tin bảo hành) */}
+                    {currentView === 'reviews' && c.status === 'COMPLETED' && (
+                      <div className="mb-4 text-xs bg-green-50/50 border border-green-100 rounded-xl p-3 flex items-center gap-2 text-green-800">
+                        <span>🛡️</span>
+                        <div>
+                          <p className="font-bold">Đang trong thời hạn bảo hành 6 tháng</p>
+                          <p className="text-[10px] text-green-600 mt-0.5">Khoản cọc bảo hành 5% trị giá {fmt(c.warrantyHoldAmount)} được giữ an toàn.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View 4: Tranh chấp (Hiển thị chi tiết cảnh báo đỏ) */}
+                    {currentView === 'disputes' && (
+                      <div className="mb-4 text-xs bg-red-50 border border-red-200 rounded-xl p-3 text-red-800 space-y-1">
+                        <p className="font-bold flex items-center gap-1"><AlertCircle size={12}/> Hợp đồng đang đóng băng tranh chấp tài chính</p>
+                        {c.cancelReason && <p className="text-[10px] text-red-600">Lý do khiếu nại: "{c.cancelReason}"</p>}
+                      </div>
+                    )}
+
+                    {/* HÀNH ĐỘNG DƯỚI CHÂN THẺ */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-50 pt-4">
+                      
+                      {/* Nút Xem chi tiết nội dung điều khoản (Chỉ hiện ở view = all) */}
+                      {currentView === 'all' ? (
+                        <button
+                          onClick={() => setExpanded(isExpanded ? null : c.id)}
+                          className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-gray-700 transition-colors"
+                        >
+                          {isExpanded ? <><ChevronUp size={13}/> Ẩn điều khoản</> : <><ChevronDown size={13}/> Xem điều khoản & timeline</>}
+                        </button>
+                      ) : (
+                        <div /> // Giữ khoảng cách justify-between
+                      )}
+
+                      <div className="flex gap-1.5 flex-wrap">
+                        {/* 1. Nút Xuất/In PDF pháp lý (Hiện ở mọi view) */}
                         <button
                           onClick={() => printContract(c)}
-                          className="flex items-center gap-1.5 text-xs font-medium border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors text-gray-600"
+                          className="flex items-center gap-1 px-3 py-1.5 border border-gray-255/60 bg-white hover:bg-gray-50 text-gray-600 text-[10px] font-bold rounded-xl transition-all"
                         >
-                          <Printer size={14}/> Xuất / In
+                          <Printer size={12}/> Xuất / In
                         </button>
 
-                        {/* Xem dự án (chỉ hiện khi hợp đồng từ Project) */}
-                        {c.projectId && (
-                          <button onClick={() => navigate(`/projects/${c.projectId}`)}
-                            className="flex items-center gap-1.5 text-xs font-medium border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-                            <ArrowRight size={13}/> Xem dự án
-                          </button>
-                        )}
-                        {/* Xem đơn hàng (chỉ hiện khi hợp đồng từ Order) */}
-                        {c.orderId && !c.projectId && (
-                          <button onClick={() => navigate(`/orders`)}
-                            className="flex items-center gap-1.5 text-xs font-medium border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-                            <ArrowRight size={13}/> Xem đơn hàng
-                          </button>
-                        )}
-
-                        {/* Ký hợp đồng */}
+                        {/* 2. Nút Ký Hợp đồng (Chỉ hiện khi WAITING_SIGNATURE và ở các view phù hợp) */}
                         {c.status === 'WAITING_SIGNATURE' && (
                           <button
                             onClick={() => handleSign(c.id)}
                             disabled={signing === c.id}
-                            className="flex items-center gap-1.5 text-xs font-bold bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-light transition-colors disabled:opacity-60"
+                            className="flex items-center gap-1 px-4 py-1.5 bg-primary hover:bg-primary-light text-white text-[10px] font-bold rounded-xl transition-all disabled:opacity-50"
                           >
-                            <PenLine size={13}/> {signing === c.id ? 'Đang ký...' : 'Ký hợp đồng'}
+                            <PenLine size={12}/>
+                            {signing === c.id ? 'Đang ký...' : 'Ký hợp đồng'}
                           </button>
                         )}
 
-                        {/* Xem tiến độ thi công (ACTIVE) */}
-                        {c.status === 'ACTIVE' && (
-                          <button onClick={() => navigate(`/contracts/${c.id}/progress`)}
-                            className="flex items-center gap-1.5 text-xs font-bold bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors">
-                            <TrendingUp size={13}/> Tiến độ & Giải ngân
+                        {/* 3. ĐIỀU HƯỚNG THEO VIEW CHUYÊN BIỆT */}
+                        
+                        {/* Nút xem Nhật ký thi công (view = progress hoặc HĐ đang thi công ACTIVE) */}
+                        {(currentView === 'progress' || (currentView === 'all' && c.status === 'ACTIVE' && !c.isDisputed)) && (
+                          <button 
+                            onClick={() => navigate(`/contracts/${c.id}/progress`)}
+                            className="flex items-center gap-1 px-4 py-1.5 bg-primary hover:bg-primary-light text-white text-[10px] font-bold rounded-xl transition-all shadow-sm shadow-primary/10"
+                          >
+                            <Camera size={12}/> Xem Nhật ký & Tiến độ
                           </button>
                         )}
 
-                        {/* Đánh giá nhà thầu (COMPLETED) */}
-                        {c.status === 'COMPLETED' && user?.role === 'CUSTOMER' && (
-                          (() => {
-                            const refType = c.projectId ? 'PROJECT' : 'ORDER';
-                            const refId = c.projectId || c.orderId;
-                            const key = `${refType}_${refId}`;
-                            const isReviewed = reviewedItems.has(key);
-                            return isReviewed ? (
-                              <span className="flex items-center gap-1.5 text-xs text-amber-500 font-bold px-3 py-2 bg-amber-50 rounded-xl border border-amber-200">
-                                <Star size={13} fill="currentColor"/> Đã đánh giá
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => { setReviewModal(c); setReviewData({ rating: 5, comment: '' }); }}
-                                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600 transition-colors"
-                              >
-                                <Star size={13}/> Đánh giá nhà thầu
-                              </button>
-                            );
-                          })()
+                        {/* Nút quản lý Giải ngân (view = disbursements) */}
+                        {currentView === 'disbursements' && (
+                          <button 
+                            onClick={() => navigate(`/contracts/${c.id}/disbursements`)}
+                            className="flex items-center gap-1 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-xl transition-all shadow-sm shadow-amber-500/15"
+                          >
+                            <Wallet size={12}/> Quản lý Giải ngân
+                          </button>
+                        )}
+
+                        {/* Nút Nghiệm thu & Đánh giá (view = reviews hoặc HĐ completed) */}
+                        {(currentView === 'reviews' || (currentView === 'all' && c.status === 'COMPLETED' && !c.isDisputed)) && (
+                          <button 
+                            onClick={() => navigate(`/contracts/${c.id}/review`)}
+                            className="flex items-center gap-1 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-xl transition-all shadow-sm"
+                          >
+                            <ClipboardCheck size={12}/> Nghiệm thu & Đánh giá
+                          </button>
+                        )}
+
+                        {/* Nút Giải quyết Tranh chấp (view = disputes hoặc HĐ đang có dispute) */}
+                        {(currentView === 'disputes' || (currentView === 'all' && c.isDisputed)) && (
+                          <button 
+                            onClick={() => navigate(`/contracts/${c.id}/dispute`)}
+                            className="flex items-center gap-1 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-sm shadow-red-600/15 animate-pulse"
+                          >
+                            <Shield size={12}/> Giải quyết Tranh chấp
+                          </button>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Expanded: Terms + Stages */}
-                  {isExpanded && (
-                    <div className="border-t border-gray-100">
-                      {/* Terms */}
+                  {/* Phần mở rộng xem Điều khoản & Timeline (Chỉ hiện ở view = all) */}
+                  {isExpanded && currentView === 'all' && (
+                    <div className="border-t border-gray-100 bg-gray-50/20">
+                      {/* Điều khoản */}
                       <div className="p-5 border-b border-gray-100">
-                        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
-                          <FileText size={13}/> Điều khoản hợp đồng
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1">
+                          <FileText size={11}/> Điều khoản thỏa thuận hợp đồng
                         </p>
-                        <pre className="text-xs text-gray-700 bg-gray-50 rounded-xl p-4 whitespace-pre-wrap font-sans leading-relaxed max-h-80 overflow-y-auto">
+                        <pre className="text-xs text-gray-600 bg-gray-50 rounded-xl p-4 whitespace-pre-wrap font-sans leading-relaxed max-h-60 overflow-y-auto border border-gray-100">
                           {c.terms || 'Theo thỏa thuận của các bên.'}
                         </pre>
                       </div>
 
-                      {/* Stage timeline */}
+                      {/* Lịch sử trạng thái */}
                       {c.stages?.length > 0 && (
                         <div className="p-5">
-                          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-1.5">
-                            <Clock size={13}/> Lịch sử trạng thái
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1">
+                            <Clock size={11}/> Nhật ký thay đổi trạng thái
                           </p>
                           <div className="space-y-3">
                             {c.stages.map((s, i) => {
@@ -533,21 +567,21 @@ export default function ContractsPage() {
                               return (
                                 <div key={s.id || i} className="flex gap-3">
                                   <div className="flex flex-col items-center">
-                                    <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${stCfg.dot || 'bg-gray-300'}`} />
+                                    <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${stCfg.dot || 'bg-gray-300'}`} />
                                     {i < c.stages.length - 1 && <div className="w-px flex-1 bg-gray-200 mt-1" />}
                                   </div>
-                                  <div className="pb-3 flex-1">
+                                  <div className="pb-1.5 flex-1 text-xs">
                                     <div className="flex items-center gap-2 mb-0.5">
-                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${stCfg.cls || 'bg-gray-100 text-gray-600'}`}>
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${stCfg.cls || 'bg-gray-100 text-gray-600'}`}>
                                         {stCfg.label || s.stage}
                                       </span>
-                                      <span className="text-[10px] text-gray-400">
+                                      <span className="text-[9px] text-gray-400">
                                         {new Date(s.createdAt).toLocaleString('vi-VN')}
                                       </span>
                                     </div>
-                                    {s.note && <p className="text-xs text-gray-600">{s.note}</p>}
+                                    {s.note && <p className="text-gray-600 mt-0.5">{s.note}</p>}
                                     {s.performedBy && (
-                                      <p className="text-[10px] text-gray-400 mt-0.5">Thực hiện bởi: {s.performedBy}</p>
+                                      <p className="text-[9px] text-gray-400">Thực hiện bởi: {s.performedBy}</p>
                                     )}
                                   </div>
                                 </div>
@@ -565,54 +599,5 @@ export default function ContractsPage() {
         )}
       </div>
     </Layout>
-
-    {/* Review Modal */}
-    {reviewModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-100 transition-all duration-300">
-          <h3 className="font-bold text-gray-900 text-lg mb-1 flex items-center gap-2">
-            <Star size={18} className="text-amber-500"/> Đánh giá nhà thầu
-          </h3>
-          <p className="text-sm text-gray-500 mb-5">
-            Dự án: <span className="font-bold text-gray-700">{reviewModal.projectName || reviewModal.orderCode || reviewModal.contractNumber}</span>
-          </p>
-
-          {/* Star rating */}
-          <div className="mb-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Điểm đánh giá</p>
-            <div className="flex gap-2">
-              {[1,2,3,4,5].map(s => (
-                <button key={s} onClick={() => setReviewData(d => ({...d, rating: s}))}
-                  className={`text-3xl transition-all hover:scale-110 ${s <= reviewData.rating ? 'text-amber-400' : 'text-gray-200'}`}>
-                  ★
-                </button>
-              ))}
-              <span className="ml-2 text-sm font-bold text-amber-600 self-center">{reviewData.rating}/5</span>
-            </div>
-          </div>
-
-          {/* Comment */}
-          <div className="mb-5">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Nhận xét</p>
-            <textarea rows={4} value={reviewData.comment}
-              onChange={e => setReviewData(d => ({...d, comment: e.target.value}))}
-              placeholder="Nhà thầu thi công như thế nào? Chất lượng, thái độ, tiến độ..."
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-primary resize-none transition-all focus:ring-2 focus:ring-primary/20"/>
-          </div>
-
-          <div className="flex gap-3">
-            <button onClick={() => setReviewModal(null)}
-              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
-              Hủy
-            </button>
-            <button onClick={handleSubmitReview} disabled={submittingReview}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
-              {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    </>
   );
 }

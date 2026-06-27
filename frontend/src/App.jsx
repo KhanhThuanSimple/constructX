@@ -17,6 +17,8 @@ import ContractorProfilePage from './pages/ContractorProfilePage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminPlatformWalletPage from './pages/AdminPlatformWalletPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProjectListPage from './pages/ProjectListPage';
@@ -34,6 +36,9 @@ import FurnitureDesignerPage from './pages/shop/FurnitureDesignerPage';
 import OrderBiddingPage from './pages/OrderBiddingPage';
 import AdminAllUsersPage from './pages/AdminAllUsersPage';
 import ContractProgressPage from './pages/ContractProgressPage';
+import ContractDisbursementsPage from './pages/ContractDisbursementsPage';
+import ContractReviewPage from './pages/ContractReviewPage';
+import ContractDisputePage from './pages/ContractDisputePage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -87,6 +92,12 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/projects/browse" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ProjectMarketplacePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/production-log" element={
           <ProtectedRoute allowedRoles={['CONTRACTOR']}>
             <ProjectMarketplacePage />
           </ProtectedRoute>
@@ -152,6 +163,12 @@ function App() {
           </ProtectedRoute>
         } />
 
+        <Route path="/admin/platform-wallet" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminPlatformWalletPage />
+          </ProtectedRoute>
+        } />
+
         <Route path="/admin/users" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminAllUsersPage />
@@ -190,6 +207,24 @@ function App() {
         <Route path="/contracts/:contractId/progress" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ContractProgressPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/disbursements" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractDisbursementsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/review" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractReviewPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contracts/:contractId/dispute" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
+            <ContractDisputePage />
           </ProtectedRoute>
         } />
 
