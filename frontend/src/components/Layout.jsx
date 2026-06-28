@@ -79,7 +79,7 @@ const Sidebar = () => {
     {
       group: 'Tổng quan & Báo cáo',
       items: [
-        { id: 'admin-dashboard', label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
+        { id: 'admin-overview',  label: 'Tổng quan hệ thống', icon: <LayoutDashboard size={20} />, path: '/admin/overview' },
       ],
     },
     {

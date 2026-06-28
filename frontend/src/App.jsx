@@ -40,6 +40,7 @@ import ContractDisbursementsPage from './pages/ContractDisbursementsPage';
 import ContractReviewPage from './pages/ContractReviewPage';
 import ContractDisputePage from './pages/ContractDisputePage';
 import ReviewsManagementPage from './pages/ReviewsManagementPage';
+import AdminOverviewPage from './pages/AdminOverviewPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -73,6 +74,12 @@ function App() {
         <Route path="/" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <SmartHomePage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/overview" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminOverviewPage />
           </ProtectedRoute>
         } />
 
