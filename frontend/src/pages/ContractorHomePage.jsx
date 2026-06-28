@@ -114,14 +114,20 @@ export default function ContractorHomePage() {
 
         {/* ── Banner chưa duyệt ── */}
         {!isApproved && (
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl p-4">
-            <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-500"/>
-            <div>
-              <p className="font-bold text-sm">Tài khoản đang chờ phê duyệt</p>
-              <p className="text-xs mt-0.5 text-amber-800">
-                Admin đang xem xét hồ sơ. Sau khi duyệt bạn có thể nhận đơn hàng và ký hợp đồng.
-              </p>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="mt-0.5 shrink-0 text-amber-500" />
+              <div>
+                <p className="font-bold text-sm">Tài khoản đang chờ phê duyệt</p>
+                <p className="text-xs mt-0.5 text-amber-800">
+                  Vui lòng cập nhật đầy đủ hồ sơ năng lực nhà thầu (Logo, năm thành lập, giới thiệu, lĩnh vực hoạt động, chính sách...) để Admin có đủ thông tin xem xét duyệt hoạt động cho bạn.
+                </p>
+              </div>
             </div>
+            <button onClick={() => navigate('/profile', { state: { activeTab: 'portfolio' } })}
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm">
+              Hoàn thiện hồ sơ thầu ⚙️
+            </button>
           </div>
         )}
 
@@ -226,7 +232,7 @@ export default function ContractorHomePage() {
                 return (
                   <div key={c.id}
                     className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/contracts/${c.id}/progress`)}>
+                    onClick={() => navigate('/contractor/progress')}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>{st.label}</span>
@@ -373,11 +379,11 @@ export default function ContractorHomePage() {
             </div>
             <Gavel size={22} className="opacity-80"/>
           </button>
-          <button onClick={() => navigate('/contracts')}
+          <button onClick={() => navigate('/contractor/progress')}
             className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors">
             <div className="text-left">
-              <p className="font-bold text-sm text-gray-800">Hợp đồng & Thi công</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Tiến độ & Giải ngân</p>
+              <p className="font-bold text-sm text-gray-800">Tiến độ & Thi công</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Nhật ký & Giải ngân</p>
             </div>
             <FileText size={22} className="text-gray-400"/>
           </button>

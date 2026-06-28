@@ -448,7 +448,7 @@ public class ConstructXWorkflowTest {
         assertEquals("CTR-PROJ-100", response1.getContractNumber());
 
         verify(walletArbitrationManager, times(1)).resolveProjectDispute(
-                eq(999L), eq(300L), eq(60.0), eq(40.0), eq("PRJ-10")
+                eq(999L), eq(300L), eq(60.0), eq(40.0), eq("PRJ-10"), anyLong(), anyLong()
         );
 
         // 2. Setup Custom Order-Based Dispute Resolution (Project is NULL)
@@ -497,7 +497,7 @@ public class ConstructXWorkflowTest {
         assertEquals("CTR-ORD-888", response2.getContractNumber());
 
         verify(walletArbitrationManager, times(1)).resolveProjectDispute(
-                eq(888L), eq(300L), eq(60.0), eq(40.0), eq("ORD-999")
+                eq(888L), eq(300L), eq(60.0), eq(40.0), eq("ORD-999"), anyLong(), anyLong()
         );
 
         System.out.println("--------------------------------------------------------------------------------");

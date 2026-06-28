@@ -1,6 +1,8 @@
 package com.constructx.backend.features.wallet.service;
 
+import com.constructx.backend.admin.service.FeatureFlagService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,21 +16,51 @@ import java.util.*;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class VNPayService {
 
-    @Value("${vnpay.tmn-code}")
-    private String tmnCode;
+    // Fallback values từ application.yml
+    @Value("${vnpay.tmn-code:}")
+    private String tmnCodeFallback;
 
-    @Value("${vnpay.hash-secret-normal}")
-    private String hashSecretNormal;
+    @Value("${vnpay.hash-secret-normal:}")
+    private String hashSecretNormalFallback;
 
-    @Value("${vnpay.hash-secret-token}")
-    private String hashSecretToken;
+    @Value("${vnpay.hash-secret-token:}")
+    private String hashSecretTokenFallback;
 
-    @Value("${vnpay.return-url}")
-    private String returnUrl;
-    public String getHashSecretNormal() {
-        return this.hashSecretNormal;
+    @Value("${vnpay.return-url:http://localhost:5173/wallet}")
+    private String returnUrlFallback;
+
+    @Value("${vnpay.api-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
+    private String apiUrlFallback;
+
+    private final FeatureFlagService featureFlagService;
+
+    // ─── Lấy config động (DB trước, fallback về application.yml) ────────
+
+    private String getTmnCode() {
+        return featureFlagService.getString(FeatureFlagService.KEY_VNPAY_TMN_CODE, tmnCodeFallback);
+    }
+
+    private String getHashSecretNormal() {
+        return featureFlagService.getString(FeatureFlagService.KEY_VNPAY_HASH_SECRET_NORMAL, hashSecretNormalFallback);
+    }
+
+    private String getHashSecretToken() {
+        return featureFlagService.getString(FeatureFlagService.KEY_VNPAY_HASH_SECRET_TOKEN, hashSecretTokenFallback);
+    }
+
+    private String getReturnUrl() {
+        return featureFlagService.getString(FeatureFlagService.KEY_VNPAY_RETURN_URL, returnUrlFallback);
+    }
+
+    private String getApiUrl() {
+        return featureFlagService.getString(FeatureFlagService.KEY_VNPAY_API_URL, apiUrlFallback);
+    }
+
+    public String getHashSecretNormalPublic() {
+        return getHashSecretNormal();
     }
     public String createNormalPaymentUrl(String orderId, Long amount, String description, HttpServletRequest request) {
         log.info("[VNPAY OUTBOUND] Bắt đầu khởi tạo giao dịch THƯỜNG. OrderId: {}, Amount: {}", orderId, amount);
@@ -36,14 +68,14 @@ public class VNPayService {
             Map<String, String> vnp_Params = new HashMap<>();
             vnp_Params.put("vnp_Version", "2.1.0");
             vnp_Params.put("vnp_Command", "pay");
-            vnp_Params.put("vnp_TmnCode", tmnCode);
+            vnp_Params.put("vnp_TmnCode", getTmnCode());
             vnp_Params.put("vnp_Amount", String.valueOf(amount * 100));
             vnp_Params.put("vnp_CurrCode", "VND");
             vnp_Params.put("vnp_TxnRef", orderId);
             vnp_Params.put("vnp_OrderInfo", description);
             vnp_Params.put("vnp_OrderType", "other");
             vnp_Params.put("vnp_Locale", "vn");
-            vnp_Params.put("vnp_ReturnUrl", returnUrl);
+            vnp_Params.put("vnp_ReturnUrl", getReturnUrl());
 
             String clientIp = getClientIp(request);
             if ("127.0.0.1".equals(clientIp)) {
@@ -58,7 +90,7 @@ public class VNPayService {
             cld.add(Calendar.MINUTE, 15);
             vnp_Params.put("vnp_ExpireDate", formatter.format(cld.getTime()));
 
-            return buildFinalUrl(vnp_Params, hashSecretNormal);
+            return buildFinalUrl(vnp_Params, getHashSecretNormal());
         } catch (Exception e) {
             log.error("[VNPAY OUTBOUND ERROR] Lỗi nghiêm trọng khi sinh URL thanh toán thường: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi sinh URL cấu hình VNPAY thường", e);
@@ -71,14 +103,14 @@ public class VNPayService {
             Map<String, String> vnp_Params = new HashMap<>();
             vnp_Params.put("vnp_Version", "2.1.0");
             vnp_Params.put("vnp_Command", command);
-            vnp_Params.put("vnp_TmnCode", tmnCode);
+            vnp_Params.put("vnp_TmnCode", getTmnCode());
             vnp_Params.put("vnp_Amount", String.valueOf(amount != null ? amount * 100 : 0L));
             vnp_Params.put("vnp_CurrCode", "VND");
             vnp_Params.put("vnp_TxnRef", orderId);
             vnp_Params.put("vnp_OrderInfo", "Giao dich Token command: " + command);
             vnp_Params.put("vnp_OrderType", "other");
             vnp_Params.put("vnp_Locale", "vn");
-            vnp_Params.put("vnp_ReturnUrl", returnUrl);
+            vnp_Params.put("vnp_ReturnUrl", getReturnUrl());
             vnp_Params.put("vnp_AppUserId", String.valueOf(userId));
 
             if (tokenStr != null && !tokenStr.isEmpty()) {
@@ -99,7 +131,7 @@ public class VNPayService {
             cld.add(Calendar.MINUTE, 15);
             vnp_Params.put("vnp_ExpireDate", formatter.format(cld.getTime()));
 
-            return buildFinalUrl(vnp_Params, hashSecretToken);
+            return buildFinalUrl(vnp_Params, getHashSecretToken());
         } catch (Exception e) {
             log.error("[VNPAY OUTBOUND ERROR] Lỗi nghiêm trọng khi sinh URL thanh toán Token: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi sinh URL cấu hình VNPAY Token", e);
@@ -138,8 +170,8 @@ public class VNPayService {
             log.debug("[VNPAY INBOUND DEBUG] Chuỗi Hash thô nhận được từ VNPay: {}", rawData);
 
             // Tính toán mã băm thử nghiệm bằng cả 2 khóa bí mật
-            String actualHashNormal = hmacSHA512(hashSecretNormal, rawData);
-            String actualHashToken = hmacSHA512(hashSecretToken, rawData);
+            String actualHashNormal = hmacSHA512(getHashSecretNormal(), rawData);
+            String actualHashToken = hmacSHA512(getHashSecretToken(), rawData);
 
             log.debug("[VNPAY INBOUND DEBUG] Chữ ký gốc của VNPay gửi sang : {}", vnp_SecureHash);
             log.debug("[VNPAY INBOUND DEBUG] Chữ ký tự tính toán (Khóa THƯỜNG): {}", actualHashNormal);
@@ -165,7 +197,7 @@ public class VNPayService {
     }
 
     private String buildFinalUrl(Map<String, String> vnp_Params, String secretKey) throws Exception {
-        String baseUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+        String baseUrl = getApiUrl();
 
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
         Collections.sort(fieldNames);

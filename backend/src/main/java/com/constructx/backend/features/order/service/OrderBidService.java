@@ -15,6 +15,9 @@ import com.constructx.backend.features.order.repository.OrderBidRepository;
 import com.constructx.backend.features.order.repository.OrderRepository;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.entity.Wallet;
+import com.constructx.backend.admin.service.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,6 +42,8 @@ public class OrderBidService {
     private final NotificationService notificationService;
     private final OrderService orderService;
     private final ContractRepository contractRepository;
+    private final WalletRepository walletRepository;
+    private final FeatureFlagService featureFlagService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -110,6 +115,16 @@ public class OrderBidService {
         }
         if (contractor.getApprovalStatus() != User.ApprovalStatus.APPROVED) {
             throw new RuntimeException("Tài khoản của bạn chưa được phê duyệt");
+        }
+
+        // Check minimum wallet balance required to bid
+        long minBalance = featureFlagService.getMinContractorBalanceToBid();
+        if (minBalance > 0) {
+            Wallet wallet = walletRepository.findByUserId(contractor.getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví của nhà thầu"));
+            if (wallet.getAvailableBalance() < minBalance) {
+                throw new RuntimeException(String.format("Số dư ví khả dụng không đủ. Số dư tối thiểu yêu cầu là %,dđ để gửi báo giá.", minBalance));
+            }
         }
 
         Order order = orderRepository.findByIdWithItems(orderId)
@@ -198,7 +213,7 @@ public class OrderBidService {
                 .collect(Collectors.toList());
     }
 
-    // ── OWNER: Chọn nhà thầu (accept bid) → tự động tạo hợp đồng ──────────────
+    // ── OWNER: Chọn nhà thầu (accept bid) → tự động tạo hợp đồng ACTIVE ──────────────
 
     @Transactional
     public OrderBidResponse acceptBid(Long orderId, Long bidId) {
@@ -223,8 +238,8 @@ public class OrderBidService {
         // Reject tất cả bids còn lại
         orderBidRepository.rejectOtherBids(orderId, bidId);
 
-        // Cập nhật order
-        order.setStatus(Order.Status.BIDDING_CLOSED);
+        // Cập nhật order sang PROCESSING (bỏ qua BIDDING_CLOSED vì HĐ tạo xong luôn)
+        order.setStatus(Order.Status.PROCESSING);
         order.setAssignedContractor(bid.getContractor());
         order.setSelectedBidId(bidId);
         order.setConfirmedAt(LocalDateTime.now());
@@ -233,14 +248,19 @@ public class OrderBidService {
         }
         orderRepository.save(order);
 
-        // ── Tự động tạo Hợp đồng ──────────────────────────────────────────────
+        // ── Tự động tạo Hợp đồng ACTIVE ──────────────────────────────
         Contract contract = createContractFromOrderBid(order, bid, user);
 
         // Notify nhà thầu được chọn
         notificationService.createNotification(
                 bid.getContractor(), Notification.NotifType.SYSTEM,
-                String.format("🎉 Báo giá của bạn cho đơn %s đã được chấp nhận! Hợp đồng %s đã được tạo, chờ Admin phê duyệt.",
+                String.format("🎉 Báo giá của bạn cho đơn %s đã được chấp nhận! Hợp đồng %s đã có hiệu lực — bắt đầu thi công.",
                         order.getOrderCode(), contract.getContractNumber()));
+
+        notificationService.createNotification(
+                user, Notification.NotifType.SYSTEM,
+                String.format("✅ Hợp đồng %s đã được tạo và có hiệu lực. Nhà thầu %s bắt đầu thi công.",
+                        contract.getContractNumber(), bid.getContractor().getFullName()));
 
         // Notify các nhà thầu không được chọn
         orderBidRepository.findByOrderIdWithItems(orderId).stream()
@@ -250,20 +270,11 @@ public class OrderBidService {
                         String.format("Cảm ơn bạn đã tham gia đấu giá đơn %s. Khách hàng đã chọn nhà thầu khác.",
                                 order.getOrderCode())));
 
-        // Notify admin
-        notificationService.createNotificationForAdmins(
-                Notification.NotifType.SYSTEM,
-                String.format("📋 Hợp đồng %s từ đơn %s cần phê duyệt: %s — %s",
-                        contract.getContractNumber(), order.getOrderCode(),
-                        bid.getContractor().getFullName(),
-                        bid.getQuotedPrice() != null ? formatPrice(bid.getQuotedPrice()) : "Chưa xác định"));
-
         return toResponse(bid, true);
     }
 
-    /** Tạo Contract tự động từ OrderBid được chấp nhận */
+    /** Tạo Contract ACTIVE tự động từ OrderBid được chấp nhận */
     private Contract createContractFromOrderBid(Order order, OrderBid bid, User customer) {
-        // Mô tả sản phẩm đơn hàng để đưa vào điều khoản
         String itemsSummary = order.getItems().stream()
                 .map(i -> String.format("- %s × %d", i.getItemName(), i.getQuantity()))
                 .collect(Collectors.joining("\n"));
@@ -271,6 +282,7 @@ public class OrderBidService {
         long agreedPrice = bid.getQuotedPrice() != null ? bid.getQuotedPrice().longValue() : 0L;
         long contractorDeposit = Math.round(agreedPrice * 0.05);
         String fmtPrice = formatPriceLong(agreedPrice);
+        LocalDateTime now = LocalDateTime.now();
 
         String terms = String.format(
                 "HOP DONG CUNG UNG SAN PHAM / THI CONG NOI THAT\n\n" +
@@ -284,21 +296,18 @@ public class OrderBidService {
                 "Dieu kien thanh toan: Theo quy dinh san ConstructX.\n" +
                 "Bao hanh: %s\n",
                 order.getType() == Order.OrderType.CUSTOM ? "San pham tuy chinh" : "San pham co san",
-                order.getOrderCode(),
-                itemsSummary,
-                fmtPrice,
+                order.getOrderCode(), itemsSummary, fmtPrice,
                 bid.getEstimatedDays() != null ? bid.getEstimatedDays() + " ngay" : "Theo thoa thuan",
                 order.getDeliveryAddress(),
                 order.getCustomRequirements() != null ? order.getCustomRequirements() : "Theo mo ta don hang",
-                bid.getProposal() != null ? bid.getProposal() : "Theo quy dinh nha thau"
-        );
+                bid.getProposal() != null ? bid.getProposal() : "Theo quy dinh nha thau");
 
-        String contractNum = "CTR-ORD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+        String contractNum = "CTR-ORD-" + now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + "-" + order.getId();
 
         Contract contract = Contract.builder()
-                .project(null)          // hợp đồng từ Order không có Project
-                .bid(null)              // không có constructor Bid
+                .project(null)
+                .bid(null)
                 .sourceOrder(order)
                 .client(customer)
                 .contractor(bid.getContractor())
@@ -307,18 +316,23 @@ public class OrderBidService {
                 .originalAgreedPrice(agreedPrice)
                 .estimatedDays(bid.getEstimatedDays())
                 .terms(terms)
-                .status(Contract.Status.PENDING_REVIEW)
+                .status(Contract.Status.ACTIVE)          // ← ACTIVE ngay, không cần Admin duyệt
                 .customerDepositAmount(0L)
                 .customerDepositLocked(false)
                 .contractorDepositAmount(contractorDeposit)
                 .contractorDepositLocked(false)
+                .clientSigned(true)
+                .clientSignedAt(now)
+                .contractorSigned(true)
+                .contractorSignedAt(now)
+                .approvedAt(now)
                 .build();
 
         contract.getStages().add(ContractStage.builder()
                 .contract(contract)
-                .stage(Contract.Status.PENDING_REVIEW)
-                .note(String.format("Hop dong duoc tao tu don hang %s. Khach hang chon nha thau %s — %s. Cho Admin phe duyet.",
-                        order.getOrderCode(), bid.getContractor().getFullName(), fmtPrice))
+                .stage(Contract.Status.ACTIVE)
+                .note(String.format("Khach hang chon nha thau %s cho don %s — %s. Hop dong tu dong ACTIVE.",
+                        bid.getContractor().getFullName(), order.getOrderCode(), fmtPrice))
                 .performedBy(customer.getFullName())
                 .build());
 

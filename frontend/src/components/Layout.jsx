@@ -4,7 +4,8 @@ import {
   LayoutDashboard, PlusCircle, Wallet, Bell, MessageCircle,
   History, LogOut, Construction, Image, Shield, User as UserIcon,
   Camera, Settings, ClipboardCheck, FileText, ShoppingBag,
-  Package, Ruler, ShoppingCart, Gavel, Users, AlertCircle, CheckCircle
+  Package, Ruler, ShoppingCart, Gavel, Users, AlertCircle, CheckCircle,
+  FolderOpen, Star
 } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 import { ChatFloatingButton } from './chat/ChatFloatingButton';
@@ -26,13 +27,9 @@ const Sidebar = () => {
     {
       group: 'Quản lý Thi công',
       items: [
-        { id: 'orders',    label: 'Đơn hàng của tôi',     icon: <ShoppingCart size={20} />, path: '/orders' },
-        { id: 'contracts',      label: 'Quản lý hợp đồng' ,     icon: <Camera size={20} />,       path: '/contracts' },
-
-        { id: 'logs',      label: 'Nhật ký thi công',     icon: <Camera size={20} />,       path: '/contracts?view=progress' },
-        { id: 'payments',  label: 'Giải ngân & Escrow',   icon: <Wallet size={20} />,       path: '/contracts?view=disbursements' },
-        { id: 'reviews',   label: 'Nghiệm thu & Đánh giá', icon: <ClipboardCheck size={20} />,path: '/contracts?view=reviews' },
-        { id: 'disputes',  label: 'Tranh chấp & Khiếu nại',icon: <Shield size={20} />,        path: '/contracts?view=disputes' },
+        { id: 'orders',    label: 'Đơn hàng & Dự án',        icon: <FolderOpen size={20} />, path: '/orders' },
+        { id: 'contracts', label: 'Hợp đồng & Thi công',     icon: <FileText size={20} />,  path: '/contracts' },
+        { id: 'reviews',   label: 'Nghiệm thu & Đánh giá',   icon: <Star size={20} />,      path: '/reviews' },
       ],
     },
     {
@@ -56,13 +53,10 @@ const Sidebar = () => {
     {
       group: 'Công việc & Dự án',
       items: [
-        { id: 'order-bidding', label: 'Đấu thầu đơn hàng',      icon: <Gavel size={20} />,    path: '/order-bidding' },
-                { id: 'contracts',      label: 'Quản lý hợp đồng' ,     icon: <Camera size={20} />,       path: '/contracts' },
-
-        { id: 'logs',          label: 'Nhật ký thi công',       icon: <Camera size={20} />,   path: '/contracts?view=progress' },
-        { id: 'payments',      label: 'Giải ngân & Escrow',     icon: <Wallet size={20} />,   path: '/contracts?view=disbursements' },
-        { id: 'reviews',       label: 'Nghiệm thu & Đánh giá',   icon: <ClipboardCheck size={20} />,path: '/contracts?view=reviews' },
-        { id: 'disputes',      label: 'Tranh chấp & Khiếu nại',   icon: <Shield size={20} />,   path: '/contracts?view=disputes' },
+        { id: 'order-bidding',     label: 'Đấu thầu & Tìm việc',      icon: <Gavel size={20} />,      path: '/order-bidding' },
+        { id: 'contractor-progress', label: 'Báo cáo tiến độ',         icon: <Camera size={20} />,     path: '/contractor/progress' },
+        { id: 'contracts',           label: 'Hợp đồng',                icon: <FileText size={20} />,   path: '/contracts' },
+        { id: 'reviews',             label: 'Nghiệm thu & Đánh giá',   icon: <Star size={20} />,       path: '/reviews' },
       ],
     },
     {
@@ -100,8 +94,7 @@ const Sidebar = () => {
     {
       group: 'Quản lý Người dùng & Đối tác',
       items: [
-        { id: 'user-management', label: 'Phê duyệt đối tác',  icon: <UserIcon size={20} />, path: '/admin/users' },
-        { id: 'all-users',       label: 'Quản lý người dùng', icon: <Users size={20} />,    path: '/admin/all-users' },
+        { id: 'all-users',       label: 'Quản lý người dùng và đối tác', icon: <Users size={20} />,    path: '/admin/all-users' },
       ],
     },
     {

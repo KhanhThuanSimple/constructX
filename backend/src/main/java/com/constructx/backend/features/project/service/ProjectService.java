@@ -5,6 +5,9 @@ import com.constructx.backend.features.project.entity.Project;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.project.repository.ProjectRepository;
 import com.constructx.backend.features.user.repository.UserRepository;
+import com.constructx.backend.admin.service.FeatureFlagService;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.entity.Wallet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,8 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final FeatureFlagService featureFlagService;
+    private final WalletRepository walletRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext()
@@ -53,10 +58,27 @@ public class ProjectService {
     public Project createProject(ProjectRequest request) {
         User user = getCurrentUser();
 
+        // Check minimum wallet balance required to create project
+        long minBalance = featureFlagService.getMinCustomerBalanceToProject();
+        if (minBalance > 0) {
+            Wallet wallet = walletRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví của người dùng"));
+            if (wallet.getAvailableBalance() < minBalance) {
+                throw new RuntimeException(String.format("Số dư ví khả dụng không đủ. Số dư tối thiểu yêu cầu là %,dđ để đăng dự án.", minBalance));
+            }
+        }
+
         Project.BidType bidType = Project.BidType.FIXED_PRICE;
         if ("DIRECT".equalsIgnoreCase(request.getBidType())) {
             bidType = Project.BidType.NEGOTIABLE;
         }
+
+        // Kiểm tra feature flag: dự án có cần duyệt hay đăng thẳng
+        boolean approvalRequired = featureFlagService.isProjectApprovalRequired();
+        Project.Status initialStatus = approvalRequired ? Project.Status.DRAFT : Project.Status.OPEN;
+        Project.ApprovalStatus approvalStatus = approvalRequired
+                ? Project.ApprovalStatus.PENDING
+                : Project.ApprovalStatus.APPROVED;
 
         Project project = Project.builder()
                 .user(user)
@@ -70,8 +92,8 @@ public class ProjectService {
                 .budgetMax(request.getBudgetMax())
                 .bidType(bidType)
                 .imageUrls(request.getImageUrls())
-                .status(Project.Status.DRAFT)
-                .approvalStatus(Project.ApprovalStatus.PENDING)
+                .status(initialStatus)
+                .approvalStatus(approvalStatus)
                 .build();
 
         return projectRepository.save(project);

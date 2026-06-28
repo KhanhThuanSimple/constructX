@@ -38,6 +38,7 @@ export default function AdminAllUsersPage() {
   const [statusFilter, setStatusFilter] = useState('PENDING');
   const [selectedPartner, setSelectedPartner] = useState(null);
   const [partnerModal, setPartnerModal] = useState(null); // { partner, action } // action: 'approve' | 'reject'
+  const [detailModal, setDetailModal] = useState(null); // partner object to view profile
 
   useEffect(() => {
     if (activeTab === 'all-users') {
@@ -440,6 +441,12 @@ export default function AdminAllUsersPage() {
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => setDetailModal(partner)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition shadow-sm"
+                                >
+                                  Xem hồ sơ
+                                </button>
                                 {partner.approvalStatus !== 'APPROVED' && (
                                   <button
                                     onClick={() => { setSelectedPartner(partner); setPartnerModal({ action: 'approve' }); }}
@@ -549,6 +556,151 @@ export default function AdminAllUsersPage() {
                 Xác nhận
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONTRACTOR PROFILE DETAIL MODAL (Admin Review) --- */}
+      {detailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto space-y-6">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                {detailModal.profile?.logoUrl ? (
+                  <img src={detailModal.profile.logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover border border-gray-150" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-green-50 text-green-700 flex items-center justify-center font-bold text-lg">
+                    {detailModal.fullName?.charAt(0)}
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-base">{detailModal.profile?.companyName || detailModal.fullName}</h3>
+                  <p className="text-xs text-gray-400">Năm thành lập: {detailModal.profile?.yearEstablished || '2020'}</p>
+                </div>
+              </div>
+              <button onClick={() => setDetailModal(null)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                ✕
+              </button>
+            </div>
+
+            {/* Basic & Contact Info */}
+            <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div>
+                <span className="text-gray-400 block mb-0.5">SỐ ĐIỆN THOẠI</span>
+                <span className="font-bold text-gray-800">{detailModal.profile?.phoneNumber || detailModal.phoneNumber || '—'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 block mb-0.5">EMAIL</span>
+                <span className="font-bold text-gray-800">{detailModal.profile?.email || detailModal.email || '—'}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400 block mb-0.5">ĐỊA CHỈ THI CÔNG</span>
+                <span className="font-bold text-gray-800">{detailModal.profile?.address || detailModal.address || '—'}</span>
+              </div>
+            </div>
+
+            {/* Giới thiệu ngắn */}
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Giới thiệu ngắn</span>
+              <p className="text-sm text-gray-700 leading-relaxed font-semibold italic bg-green-50/50 p-4 rounded-xl border border-green-100">
+                "{detailModal.profile?.shortIntro || 'Chưa cập nhật giới thiệu.'}"
+              </p>
+            </div>
+
+            {/* Lĩnh vực & Chính sách */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Lĩnh vực hoạt động</span>
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.designInterior ? 'text-green-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.designInterior ? '☑' : '☐'} Thiết kế nội thất
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.constructInterior ? 'text-green-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.constructInterior ? '☑' : '☐'} Thi công nội thất
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.produceWood ? 'text-green-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.produceWood ? '☑' : '☐'} Sản xuất đồ gỗ
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.renovateHouse ? 'text-green-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.renovateHouse ? '☑' : '☐'} Cải tạo nhà ở
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Chính sách cam kết</span>
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.warranty24Months ? 'text-blue-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.warranty24Months ? '✔' : '☐'} Bảo hành 24 tháng
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.freeQuote ? 'text-blue-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.freeQuote ? '✔' : '☐'} Báo giá miễn phí
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={detailModal.profile?.onTimeProgress ? 'text-blue-600 font-bold' : 'text-gray-300'}>
+                      {detailModal.profile?.onTimeProgress ? '✔' : '☐'} Thi công đúng tiến độ
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thống kê năng lực */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Thống kê năng lực</span>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Kinh nghiệm</p>
+                  <p className="font-extrabold text-sm text-gray-900 mt-1">{detailModal.profile?.experienceYears || '0'} năm</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Dự án thầu</p>
+                  <p className="font-extrabold text-sm text-gray-900 mt-1">{detailModal.profile?.completedProjectsCount || '0'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Khách hàng</p>
+                  <p className="font-extrabold text-sm text-gray-900 mt-1">{detailModal.profile?.customerCount || '0+'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Đánh giá sàn</p>
+                  <p className="font-extrabold text-sm text-amber-500 mt-1">★ {detailModal.profile?.rating?.toFixed(1) || '5.0'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="pt-6 border-t border-gray-100 flex gap-3 justify-end">
+              <button onClick={() => setDetailModal(null)} className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold text-xs hover:bg-gray-50">
+                Đóng
+              </button>
+              {detailModal.approvalStatus === 'PENDING' && (
+                <>
+                  <button onClick={() => { setSelectedPartner(detailModal); setPartnerModal({ action: 'reject' }); setDetailModal(null); }}
+                    className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl font-bold text-xs">
+                    Từ chối
+                  </button>
+                  <button onClick={() => { setSelectedPartner(detailModal); setPartnerModal({ action: 'approve' }); setDetailModal(null); }}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs shadow-md">
+                    Phê duyệt đối tác 🚀
+                  </button>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       )}

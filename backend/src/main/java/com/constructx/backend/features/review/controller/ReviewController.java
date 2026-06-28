@@ -2,6 +2,7 @@ package com.constructx.backend.features.review.controller;
 
 import com.constructx.backend.features.review.dto.ReviewRequest;
 import com.constructx.backend.features.review.dto.ReviewResponse;
+import com.constructx.backend.features.review.dto.CompletedItemResponse;
 import com.constructx.backend.features.review.service.ReviewService;
 import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,16 @@ import java.util.Map;
 public class ReviewController {
 
     private final ReviewService reviewService;
+
+    /** GET /api/reviews/completed — xem danh sách dự án/đơn hàng hoàn thiện kèm đánh giá */
+    @GetMapping("/completed")
+    public ResponseEntity<ApiResponse<List<CompletedItemResponse>>> getCompletedItems() {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(reviewService.getCompletedItemsForCurrentUser()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
 
     /** POST /api/reviews — tạo đánh giá */
     @PostMapping

@@ -18,7 +18,10 @@ import {
   Image as ImageIcon,
   Info,
   TrendingUp,
-  FileText
+  FileText,
+  Send,
+  X,
+  Loader2
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -53,33 +56,41 @@ const AdminDisputesPage = () => {
   
   // Chat state
   const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   
   // Logs state
   const [constructionLogs, setConstructionLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [activeLogsTab, setActiveLogsTab] = useState(false); // Toggle to show/hide construction logs inside detail view
+  const [activeLogsTab, setActiveLogsTab] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
 
   const chatEndRef = useRef(null);
 
+  // Fetch disputes on mount
   useEffect(() => {
     fetchDisputes();
   }, []);
 
+  // Apply filters whenever disputes, searchTerm, or filter changes
   useEffect(() => {
     applyFilters();
   }, [disputes, searchTerm, filter]);
 
+  // Scroll to bottom of chat when messages update
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [selectedDispute?.messages]);
 
+  // Fetch construction logs when dispute changes
   useEffect(() => {
     if (selectedDispute?.contractId) {
       fetchConstructionLogs(selectedDispute.contractId);
+      generateAISummary(selectedDispute);
     } else {
       setConstructionLogs([]);
+      setAiSummary('');
     }
     // Reset resolution states when dispute changes
     setShowResolvePanel(false);
@@ -102,16 +113,56 @@ const AdminDisputesPage = () => {
     }
   };
 
+  const generateAISummary = async (dispute) => {
+    try {
+      // Mock AI summary - replace with actual API call
+      const messages = dispute.messages || [];
+      const customerMessages = messages.filter(m => m.author.includes('Khách') || m.author.includes('CLIENT'));
+      const contractorMessages = messages.filter(m => m.author.includes('Thầu') || m.author.includes('CONTRACTOR'));
+      
+      if (customerMessages.length === 0 && contractorMessages.length === 0) {
+        setAiSummary('');
+        return;
+      }
+
+      // Simple mock analysis
+      const customerArgs = customerMessages.map(m => m.content).join(' ');
+      const contractorArgs = contractorMessages.map(m => m.content).join(' ');
+      
+      const summary = `📊 **TÓM TẮT TRANH CHẤP**
+
+👤 **Khách hàng lập luận:**
+${customerArgs || 'Chưa có lập luận từ khách hàng'}
+
+👤 **Nhà thầu lập luận:**
+${contractorArgs || 'Chưa có lập luận từ nhà thầu'}
+
+⚖️ **Đề xuất phân xử:**
+Dựa trên các lập luận, đề xuất tỷ lệ phân chia:
+- Khách hàng: ${customerMessages.length > contractorMessages.length ? '60%' : '40%'}
+- Nhà thầu: ${customerMessages.length > contractorMessages.length ? '40%' : '60%'}
+
+💡 **Lý do:** Phân tích sơ bộ cho thấy bên có nhiều lập luận hơn được ưu tiên.`;
+      
+      setAiSummary(summary);
+    } catch (error) {
+      console.error('Error generating AI summary:', error);
+      setAiSummary('');
+    }
+  };
+
   const fetchDisputes = async () => {
     setLoading(true);
     try {
       const response = await api.get('/admin/disputes');
       const data = response.data.data || [];
       setDisputes(data);
+      // Chỉ set selectedDispute mặc định khi chưa có dispute nào được chọn
       if (data.length > 0 && !selectedDispute) {
         setSelectedDispute(data[0]);
       }
     } catch (error) {
+      console.error('Error fetching disputes:', error);
       toast.error('Không thể tải danh sách tranh chấp');
     } finally {
       setLoading(false);
@@ -119,12 +170,11 @@ const AdminDisputesPage = () => {
   };
 
   const applyFilters = () => {
-    let result = disputes || [];
+    let result = [...(disputes || [])];
 
     if (filter === 'pending') {
       result = result.filter((d) => d.status === 'PENDING');
-    }
-    if (filter === 'resolved') {
+    } else if (filter === 'resolved') {
       result = result.filter((d) => d.status === 'RESOLVED');
     }
 
@@ -145,19 +195,24 @@ const AdminDisputesPage = () => {
   const handleUnfreezeContract = async () => {
     if (!selectedDispute) return;
     
-    if (!window.confirm(`Bạn có chắc chắn muốn gỡ bỏ trạng thái phong tỏa cho Hợp đồng của tranh chấp này?`)) {
+    if (!window.confirm(`Bạn có chắc chắn muốn giải phóng hợp đồng này? Hợp đồng sẽ được gỡ bỏ phong tỏa và tranh chấp này sẽ chuyển sang trạng thái ĐÃ GIẢI QUYẾT.`)) {
       return;
     }
 
     try {
       const response = await api.post(`/admin/disputes/${selectedDispute.id}/unfreeze`);
-      toast.success('Hợp đồng đã được gỡ bỏ phong tỏa thành công!');
+      toast.success('Hợp đồng đã được giải phóng và tranh chấp chuyển sang trạng thái đã giải quyết thành công!');
       const updated = response.data.data;
+      // Cập nhật selectedDispute và refresh toàn bộ danh sách
       setSelectedDispute(updated);
       setDisputes((prev) => prev.map((d) => (d.id === selectedDispute.id ? updated : d)));
+      // Refresh lại từ server để đảm bảo filter & badge đồng bộ
+      await fetchDisputes();
+      // Giữ lại dispute đang chọn sau refresh
+      setSelectedDispute(updated);
     } catch (error) {
       console.error('Error unfreezing contract:', error);
-      toast.error(error.response?.data?.message || 'Lỗi khi bỏ phong tỏa hợp đồng');
+      toast.error(error.response?.data?.message || 'Lỗi khi giải phóng hợp đồng');
     }
   };
 
@@ -168,10 +223,6 @@ const AdminDisputesPage = () => {
     }
     if (!resolutionText.trim()) {
       toast.error('Vui lòng nhập văn bản phán quyết phân xử');
-      return;
-    }
-    if (!resolutionType) {
-      toast.error('Vui lòng chọn loại phán quyết');
       return;
     }
     if (!selectedDispute) return;
@@ -190,6 +241,9 @@ const AdminDisputesPage = () => {
       setSelectedDispute(updated);
       setDisputes((prev) => prev.map((d) => (d.id === selectedDispute.id ? updated : d)));
       setShowResolvePanel(false);
+      // Refresh toàn bộ danh sách để đồng bộ trạng thái filter
+      await fetchDisputes();
+      setSelectedDispute(updated);
     } catch (error) {
       console.error('Error resolving dispute:', error);
       toast.error(error.response?.data?.message || 'Lỗi khi thực thi phán quyết');
@@ -210,7 +264,6 @@ const AdminDisputesPage = () => {
         content: messageText.trim(),
       });
       
-      // Update selected dispute and dispute list with the updated message list
       const updatedDispute = response.data.data;
       setSelectedDispute(updatedDispute);
       setDisputes(prev => prev.map(d => d.id === updatedDispute.id ? updatedDispute : d));
@@ -225,7 +278,7 @@ const AdminDisputesPage = () => {
   };
 
   const formatCurrency = (amount) => {
-    if (amount == null) return '0đ';
+    if (amount == null || isNaN(amount)) return '0đ';
     return `${amount.toLocaleString('vi-VN')}đ`;
   };
 
@@ -245,14 +298,13 @@ const AdminDisputesPage = () => {
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold">
-        <CheckCircle2 size={12} />
-        Đã giải quyết
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-600 border border-gray-200 rounded-full text-xs font-bold">
+        <Info size={12} />
+        Không xác định
       </span>
     );
   };
 
-  // Tự động điều chỉnh tỷ lệ khi chọn preset
   const handlePercentPreset = (cust, cont) => {
     setCustomerPercent(cust);
     setContractorPercent(cont);
@@ -263,15 +315,30 @@ const AdminDisputesPage = () => {
       toast.error('Không tìm thấy nhật ký thi công nào để đối chiếu tiến độ');
       return;
     }
-    const maxProg = Math.max(...constructionLogs.map((l) => l.progressPercent));
-    setContractorPercent(maxProg);
-    setCustomerPercent(100 - maxProg);
-    toast.success(`Đã tự động chia theo tiến độ thi công đạt được: ${maxProg}%`);
+    const maxProg = Math.max(...constructionLogs.map((l) => l.progressPercent || 0));
+    const contractorShare = Math.min(100, Math.max(0, maxProg));
+    setContractorPercent(contractorShare);
+    setCustomerPercent(100 - contractorShare);
+    toast.success(`Đã tự động chia theo tiến độ thi công đạt được: ${contractorShare}%`);
   };
 
   const activeDisputePool = selectedDispute 
     ? (selectedDispute.disputePool || selectedDispute.amount || 0) 
     : 0;
+
+  // Loading state
+  if (loading) {
+    return (
+      <Layout title="Giải quyết Tranh chấp & Khiếu nại">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-primary animate-spin" />
+            <p className="text-sm text-gray-500">Đang tải danh sách tranh chấp...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Giải quyết Tranh chấp & Khiếu nại">
@@ -292,18 +359,18 @@ const AdminDisputesPage = () => {
               <Clock className="text-rose-500 opacity-20 -mr-6 -mt-6" size={40} />
             </div>
             <p className="text-xs font-semibold text-rose-500 uppercase tracking-wider">Đang chờ xử lý</p>
-            <p className="mt-3 text-3xl font-black text-rose-655">{disputes.filter(d => d.status === 'PENDING').length}</p>
+            <p className="mt-3 text-3xl font-black text-rose-600">{disputes.filter(d => d.status === 'PENDING').length}</p>
             <p className="mt-2 text-[10px] text-rose-400 font-medium">Yêu cầu phán quyết khẩn cấp từ Trọng tài.</p>
           </div>
           <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-emerald-50/10 p-5 shadow-xs transition hover:shadow-sm">
             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full flex items-center justify-center shrink-0">
-              <Unlock className="text-emerald-505 opacity-20 -mr-6 -mt-6" size={40} />
+              <CheckCircle2 className="text-emerald-500 opacity-20 -mr-6 -mt-6" size={40} />
             </div>
-            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Đã gỡ phong tỏa</p>
+            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Đã giải quyết</p>
             <p className="mt-3 text-3xl font-black text-emerald-700">
-              {disputes.filter(d => d.status === 'RESOLVED' || !d.isDisputed).length}
+              {disputes.filter(d => d.status === 'RESOLVED').length}
             </p>
-            <p className="mt-2 text-[10px] text-emerald-500 font-medium">Hợp đồng đã được mở khóa/giải phóng.</p>
+            <p className="mt-2 text-[10px] text-emerald-500 font-medium">Hợp đồng đã được giải quyết.</p>
           </div>
         </div>
 
@@ -325,7 +392,7 @@ const AdminDisputesPage = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Tìm mã, dự án, tên khách..."
-                    className="w-full rounded-full border border-gray-150 bg-gray-50 py-2.5 pl-9 pr-4 text-xs text-gray-855 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-full border border-gray-150 bg-gray-50 py-2.5 pl-9 pr-4 text-xs text-gray-700 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                   />
                 </div>
                 <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl px-2.5 py-1.5 border border-gray-150">
@@ -346,7 +413,7 @@ const AdminDisputesPage = () => {
             </div>
 
             {/* List View Container */}
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
               {filteredDisputes.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
                   Không tìm thấy tranh chấp phù hợp bộ lọc.
@@ -362,15 +429,15 @@ const AdminDisputesPage = () => {
                       className={`w-full rounded-2xl border p-4 text-left transition-all ${
                         isSelected 
                           ? 'border-primary bg-primary/[0.03] shadow-sm ring-1 ring-primary/30' 
-                          : 'border-gray-150 bg-white hover:border-gray-355'
+                          : 'border-gray-150 bg-white hover:border-gray-300 hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0 flex-1">
                           <h4 className="font-bold text-gray-900 text-xs line-clamp-1">
                             {dispute.projectName || "Đơn hàng tùy chỉnh"}
                           </h4>
-                          <p className="text-[10px] text-gray-400">Mã tranh chấp: <strong>#{dispute.id}</strong></p>
+                          <p className="text-[10px] text-gray-400">Mã tranh chấp: <strong className="text-gray-600">#{dispute.id}</strong></p>
                         </div>
                         <span className={`shrink-0 rounded-md px-2 py-0.5 text-[9px] font-black ${
                           dispute.status === 'PENDING' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
@@ -379,7 +446,7 @@ const AdminDisputesPage = () => {
                         </span>
                       </div>
                       <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-500">
-                        <span className="truncate max-w-[150px]">Khách: <strong>{dispute.customerName || "N/A"}</strong></span>
+                        <span className="truncate max-w-[150px]">Khách: <strong className="text-gray-700">{dispute.customerName || "N/A"}</strong></span>
                         <span className="font-black text-slate-800">{formatCurrency(dispute.amount)}</span>
                       </div>
                     </button>
@@ -393,15 +460,16 @@ const AdminDisputesPage = () => {
           <div className="bg-white rounded-3xl border border-gray-150 shadow-xs overflow-hidden flex flex-col min-h-[700px]">
             {!selectedDispute ? (
               <div className="flex flex-col items-center justify-center flex-1 p-8 text-center text-gray-400 space-y-3">
-                <Scale size={48} className="text-gray-300 opacity-60 animate-bounce-slow" />
-                <p className="text-sm">Vui lòng chọn một hồ sơ tranh chấp ở danh sách bên trái để bắt đầu phân xử.</p>
+                <Scale size={48} className="text-gray-300 opacity-60" />
+                <p className="text-sm font-medium">Vui lòng chọn một hồ sơ tranh chấp</p>
+                <p className="text-xs text-gray-400">Ở danh sách bên trái để bắt đầu phân xử.</p>
               </div>
             ) : (
               <div className="flex flex-col flex-1">
                 
                 {/* 1. Header chi tiết */}
                 <div className="bg-slate-50/50 border-b border-gray-150 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-[10px] font-black">
                         Hồ sơ tranh chấp #{selectedDispute.id}
@@ -417,10 +485,10 @@ const AdminDisputesPage = () => {
                         </span>
                       )}
                     </div>
-                    <h2 className="text-lg font-black text-gray-900 leading-snug">
+                    <h2 className="text-lg font-black text-gray-900 leading-snug truncate">
                       {selectedDispute.projectName || "Đơn hàng tùy chỉnh"}
                     </h2>
-                    <p className="text-[10px] text-gray-400">Số hợp đồng: <strong className="text-gray-655">{selectedDispute.contractNumber || "N/A"}</strong></p>
+                    <p className="text-[10px] text-gray-400">Số hợp đồng: <strong className="text-gray-600">{selectedDispute.contractNumber || "N/A"}</strong></p>
                   </div>
 
                   {/* Unfreeze action toggle */}
@@ -430,25 +498,29 @@ const AdminDisputesPage = () => {
                       onClick={handleUnfreezeContract}
                       className="inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2.5 text-xs shadow-xs transition-colors shrink-0"
                     >
-                      <Unlock size={14} /> Gỡ phong tỏa hợp đồng
+                      <Unlock size={14} /> Giải phóng hợp đồng
                     </button>
                   )}
                 </div>
 
                 {/* 2. Scrollable Workspace Content */}
-                <div className="p-6 flex-1 overflow-y-auto space-y-6 max-h-[550px]">
+                <div className="p-6 flex-1 overflow-y-auto space-y-6 max-h-[550px] custom-scrollbar">
                   
                   {/* Đối tác tham gia */}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center shrink-0 font-bold text-sm">A</div>
+                      <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold text-sm">
+                        <User size={16} />
+                      </div>
                       <div className="min-w-0">
                         <p className="text-[9px] text-gray-400 uppercase font-black">Khách hàng (Bên A)</p>
                         <p className="text-xs font-bold text-gray-800 truncate">{selectedDispute.customerName || "Chưa cập nhật"}</p>
                       </div>
                     </div>
                     <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-650 flex items-center justify-center shrink-0 font-bold text-sm">B</div>
+                      <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 font-bold text-sm">
+                        <Building2 size={16} />
+                      </div>
                       <div className="min-w-0">
                         <p className="text-[9px] text-gray-400 uppercase font-black">Nhà thầu (Bên B)</p>
                         <p className="text-xs font-bold text-gray-800 truncate">{selectedDispute.contractorName || "Chưa cập nhật"}</p>
@@ -470,7 +542,7 @@ const AdminDisputesPage = () => {
                   <div className="rounded-2xl border border-emerald-100 bg-emerald-50/[0.02] p-4 space-y-3">
                     <div className="flex items-center justify-between border-b border-emerald-100/50 pb-2.5">
                       <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">
-                        Sổ cái ký quỹ & Quỹ tranh chấp thực tế (D_Pool)
+                        Sổ cái ký quỹ & Quỹ tranh chấp
                       </h4>
                       <span className="text-[10px] font-black text-emerald-700 bg-emerald-100/30 px-2 py-0.5 rounded">
                         Tổng hợp đồng: {formatCurrency(selectedDispute.amount)}
@@ -498,23 +570,26 @@ const AdminDisputesPage = () => {
                     </div>
                   </div>
 
-                  {/* Toggle tab xem tài liệu nhật ký thi công đối chiếu */}
-                  <div className="border border-gray-155 rounded-2xl overflow-hidden">
+                  {/* Toggle tab xem tài liệu nhật ký thi công */}
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setActiveLogsTab(!activeLogsTab)}
-                      className="w-full bg-gray-50/50 px-4 py-3 flex items-center justify-between text-xs font-bold text-gray-700 border-b border-gray-150 hover:bg-gray-55 transition-colors"
+                      className="w-full bg-gray-50/50 px-4 py-3 flex items-center justify-between text-xs font-bold text-gray-700 border-b border-gray-150 hover:bg-gray-50 transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         <FileText size={14} className="text-primary" />
-                        Nhật ký thi công thực tế đạt được ({constructionLogs.length} ghi nhận)
+                        Nhật ký thi công thực tế ({constructionLogs.length} ghi nhận)
                       </span>
                       <ChevronRight size={14} className={`text-gray-400 transition-transform ${activeLogsTab ? 'rotate-90' : ''}`} />
                     </button>
                     {activeLogsTab && (
-                      <div className="p-4 bg-white space-y-4 max-h-[300px] overflow-y-auto">
+                      <div className="p-4 bg-white space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar">
                         {loadingLogs ? (
-                          <div className="text-center py-4 text-xs text-gray-405">Đang tải nhật ký...</div>
+                          <div className="text-center py-4 text-xs text-gray-400">
+                            <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                            Đang tải nhật ký...
+                          </div>
                         ) : constructionLogs.length === 0 ? (
                           <div className="text-center py-6 text-xs text-gray-400 flex flex-col items-center gap-1">
                             <Info size={18} className="opacity-60" />
@@ -524,17 +599,27 @@ const AdminDisputesPage = () => {
                           constructionLogs.map((log, idx) => (
                             <div key={log.id} className="border border-gray-100 rounded-xl p-3 space-y-2.5 bg-slate-50/30">
                               <div className="flex items-center justify-between text-[10px] border-b border-gray-100 pb-1.5">
-                                <span className="font-bold text-gray-505">Bản cập nhật #{idx + 1}</span>
+                                <span className="font-bold text-gray-600">Bản cập nhật #{idx + 1}</span>
                                 <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">
-                                  Tiến độ: {log.progressPercent}%
+                                  Tiến độ: {log.progressPercent || 0}%
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-700 leading-relaxed">{log.description}</p>
+                              <p className="text-xs text-gray-700 leading-relaxed">{log.description || 'Không có mô tả'}</p>
                               {log.imageUrls && log.imageUrls.length > 0 && (
                                 <div className="grid grid-cols-4 gap-2 pt-1.5">
-                                  {log.imageUrls.map((url, i) => (
-                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block h-14 rounded-lg overflow-hidden border border-gray-100 group">
-                                      <img src={url} alt="Bằng chứng thi công" className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                                  {log.imageUrls.slice(0, 4).map((url, i) => (
+                                    <a 
+                                      key={i} 
+                                      href={url} 
+                                      target="_blank" 
+                                      rel="noreferrer" 
+                                      className="block h-14 rounded-lg overflow-hidden border border-gray-100 group"
+                                    >
+                                      <img 
+                                        src={url} 
+                                        alt={`Bằng chứng thi công ${i + 1}`} 
+                                        className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                      />
                                     </a>
                                   ))}
                                 </div>
@@ -543,18 +628,10 @@ const AdminDisputesPage = () => {
                           ))
                         )}
                       </div>
-                      
-                      {aiSummary ? (
-                        <div className="bg-white/90 backdrop-blur-xs rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed border border-emerald-100/60 shadow-inner max-h-60 overflow-y-auto whitespace-pre-line">
-                          {aiSummary}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-slate-400">
-                          AI sẽ tự động đọc lịch sử cuộc trò chuyện đối chất 3 bên bên dưới và đưa ra nhận định, tóm tắt lý lẽ của cả 2 phía kèm theo đề xuất tỷ lệ hoàn tiền tối ưu cho Admin tham khảo.
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  
 
                   {/* Chat đối chất trực tuyến 3 bên */}
                   <div className="space-y-3.5">
@@ -562,63 +639,13 @@ const AdminDisputesPage = () => {
                       <MessageSquare size={14} className="text-primary" />
                       Phòng chat đối chất trọng tài 3 bên
                     </h4>
-                    <div className="border border-gray-150 rounded-2xl bg-gray-50/30 p-4 space-y-3 max-h-[300px] overflow-y-auto">
-                      {selectedDispute.messages && selectedDispute.messages.length > 0 ? (
-                        selectedDispute.messages.map((message) => {
-                          const isAdmin = message.author.includes("Admin") || message.author.includes("admin") || message.author === "SYSTEM";
-                          return (
-                            <div
-                              key={message.id}
-                              className={`flex flex-col max-w-[85%] rounded-2xl p-3.5 shadow-xxs ${
-                                isAdmin 
-                                  ? 'bg-slate-800 text-white self-center' 
-                                  : 'bg-white text-gray-800 border border-gray-100'
-                              }`}
-                              style={{ alignSelf: isAdmin ? 'center' : (message.author.includes("Chủ") ? 'flex-start' : 'flex-end') }}
-                            >
-                              <span className={`text-[9px] font-bold ${isAdmin ? 'text-emerald-400' : 'text-gray-400'}`}>
-                                {message.author}
-                              </span>
-                              <p className="text-xs leading-relaxed mt-1.5 whitespace-pre-wrap">{message.content}</p>
-                              <span className="text-[9px] text-gray-405 text-right mt-2 block">
-                                {new Date(message.createdAt).toLocaleString('vi-VN')}
-                              </span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center py-12 text-xs text-gray-400">
-                          Chưa có lịch sử nhắn tin. Admin, Khách hàng và Nhà thầu có thể trao đổi trực tiếp tại đây.
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-
-                    {/* Chat Input */}
-                    <div className="flex gap-2">
-                      <textarea
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        placeholder="Soạn phản hồi của Trọng tài..."
-                        rows={2}
-                        className="w-full border border-gray-150 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary resize-none transition-colors"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSendMessage}
-                        className="bg-primary hover:bg-primary-light text-white font-bold rounded-xl px-4 flex items-center justify-center shadow-xs transition-colors shrink-0 text-xs"
-                      >
-                        Gửi
-                      </button>
-                    </div>
-
+                    
                     {/* Chat messages box */}
-                    <div className="h-64 space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50/50 p-4 shadow-inner">
+                    <div className="h-64 space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/50 p-4 shadow-inner custom-scrollbar">
                       {selectedDispute.messages && selectedDispute.messages.length > 0 ? (
                         selectedDispute.messages.map((message) => {
-                          // Định dạng hiển thị tin nhắn dựa trên vai trò người gửi
-                          const isSystem = message.author.includes('HỆ THỐNG');
-                          const isAdminSender = message.author.includes('ADMIN') || message.author.includes('Quản trị');
+                          const isSystem = message.author?.includes('HỆ THỐNG') || message.author?.includes('SYSTEM');
+                          const isAdminSender = message.author?.includes('ADMIN') || message.author?.includes('Quản trị') || message.author?.includes('Admin');
                           
                           if (isSystem) {
                             return (
@@ -630,19 +657,21 @@ const AdminDisputesPage = () => {
                             );
                           }
 
+                          const isCustomer = message.author?.includes('Khách') || message.author?.includes('CLIENT');
+                          
                           return (
                             <div key={message.id} className={`flex flex-col ${isAdminSender ? 'items-end' : 'items-start'}`}>
                               <div className={`max-w-[85%] rounded-2xl p-3 shadow-xs border text-xs leading-relaxed ${
                                 isAdminSender
                                   ? 'bg-[#1a4f3a] text-white border-emerald-800'
-                                  : message.author.includes('CLIENT') || message.author.includes('Khách')
-                                    ? 'bg-white text-slate-700 border-slate-200/60'
-                                    : 'bg-emerald-50 text-slate-700 border-emerald-100'
+                                  : isCustomer
+                                    ? 'bg-blue-50 text-slate-700 border-blue-100'
+                                    : 'bg-white text-slate-700 border-slate-200/60'
                               }`}>
                                 <p className={`text-[9px] font-bold mb-1 ${isAdminSender ? 'text-emerald-200' : 'text-slate-400'}`}>
-                                  {message.author}
+                                  {message.author || 'Unknown'}
                                 </p>
-                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                <p className="whitespace-pre-wrap break-words">{message.content}</p>
                               </div>
                               <span className="text-[9px] text-slate-400 font-semibold mt-1 px-1">
                                 {new Date(message.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
@@ -654,6 +683,7 @@ const AdminDisputesPage = () => {
                         <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 p-4">
                           <MessageSquare size={24} className="text-slate-300 mb-1.5" />
                           <p className="text-[11px] font-bold">Chưa có cuộc trò chuyện đối chất nào</p>
+                          <p className="text-[9px] text-slate-400">Hãy bắt đầu trao đổi với các bên</p>
                         </div>
                       )}
                       <div ref={chatEndRef} />
@@ -674,14 +704,15 @@ const AdminDisputesPage = () => {
                           rows={1}
                           placeholder="Chỉ đạo, hướng dẫn hoặc gửi tin nhắn đối chất..."
                           className="flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#1a4f3a] focus:bg-white focus:ring-2 focus:ring-[#1a4f3a]/15 transition-all max-h-12"
+                          disabled={sendingMessage}
                         />
                         <button
                           type="button"
                           onClick={handleSendMessage}
                           disabled={sendingMessage || !messageText.trim()}
-                          className="p-2.5 bg-[#1a4f3a] hover:bg-[#163b2d] text-white rounded-xl transition-all duration-300 shadow-xs disabled:opacity-40"
+                          className="p-2.5 bg-[#1a4f3a] hover:bg-[#163b2d] text-white rounded-xl transition-all duration-300 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
                         >
-                          <Send size={14} />
+                          {sendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                         </button>
                       </div>
                     )}
@@ -696,21 +727,27 @@ const AdminDisputesPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowResolvePanel(true)}
-                        className="w-full py-3.5 bg-primary hover:bg-primary-light text-white font-bold rounded-2xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+                        className="w-full py-3.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
                       >
                         <Scale size={16} /> Đưa ra phán quyết phân xử
                       </button>
                     ) : (
                       <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 space-y-2">
                         <h4 className="text-xs font-black text-emerald-800 uppercase tracking-widest flex items-center gap-1.5">
-                          ⚖️ Phán quyết đã thực thi
+                          <CheckCircle2 size={14} /> Phán quyết đã thực thi
                         </h4>
                         <p className="text-xs text-emerald-900">
-                          Quyết định: <strong>{selectedDispute.resolutionType === 'refund_customer' ? 'Hoàn 100% Khách hàng' : (selectedDispute.resolutionType === 'keep_contractor' ? 'Trả 100% Nhà thầu' : 'Chia theo tỷ lệ')}</strong>
+                          Quyết định: <strong>
+                            {selectedDispute.resolutionType === 'refund_customer' ? 'Hoàn 100% Khách hàng' : 
+                             selectedDispute.resolutionType === 'keep_contractor' ? 'Trả 100% Nhà thầu' : 
+                             selectedDispute.resolutionType === 'split' ? 'Chia theo tỷ lệ' : 'Không xác định'}
+                          </strong>
                         </p>
-                        <p className="text-xs text-emerald-900 border-t border-emerald-100/30 pt-1.5 mt-1.5 italic">
-                          "{selectedDispute.resolution}"
-                        </p>
+                        {selectedDispute.resolution && (
+                          <p className="text-xs text-emerald-900 border-t border-emerald-100/30 pt-1.5 mt-1.5 italic">
+                            "{selectedDispute.resolution}"
+                          </p>
+                        )}
                         {selectedDispute.refundAmount != null && (
                           <p className="text-[10px] text-emerald-600 font-bold">Số tiền hoàn trả khách: {formatCurrency(selectedDispute.refundAmount)}</p>
                         )}
@@ -726,19 +763,19 @@ const AdminDisputesPage = () => {
                         <button
                           type="button"
                           onClick={() => setShowResolvePanel(false)}
-                          className="text-xs text-gray-400 hover:text-gray-600 font-bold"
+                          className="text-xs text-gray-400 hover:text-gray-600 font-bold p-1"
                         >
-                          Hủy bỏ
+                          <X size={16} />
                         </button>
                       </div>
 
                       {/* Loại quyết định */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-gray-450 uppercase">Chọn hướng phán quyết</label>
+                        <label className="text-[10px] font-black text-gray-500 uppercase">Chọn hướng phán quyết</label>
                         <select
                           value={resolutionType}
                           onChange={(e) => setResolutionType(e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary cursor-pointer font-bold"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary cursor-pointer font-bold bg-white"
                         >
                           <option value="">-- Chọn hướng phân chia tiền --</option>
                           {RESOLUTION_OPTIONS.map((opt) => (
@@ -752,43 +789,43 @@ const AdminDisputesPage = () => {
                       {/* Phân chia chi tiết bằng thanh trượt */}
                       {resolutionType === 'split' && (
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tỷ lệ phân chia chi tiết</span>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tỷ lệ phân chia</span>
                             <div className="flex gap-1.5 flex-wrap">
                               <button
                                 type="button"
                                 onClick={handleApplyProgressSplit}
                                 className="px-2 py-0.5 bg-primary/10 hover:bg-primary/20 text-[9px] font-black text-primary rounded transition-all flex items-center gap-1"
                               >
-                                <TrendingUp size={10} /> Theo tiến độ thi công
+                                <TrendingUp size={10} /> Theo tiến độ
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handlePercentPreset(70, 30)}
-                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-55 text-[9px] font-black text-gray-600 rounded transition-all"
+                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-100 text-[9px] font-black text-gray-600 rounded transition-all"
                               >
-                                70 Khách / 30 Thầu
+                                70/30
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handlePercentPreset(50, 50)}
-                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-55 text-[9px] font-black text-gray-600 rounded transition-all"
+                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-100 text-[9px] font-black text-gray-600 rounded transition-all"
                               >
                                 50/50
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handlePercentPreset(30, 70)}
-                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-55 text-[9px] font-black text-gray-600 rounded transition-all"
+                                className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-gray-100 text-[9px] font-black text-gray-600 rounded transition-all"
                               >
-                                30 Khách / 70 Thầu
+                                30/70
                               </button>
                             </div>
                           </div>
 
                           {/* Visual Progress Split bar */}
                           <div className="space-y-2">
-                            <div className="h-4 bg-gray-250 rounded-full overflow-hidden flex shadow-inner">
+                            <div className="h-4 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
                               <div
                                 style={{ width: `${customerPercent}%` }}
                                 className="bg-indigo-500 transition-all duration-300 ease-out"
@@ -810,13 +847,17 @@ const AdminDisputesPage = () => {
                               }}
                               className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                             />
+                            <div className="flex justify-between text-[9px] text-gray-500 font-bold">
+                              <span className="text-indigo-600">Khách: {customerPercent}%</span>
+                              <span className="text-emerald-600">Thầu: {contractorPercent}%</span>
+                            </div>
                           </div>
 
                           {/* Detail input forms */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-gray-400 uppercase flex items-center gap-1.5">
-                                <span className="w-2 h-2 bg-indigo-500 rounded-xs"></span>
+                                <span className="w-2 h-2 bg-indigo-500 rounded-sm"></span>
                                 Khách hàng nhận
                               </label>
                               <div className="relative">
@@ -840,7 +881,7 @@ const AdminDisputesPage = () => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-gray-400 uppercase flex items-center gap-1.5">
-                                <span className="w-2 h-2 bg-emerald-500 rounded-xs"></span>
+                                <span className="w-2 h-2 bg-emerald-500 rounded-sm"></span>
                                 Nhà thầu nhận
                               </label>
                               <div className="relative">
@@ -868,13 +909,13 @@ const AdminDisputesPage = () => {
 
                       {/* Mô tả quyết định */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-gray-450 uppercase">Văn bản phán quyết pháp lý</label>
+                        <label className="text-[10px] font-black text-gray-500 uppercase">Văn bản phán quyết pháp lý</label>
                         <textarea
                           value={resolutionText}
                           onChange={(e) => setResolutionText(e.target.value)}
                           placeholder="Mô tả chi tiết lý do phân chia và căn cứ đưa ra phán quyết..."
                           rows={3}
-                          className="w-full border border-gray-150 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary resize-none transition-colors"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary resize-none transition-colors bg-white"
                         />
                       </div>
 
@@ -882,9 +923,19 @@ const AdminDisputesPage = () => {
                         type="button"
                         disabled={submitting}
                         onClick={handleResolveDispute}
-                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
                       >
-                        {submitting ? 'Đang thực thi phán quyết...' : 'Xác nhận và Giải ngân phán quyết'}
+                        {submitting ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Đang thực thi phán quyết...
+                          </>
+                        ) : (
+                          <>
+                            <Scale size={14} />
+                            Xác nhận và Giải ngân phán quyết
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -897,6 +948,27 @@ const AdminDisputesPage = () => {
         </div>
 
       </div>
+
+      {/* Custom CSS for scrollbar */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #d1d5db;
+          border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #9ca3af;
+        }
+        .shadow-xxs {
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+      `}</style>
     </Layout>
   );
 };

@@ -57,16 +57,15 @@
                 return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
             }
         }
-    }
 
-
-    @PostMapping("/{id}/unfreeze")
-    public ResponseEntity<ApiResponse<DisputeResponse>> unfreezeContract(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(ApiResponse.ok("Bỏ phong tỏa hợp đồng thành công", adminDisputeService.unfreezeContract(id)));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        // PHƯƠNG THỨC NÀY CẦN NẰM TRONG CLASS
+        @PostMapping("/{id}/unfreeze")
+        public ResponseEntity<ApiResponse<DisputeResponse>> unfreezeContract(@PathVariable Long id) {
+            try {
+                return ResponseEntity.ok(ApiResponse.ok("Bỏ phong tỏa hợp đồng thành công", adminDisputeService.unfreezeContract(id)));
+            } catch (RuntimeException e) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            }
         }
-    }
-}
+    } // <---
 

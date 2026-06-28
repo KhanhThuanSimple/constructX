@@ -10,6 +10,9 @@ import com.constructx.backend.features.project.repository.ProjectRepository;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
 import com.constructx.backend.features.constructor.repository.BidRepository;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.entity.Wallet;
+import com.constructx.backend.admin.service.FeatureFlagService;
 
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AccessLevel;
@@ -27,6 +30,8 @@ public class BidService {
     BidRepository bidRepository;
     ProjectRepository projectRepository;
     UserRepository userRepository;
+    WalletRepository walletRepository;
+    FeatureFlagService featureFlagService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext()
@@ -48,6 +53,16 @@ public class BidService {
 
         if (contractor.getRole() != User.Role.CONTRACTOR) {
             throw new RuntimeException("Only contractor can bid");
+        }
+
+        // Check minimum wallet balance required to bid
+        long minBalance = featureFlagService.getMinContractorBalanceToBid();
+        if (minBalance > 0) {
+            Wallet wallet = walletRepository.findByUserId(contractor.getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví của nhà thầu"));
+            if (wallet.getAvailableBalance() < minBalance) {
+                throw new RuntimeException(String.format("Số dư ví khả dụng không đủ. Số dư tối thiểu yêu cầu là %,dđ để gửi báo giá.", minBalance));
+            }
         }
 
         Project project = projectRepository.findById(request.getProjectId())

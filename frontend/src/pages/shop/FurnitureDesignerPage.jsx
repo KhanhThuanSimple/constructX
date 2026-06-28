@@ -63,6 +63,21 @@ const fmt = (n) =>
 /* ─── helpers ─────────────────────────────────────────────────── */
 const snap = (v, grid) => Math.round(v / grid) * grid;
 
+// Polyfill roundRect if needed
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (typeof r === 'number') r = [r];
+    const radii = r.map(rad => Math.min(rad, Math.min(w, h) / 2));
+    const tl = radii[0] || 0;
+    this.moveTo(x + tl, y);
+    this.arcTo(x + w, y, x + w, y + h, tl);
+    this.arcTo(x + w, y + h, x, y + h, tl);
+    this.arcTo(x, y + h, x, y, tl);
+    this.arcTo(x, y, x + w, y, tl);
+    return this;
+  };
+}
+
 export default function FurnitureDesignerPage() {
   const navigate = useNavigate();
   const { token, user } = useAuthStore();
@@ -86,7 +101,11 @@ export default function FurnitureDesignerPage() {
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
   const [showBOM, setShowBOM] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutForm, setCheckoutForm] = useState({ address: user?.address || '', phone: user?.phoneNumber || '', note: '' });
+  const [checkoutForm, setCheckoutForm] = useState({ 
+    address: user?.address || '', 
+    phone: user?.phoneNumber || '', 
+    note: '' 
+  });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [showRoomConfig, setShowRoomConfig] = useState(false);
@@ -148,10 +167,13 @@ export default function FurnitureDesignerPage() {
     ctx.fillStyle = '#6b7280';
     ctx.font = `${11 * zoom}px "Be Vietnam Pro", sans-serif`;
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
     ctx.fillText(`${room.w} cm`, W / 2, H + 16);
     ctx.save();
     ctx.translate(-14, H / 2);
     ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(`${room.h} cm`, 0, 0);
     ctx.restore();
 
@@ -259,8 +281,9 @@ export default function FurnitureDesignerPage() {
   };
 
   const isResizeHandle = (pos, p) => {
-    return pos.x >= p.x + p.w - 8 / (SCALE * zoom) &&
-           pos.y >= p.y + p.h - 8 / (SCALE * zoom);
+    const handleSize = 8 / (SCALE * zoom);
+    return pos.x >= p.x + p.w - handleSize &&
+           pos.y >= p.y + p.h - handleSize;
   };
 
   /* ─── mouse events ──────────────────────────────────────────── */
@@ -438,16 +461,14 @@ export default function FurnitureDesignerPage() {
       {/* ── TOPBAR ── */}
       <header className="bg-[#1a4f3a] text-white px-4 h-14 flex items-center justify-between gap-4 shrink-0 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/shop')}
-            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm transition-colors">
-            <ArrowLeft size={16} /> Shop
+          <button 
+            onClick={() => navigate(-1)}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+            aria-label="Quay lại"
+          >
+            <ArrowLeft size={18} />
           </button>
-          <div className="w-px h-4 bg-white/20" />
-          <div className="flex items-center gap-2">
-            <Ruler size={16} className="text-white/70" />
-            <span className="font-display font-bold text-base">Thiết kế 2D</span>
-            <span className="text-white/50 text-xs hidden sm:block">— Kéo thả module vào phòng</span>
-          </div>
+          <h1 className="text-sm font-display font-semibold">🧩 Thiết kế nội thất 2D</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -478,8 +499,9 @@ export default function FurnitureDesignerPage() {
           {/* Checkout */}
           <button onClick={() => token ? setShowCheckout(true) : navigate('/login?redirect=/shop/designer')}
             disabled={placed.length === 0}
-            className="flex items-center gap-1.5 bg-white text-[#1a4f3a] px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-green-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-md">
-            <ShoppingCart size={15}/> Đặt hàng ({fmt(totalPrice)})
+            className="flex items-center gap-1.5 bg-white text-[#1a4f3a] px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-green-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+            title="Giá hiển thị chỉ mang tính tham khảo">
+            <ShoppingCart size={15}/> Đặt hàng (~{fmt(totalPrice)})
           </button>
         </div>
       </header>
@@ -571,6 +593,7 @@ export default function FurnitureDesignerPage() {
                 <span className="text-gray-500">Tổng tiền:</span>
                 <span className="font-bold text-[#1a4f3a] text-sm">{fmt(totalPrice)}</span>
               </div>
+              <p className="text-[10px] text-amber-600 mt-1">⚠️ Giá tham khảo — nhà thầu xác nhận sau</p>
             </div>
           </div>
 
@@ -613,13 +636,14 @@ export default function FurnitureDesignerPage() {
 
                 {/* Auto price */}
                 <div className="bg-[#e8f5ee] rounded-xl p-3">
-                  <p className="text-[10px] text-[#1a4f3a] font-bold uppercase mb-1">Giá tự động</p>
+                  <p className="text-[10px] text-[#1a4f3a] font-bold uppercase mb-1">Giá ước tính <span className="text-amber-600 normal-case font-normal">(tham khảo)</span></p>
                   <p className="text-lg font-bold text-[#1a4f3a]">
                     {fmt(selectedItem.module.pricePerUnit * (selectedItem.w / selectedItem.module.w) * (selectedItem.h / selectedItem.module.h))}
                   </p>
                   <p className="text-[10px] text-[#1a4f3a]/70 mt-0.5">
                     Tính theo kích thước {selectedItem.w}×{selectedItem.h}cm
                   </p>
+                  <p className="text-[10px] text-amber-600 mt-1">⚠️ Giá có thể thay đổi theo vật liệu thực tế</p>
                 </div>
 
                 <button onClick={() => { setPlaced(prev => prev.filter(p => p.id !== selected)); setSelected(null); }}
@@ -756,6 +780,10 @@ export default function FurnitureDesignerPage() {
                     <span className="font-bold text-gray-700">Tổng chi phí ước tính:</span>
                     <span className="text-xl font-bold text-[#1a4f3a]">{fmt(totalPrice)}</span>
                   </div>
+                  <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                    <AlertCircle size={12} className="mt-0.5 shrink-0 text-amber-500"/>
+                    <span>Giá trên chỉ mang tính <strong>tham khảo</strong> dựa theo kích thước. Nhà thầu sẽ xác nhận giá chính xác sau khi xem xét thiết kế và yêu cầu thực tế.</span>
+                  </div>
                 </>
               )}
             </div>
@@ -800,6 +828,15 @@ export default function FurnitureDesignerPage() {
               </div>
             </div>
 
+            {/* ── BANNER GIÁ THAM KHẢO ── */}
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
+              <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500"/>
+              <div>
+                <p className="font-bold mb-0.5">⚠️ Giá mang tính tham khảo</p>
+                <p>Giá hiển thị là ước tính dựa trên kích thước. Giá chính xác sẽ được nhà thầu xác nhận sau khi xem xét thiết kế và yêu cầu thực tế của bạn.</p>
+              </div>
+            </div>
+
             <div className="space-y-3 mb-5">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Địa chỉ giao hàng *</label>
@@ -824,18 +861,36 @@ export default function FurnitureDesignerPage() {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-2 text-xs text-blue-800">
               <Info size={13} className="mt-0.5 shrink-0"/>
-              <span>BOM và thiết kế sẽ được gửi cho nhà xưởng. Giá cuối sẽ được xác nhận sau khi xem xét.</span>
+              <span>BOM và thiết kế 2D sẽ được gửi kèm đơn hàng. Nhà thầu sẽ liên hệ xác nhận và báo giá chính xác.</span>
+            </div>
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
+              <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500"/>
+              <span><strong>Lưu ý:</strong> Số tiền <strong>{fmt(totalPrice)}</strong> chỉ là <strong>ước tính tham khảo</strong>. Giá thực tế do nhà thầu xác nhận sau khi xem xét yêu cầu.</span>
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setShowCheckout(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50">Hủy</button>
+              <button 
+                onClick={() => setShowCheckout(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50"
+              >
+                Hủy
+              </button>
               <button onClick={handleCheckout} disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1a4f3a] text-white text-sm font-bold hover:bg-[#2d7a5a] disabled:opacity-60">
-                {submitting ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Đang xử lý...</>
-                  : <><CheckCircle size={15}/>Xác nhận đặt hàng</>}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1a4f3a] text-white text-sm font-bold hover:bg-[#2d7a5a] disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={15}/>
+                    Xác nhận đặt hàng
+                  </>
+                )}
               </button>
             </div>
           </div>

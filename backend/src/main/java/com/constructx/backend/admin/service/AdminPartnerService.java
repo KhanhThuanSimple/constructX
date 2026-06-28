@@ -12,12 +12,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.constructx.backend.features.portfolio.dto.ContractorProfileResponse;
+import com.constructx.backend.features.portfolio.service.ContractorProfileService;
+
 @Service
 @RequiredArgsConstructor
 public class AdminPartnerService {
 
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ContractorProfileService contractorProfileService;
 
     public List<AdminPartnerResponse> getPartners(String statusFilter) {
         List<User> contractors = fetchContractors(statusFilter);
@@ -80,6 +84,13 @@ public class AdminPartnerService {
     }
 
     private AdminPartnerResponse toResponse(User user) {
+        ContractorProfileResponse profileResponse = null;
+        try {
+            profileResponse = contractorProfileService.getProfileByContractorId(user.getId());
+        } catch (Exception e) {
+            // ignore
+        }
+
         return AdminPartnerResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -94,6 +105,7 @@ public class AdminPartnerService {
                                 : null
                 )
                 .createdAt(user.getCreatedAt())
+                .profile(profileResponse)
                 .build();
     }
 }

@@ -235,19 +235,72 @@ public class DataSeeder {
                 PRIMARY KEY (id),
                 CONSTRAINT fk_order_bid_items_bid FOREIGN KEY (order_bid_id) REFERENCES order_bids(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            // Bảng contractor_profiles — hồ sơ năng lực nhà thầu
+            """
+            CREATE TABLE IF NOT EXISTS contractor_profiles (
+                id BIGINT NOT NULL,
+                company_name VARCHAR(255),
+                logo_url VARCHAR(500),
+                avatar_url VARCHAR(500),
+                year_established INT,
+                address VARCHAR(255),
+                phone_number VARCHAR(50),
+                email VARCHAR(100),
+                short_intro VARCHAR(1000),
+                design_interior BOOLEAN DEFAULT FALSE,
+                construct_interior BOOLEAN DEFAULT FALSE,
+                produce_wood BOOLEAN DEFAULT FALSE,
+                renovate_house BOOLEAN DEFAULT FALSE,
+                experience_years INT DEFAULT 0,
+                completed_projects_count INT DEFAULT 0,
+                rating DOUBLE DEFAULT 5.0,
+                customer_count VARCHAR(50) DEFAULT '0+',
+                warranty_24_months BOOLEAN DEFAULT FALSE,
+                free_quote BOOLEAN DEFAULT FALSE,
+                on_time_progress BOOLEAN DEFAULT FALSE,
+                PRIMARY KEY (id),
+                CONSTRAINT fk_contractor_profiles_user FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
         );
 
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
-            for (String ddl : ddls) {
-                try {
-                    stmt.execute(ddl.strip());
-                } catch (Exception ex) {
-                    // Ignore "already exists" or FK already registered errors
-                    if (!ex.getMessage().contains("already exists") &&
-                        !ex.getMessage().contains("Duplicate key")) {
-                        log.warn("DDL warning (ignored): {}", ex.getMessage());
+        try (Connection conn = dataSource.getConnection()) {
+            // Check if table contractor_profiles has obsolete user_id column
+            boolean hasObsoleteColumn = false;
+            try (Statement checkStmt = conn.createStatement();
+                 java.sql.ResultSet rs = checkStmt.executeQuery("SELECT * FROM contractor_profiles LIMIT 1")) {
+                java.sql.ResultSetMetaData metaData = rs.getMetaData();
+                int colCount = metaData.getColumnCount();
+                for (int i = 1; i <= colCount; i++) {
+                    if ("user_id".equalsIgnoreCase(metaData.getColumnName(i))) {
+                        hasObsoleteColumn = true;
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                // Table might not exist yet, which is fine
+            }
+
+            if (hasObsoleteColumn) {
+                log.info(">>> [DataSeeder] Obsolete column 'user_id' detected in 'contractor_profiles'. Dropping table for clean recreation...");
+                try (Statement dropStmt = conn.createStatement()) {
+                    dropStmt.execute("DROP TABLE IF EXISTS contractor_profiles");
+                } catch (Exception e) {
+                    log.error("Failed to drop obsolete table: {}", e.getMessage());
+                }
+            }
+
+            try (Statement stmt = conn.createStatement()) {
+                for (String ddl : ddls) {
+                    try {
+                        stmt.execute(ddl.strip());
+                    } catch (Exception ex) {
+                        // Ignore "already exists" or FK already registered errors
+                        if (!ex.getMessage().contains("already exists") &&
+                            !ex.getMessage().contains("Duplicate key")) {
+                            log.warn("DDL warning (ignored): {}", ex.getMessage());
+                        }
                     }
                 }
             }

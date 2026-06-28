@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   Camera, CheckCircle2, DollarSign, Loader2, Shield, TrendingUp, X,
-  AlertCircle, Calendar, ShieldCheck, UserCheck, BadgeCheck, Unlock, Lock,
-  AlertTriangle, ImagePlus, Clock, Scale
+  AlertCircle, ShieldCheck, UserCheck, BadgeCheck, Unlock, Lock,
+  AlertTriangle, ImagePlus, Clock, Star
 } from 'lucide-react';
 import api from '../services/api';
 import Layout from '../components/Layout';
@@ -188,17 +188,18 @@ export default function ContractProgressPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [cRes, lRes, dRes] = await Promise.all([
+      const [cRes, lRes, dRes, pRes] = await Promise.all([
         api.get(`/contracts/${contractId}`),
         api.get(`/contracts/${contractId}/construction-logs`),
         api.get(`/contracts/${contractId}/disbursements`),
+        api.get(`/contracts/${contractId}/progress`),
       ]);
 
-      const contractData = contractRes.data.data;
+      const contractData = cRes.data.data;
       setContract(contractData);
-      setLogs(logsRes.data.data || []);
-      setDisbursements(disbRes.data.data || []);
-      setProgress(progressRes.data.data || 0);
+      setLogs(lRes.data.data || []);
+      setDisbursements(dRes.data.data || []);
+      setProgress(pRes.data.data || 0);
 
       if (contractData && contractData.status === 'COMPLETED') {
         const projId = contractData.projectId || (contractData.project && contractData.project.id) || contractId;
@@ -209,7 +210,8 @@ export default function ContractProgressPage() {
           console.error("Lỗi check review", e);
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('fetchAll error:', err);
       toast.error('Không thể tải dữ liệu tiến độ');
     } finally {
       setLoading(false);
@@ -488,25 +490,9 @@ export default function ContractProgressPage() {
 
         {/* Card Tiến độ & Stepper */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-500 font-semibold">Tổng quan Tiến độ Công việc</span>
-            <span className="font-extrabold text-primary text-base">{progress}%</span>
-          </div>
+         
           
-          <div className="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-5 bg-primary rounded-full transition-all duration-700"
-              style={{ width: `${progress}%` }}
-            />
-            {PHASES.map(p => (
-              <div
-                key={p.threshold}
-                className="absolute top-0 bottom-0 w-px bg-white/60"
-                style={{ left: `${p.threshold}%` }}
-                title={p.label}
-              />
-            ))}
-          </div>
+          
 
           {/* Dispute & Review Action Buttons */}
           {( (contract.status === 'ACTIVE' && !contract.isDisputed && (isCustomer || isContractor)) || (contract.status === 'COMPLETED' && isCustomer) ) && (
@@ -546,16 +532,19 @@ export default function ContractProgressPage() {
               ))}
             </div>
             <div className="flex justify-between mt-2">
-              {PHASES.map(p => (
-                <div key={p.threshold} className="text-center" style={{ width: '25%' }}>
-                  <div className={`w-3 h-3 rounded-full mx-auto mb-1 border-2 transition-all ${
-                    reached ? 'bg-primary border-primary' : 'bg-white border-gray-300'
-                  }`}/>
-                  <p className={`text-[10px] hidden sm:block ${reached ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>{p.label}</p>
-                  <p className="text-[9px] font-bold text-gray-500">{p.threshold}%</p>
-                </div>
-              );
-            })}
+              {PHASES.map(p => {
+                const reached = progress >= p.threshold;
+                return (
+                  <div key={p.threshold} className="text-center" style={{ width: '25%' }}>
+                    <div className={`w-3 h-3 rounded-full mx-auto mb-1 border-2 transition-all ${
+                      reached ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+                    }`}/>
+                    <p className={`text-[10px] hidden sm:block ${reached ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>{p.label}</p>
+                    <p className="text-[9px] font-bold text-gray-500">{p.threshold}%</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

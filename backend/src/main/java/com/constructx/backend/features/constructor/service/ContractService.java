@@ -222,9 +222,20 @@ public class ContractService {
         project.setStatus(Project.Status.IN_PROGRESS);
         projectRepository.save(project);
 
+        // Khóa ký quỹ nhà thầu ngay khi tạo hợp đồng
         long kyQuyAmt = Math.round(bid.getTotalPrice() * CONTRACTOR_DEPOSIT_RATE);
-        String contractNum = "CTR-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + bidId;
+        Wallet contractorWallet = walletRepository.findByUserIdForUpdate(bid.getContractor().getId())
+                .orElseThrow(() -> new RuntimeException("Vi nha thau khong ton tai"));
+        boolean contractorHasDeposit = contractorWallet.getAvailableBalance() >= kyQuyAmt;
+        if (contractorHasDeposit) {
+            walletCoreManager.executeLockForOrder(contractorWallet, kyQuyAmt, Transaction.Type.LOCK,
+                    "CONSTRUCTX_ESCROW", "CTR-KQ-PRJ-" + projectId + "-" + bidId);
+        }
 
+        String contractNum = "CTR-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + bidId;
+        LocalDateTime now = LocalDateTime.now();
+
+        // Tạo hợp đồng và ACTIVE ngay — bỏ qua bước Admin duyệt và ký riêng lẻ
         Contract contract = Contract.builder()
                 .project(project)
                 .bid(bid)
@@ -235,25 +246,30 @@ public class ContractService {
                 .originalAgreedPrice(bid.getTotalPrice())
                 .estimatedDays(bid.getEstimatedDays())
                 .terms(buildDefaultTerms(project, bid))
-                .status(Contract.Status.PENDING_REVIEW)
+                .status(Contract.Status.ACTIVE)
                 .customerDepositAmount(depositAmt)
                 .customerDepositLocked(true)
                 .contractorDepositAmount(kyQuyAmt)
-                .contractorDepositLocked(false)
+                .contractorDepositLocked(contractorHasDeposit)
+                .clientSigned(true)
+                .clientSignedAt(now)
+                .contractorSigned(true)
+                .contractorSignedAt(now)
+                .approvedAt(now)
                 .build();
 
-        contract.getStages().add(stage(contract, Contract.Status.PENDING_REVIEW,
-                "Customer chap nhan bao gia. Da lock ESCROW 100%% (" + fmtVnd(depositAmt) + ") vao he thong. Cho Admin duyet.",
+        // Lịch sử giai đoạn
+        contract.getStages().add(stage(contract, Contract.Status.ACTIVE,
+                String.format("Khach hang xac nhan chon nha thau. Da lock ESCROW %s (100%%). Hop dong tu dong co hieu luc.",
+                        fmtVnd(depositAmt)),
                 customer.getFullName()));
 
         Contract saved = contractRepository.save(contract);
 
         notificationService.createNotification(customer, Notification.NotifType.SYSTEM,
-                "Da lock ESCROW " + fmtVnd(depositAmt) + " (100%% gia tri HD). HD " + contractNum + " cho Admin duyet.");
+                "Hợp đồng " + contractNum + " đã có hiệu lực! Đã khóa escrow " + fmtVnd(depositAmt) + ". Nhà thầu bắt đầu thi công.");
         notificationService.createNotification(bid.getContractor(), Notification.NotifType.SYSTEM,
-                "Bao gia duoc chon (du an: " + project.getName() + ", " + fmtVnd(bid.getTotalPrice()) + ")! Cho Admin duyet HD.");
-        notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM,
-                "HD moi can duyet: " + contractNum + " - " + fmtVnd(bid.getTotalPrice()) + ". Customer da lock ESCROW 100%%.");
+                "🎉 Báo giá được chọn! Hợp đồng " + contractNum + " (" + fmtVnd(bid.getTotalPrice()) + ") đã ACTIVE. Bắt đầu thi công.");
 
         return toResponse(saved);
     }

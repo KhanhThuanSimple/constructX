@@ -16,6 +16,7 @@ import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.entity.Wallet;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
 import com.constructx.backend.features.wallet.service.WalletCoreManager;
+import com.constructx.backend.admin.service.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,6 +46,7 @@ public class DisbursementService {
     private final WalletRepository walletRepository;
     private final WalletCoreManager walletCoreManager;
     private final NotificationService notificationService;
+    private final FeatureFlagService featureFlagService;
 
     private User getCurrentUser() {
         return userRepository.findByEmail(
@@ -123,9 +125,9 @@ public class DisbursementService {
                 .progressAtRequest(currentProgress)
                 .note(req.getNote())
                 .status(DisbursementRequest.Status.PENDING)
-                .adminVerified(true) // Bỏ qua giai đoạn admin duyệt - tự động xác nhận
-                .adminVerifiedAt(LocalDateTime.now())
-                .adminVerifyNote("Hệ thống tự động xác nhận")
+                .adminVerified(!featureFlagService.isDisbursementAdminApprovalRequired()) // bỏ qua nếu flag tắt
+                .adminVerifiedAt(!featureFlagService.isDisbursementAdminApprovalRequired() ? LocalDateTime.now() : null)
+                .adminVerifyNote(!featureFlagService.isDisbursementAdminApprovalRequired() ? "Hệ thống tự động xác nhận (admin approval tắt)" : null)
                 .build();
 
         DisbursementRequest saved = disbursementRepository.save(disbursement);

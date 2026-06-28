@@ -29,6 +29,7 @@ import com.constructx.backend.features.constructor.repository.DisbursementReques
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,18 +49,11 @@ public class AdminDisputeService {
     private final UserRepository userRepository;
     private final WalletArbitrationManager walletArbitrationManager;
     private final TransactionRepository transactionRepository;
-    private final ContractRepository contractRepository;
     private final GrokChatbotService grokChatbotService;
     private final ChatMessageRepository chatMessageRepository;
     private final NotificationService notificationService;
     private final ChatService chatService;
 
-    private final WalletArbitrationManager walletArbitrationManager;
-    private final TransactionRepository transactionRepository;
-    private final GrokChatbotService grokChatbotService;
-    private final ChatMessageRepository chatMessageRepository;
-    private final NotificationService notificationService;
-    private final ChatService chatService;
     private final DisbursementRequestRepository disbursementRequestRepository;
 
     @Transactional(readOnly = true)
@@ -219,7 +213,7 @@ public class AdminDisputeService {
                     .messageType(com.constructx.backend.features.chat.enums.MessageType.TEXT)
                     .content(content)
                     .build();
-            chatService.sendMessage(request, user.getId());
+            chatService.sendMessage(chatReq, user.getId());
         } else {
             DisputeMessage message = DisputeMessage.builder()
                     .dispute(dispute)
@@ -453,8 +447,16 @@ public class AdminDisputeService {
             throw new RuntimeException("Hợp đồng này hiện không bị phong tỏa");
         }
         
+        // Gỡ đóng băng hợp đồng
         contract.setIsDisputed(false);
         contractRepository.save(contract);
+
+        // Đánh dấu tranh chấp là đã giải quyết
+        dispute.setStatus(Dispute.Status.RESOLVED);
+        if (dispute.getResolution() == null || dispute.getResolution().isBlank()) {
+            dispute.setResolution("Admin giải phóng phong tỏa hợp đồng — tranh chấp chấm dứt.");
+        }
+        disputeRepository.save(dispute);
         
         // Gửi thông báo cho hai bên
         String msg = String.format("🔓 Hợp đồng %s đã được Admin bỏ phong tỏa. Quá trình thi công và các hoạt động khác có thể tiếp tục.", 

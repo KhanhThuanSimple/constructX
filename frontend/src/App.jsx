@@ -17,7 +17,6 @@ import ContractorProfilePage from './pages/ContractorProfilePage';
 import AdminProjectsPage from './pages/AdminProjectsPage';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminWithdrawalsPage from './pages/AdminWithdrawalsPage';
-import AdminUsersPage from './pages/AdminUsersPage';
 import AdminPlatformWalletPage from './pages/AdminPlatformWalletPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
@@ -36,9 +35,11 @@ import FurnitureDesignerPage from './pages/shop/FurnitureDesignerPage';
 import OrderBiddingPage from './pages/OrderBiddingPage';
 import AdminAllUsersPage from './pages/AdminAllUsersPage';
 import ContractProgressPage from './pages/ContractProgressPage';
+import ContractorProgressPage from './pages/ContractorProgressPage';
 import ContractDisbursementsPage from './pages/ContractDisbursementsPage';
 import ContractReviewPage from './pages/ContractReviewPage';
 import ContractDisputePage from './pages/ContractDisputePage';
+import ReviewsManagementPage from './pages/ReviewsManagementPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, user } = useAuthStore();
@@ -78,7 +79,7 @@ function App() {
         <Route path="/dashboard" element={<Navigate to="/" />} />
         <Route path="/projects" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
-            <ProjectListPage />
+            <Navigate to="/orders?tab=projects" replace />
           </ProtectedRoute>
         } />
         <Route path="/projects/new" element={
@@ -121,6 +122,11 @@ function App() {
         <Route path="/orders" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <OrdersPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/contractor/progress" element={
+          <ProtectedRoute allowedRoles={['CONTRACTOR']}>
+            <ContractorProgressPage />
           </ProtectedRoute>
         } />
         <Route path="/order-bidding" element={
@@ -219,6 +225,12 @@ function App() {
         <Route path="/contracts/:contractId/review" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>
             <ContractReviewPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/reviews" element={
+          <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR']}>
+            <ReviewsManagementPage />
           </ProtectedRoute>
         } />
 

@@ -161,6 +161,7 @@ export default function OrderCheckoutPage() {
 
   // ── Success screen ────────────────────────────────────────────────
   if (success) {
+    const isAutoOpen = success.status === 'OPEN_BIDDING';
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
         <div className="bg-white rounded-3xl shadow-xl max-w-md w-full p-8 text-center">
@@ -170,11 +171,20 @@ export default function OrderCheckoutPage() {
           <h1 className="text-2xl font-display font-bold text-gray-900 mb-2">Đặt hàng thành công!</h1>
           <p className="text-gray-500 text-sm mb-1">Mã đơn hàng của bạn:</p>
           <p className="text-xl font-mono font-bold text-[#1a4f3a] mb-4">{success.orderCode}</p>
-          <div className="bg-gray-50 rounded-2xl p-4 text-left text-sm mb-6 space-y-2">
+          <div className="bg-gray-50 rounded-2xl p-4 text-left text-sm mb-4 space-y-2">
             <div className="flex justify-between"><span className="text-gray-500">Tổng tiền:</span> <span className="font-bold text-[#1a4f3a]">{fmt(success.totalAmount)}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Giao đến:</span> <span className="font-medium text-gray-800 text-right max-w-[180px]">{success.deliveryAddress}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Trạng thái:</span> <span className="badge badge-amber">{success.statusLabel}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Trạng thái:</span> <span className="font-bold text-[#1a4f3a]">{success.statusLabel}</span></div>
           </div>
+          {isAutoOpen ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 text-left mb-5">
+              🎯 Đơn đã được <strong>mở đấu giá ngay</strong>. Nhà thầu sẽ sớm gửi báo giá — vào <strong>Đơn hàng của tôi</strong> để chọn thầu.
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 text-left mb-5">
+              ⏳ Đơn đang <strong>chờ Admin phê duyệt</strong>. Sau khi duyệt, nhà thầu sẽ gửi báo giá cho bạn.
+            </div>
+          )}
           <div className="flex gap-3">
             <button onClick={() => navigate('/orders')}
               className="flex-1 bg-[#1a4f3a] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#2d7a5a] transition-colors">

@@ -2,6 +2,7 @@ package com.constructx.backend.features.public_.controller;
 
 import com.constructx.backend.admin.dto.response.MaterialResponse;
 import com.constructx.backend.admin.repository.MaterialCategoryRepository;
+import com.constructx.backend.admin.service.FeatureFlagService;
 import com.constructx.backend.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 public class PublicCatalogController {
 
     private final MaterialCategoryRepository materialCategoryRepository;
+    private final FeatureFlagService featureFlagService;
 
     /**
      * GET /api/public/materials
@@ -39,5 +42,18 @@ public class PublicCatalogController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.ok(materials));
+    }
+
+    /**
+     * GET /api/public/settings
+     * Returns public settings (wallet limits, etc.).
+     */
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPublicSettings() {
+        return ResponseEntity.ok(ApiResponse.ok(Map.of(
+            "minCustomerBalanceToOrder", featureFlagService.getMinCustomerBalanceToOrder(),
+            "minCustomerBalanceToProject", featureFlagService.getMinCustomerBalanceToProject(),
+            "minContractorBalanceToBid", featureFlagService.getMinContractorBalanceToBid()
+        )));
     }
 }

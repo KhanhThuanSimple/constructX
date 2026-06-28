@@ -2,6 +2,7 @@ package com.constructx.backend.features.review.service;
 
 import com.constructx.backend.features.review.dto.ReviewRequest;
 import com.constructx.backend.features.review.dto.ReviewResponse;
+import com.constructx.backend.features.review.dto.CompletedItemResponse;
 import com.constructx.backend.features.review.entity.Review;
 import com.constructx.backend.features.review.repository.ReviewRepository;
 import com.constructx.backend.features.user.entity.User;
@@ -18,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,7 +78,7 @@ public class ReviewService {
             if (!order.getCustomer().getId().equals(reviewer.getId())) {
                 throw new RuntimeException("Bạn không phải chủ sở hữu đơn hàng này");
             }
-            if (!order.getAssignedContractor().getId().equals(request.getRevieweeId())) {
+            if (order.getAssignedContractor() == null || !order.getAssignedContractor().getId().equals(request.getRevieweeId())) {
                 throw new RuntimeException("Người được đánh giá không phải nhà thầu của đơn hàng này");
             }
         }
@@ -228,6 +231,118 @@ public class ReviewService {
                 .communicationScore(r.getCommunicationScore())
                 .progressScore(r.getProgressScore())
                 .createdAt(r.getCreatedAt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CompletedItemResponse> getCompletedItemsForCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<CompletedItemResponse> completedItems = new ArrayList<>();
+
+        if (currentUser.getRole() == User.Role.CUSTOMER) {
+            // 1. Projects: Completed contracts where client is current user and project is not null
+            List<com.constructx.backend.features.constructor.entity.Contract> completedContracts = 
+                    contractRepository.findByClientIdOrderByCreatedAtDesc(currentUser.getId()).stream()
+                    .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.COMPLETED && c.getProject() != null)
+                    .toList();
+
+            for (com.constructx.backend.features.constructor.entity.Contract c : completedContracts) {
+                completedItems.add(buildCompletedItemFromContract(c, currentUser, true));
+            }
+
+            // 2. Orders: Delivered orders where customer is current user
+            List<com.constructx.backend.features.order.entity.Order> deliveredOrders = 
+                    orderRepository.findByCustomerIdWithItems(currentUser.getId()).stream()
+                    .filter(o -> o.getStatus() == com.constructx.backend.features.order.entity.Order.Status.DELIVERED)
+                    .toList();
+
+            for (com.constructx.backend.features.order.entity.Order o : deliveredOrders) {
+                completedItems.add(buildCompletedItemFromOrder(o, currentUser, true));
+            }
+
+        } else if (currentUser.getRole() == User.Role.CONTRACTOR) {
+            // 1. Projects: Completed contracts where contractor is current user
+            List<com.constructx.backend.features.constructor.entity.Contract> completedContracts = 
+                    contractRepository.findByContractorIdOrderByCreatedAtDesc(currentUser.getId()).stream()
+                    .filter(c -> c.getStatus() == com.constructx.backend.features.constructor.entity.Contract.Status.COMPLETED && c.getProject() != null)
+                    .toList();
+
+            for (com.constructx.backend.features.constructor.entity.Contract c : completedContracts) {
+                completedItems.add(buildCompletedItemFromContract(c, currentUser, false));
+            }
+
+            // 2. Orders: Delivered orders where contractor is current user
+            List<com.constructx.backend.features.order.entity.Order> deliveredOrders = 
+                    orderRepository.findByAssignedContractorId(currentUser.getId()).stream()
+                    .filter(o -> o.getStatus() == com.constructx.backend.features.order.entity.Order.Status.DELIVERED)
+                    .toList();
+
+            for (com.constructx.backend.features.order.entity.Order o : deliveredOrders) {
+                completedItems.add(buildCompletedItemFromOrder(o, currentUser, false));
+            }
+        }
+
+        // Sort items by completedAt desc
+        completedItems.sort((a, b) -> {
+            if (a.getCompletedAt() == null && b.getCompletedAt() == null) return 0;
+            if (a.getCompletedAt() == null) return 1;
+            if (b.getCompletedAt() == null) return -1;
+            return b.getCompletedAt().compareTo(a.getCompletedAt());
+        });
+
+        return completedItems;
+    }
+
+    private CompletedItemResponse buildCompletedItemFromContract(
+            com.constructx.backend.features.constructor.entity.Contract c, User currentUser, boolean isCustomer) {
+        String refType = "PROJECT";
+        Long refId = c.getProject().getId();
+        
+        Long reviewerId = isCustomer ? currentUser.getId() : (c.getClient() != null ? c.getClient().getId() : null);
+        Optional<Review> reviewOpt = reviewerId != null 
+                ? reviewRepository.findByReviewerIdAndReferenceTypeAndReferenceId(reviewerId, refType, refId)
+                : Optional.empty();
+
+        User partner = isCustomer ? c.getContractor() : c.getClient();
+
+        return CompletedItemResponse.builder()
+                .referenceType(refType)
+                .referenceId(refId)
+                .name(c.getProject().getName())
+                .price(c.getAgreedPrice())
+                .completedAt(c.getCompletedAt())
+                .partnerId(partner != null ? partner.getId() : null)
+                .partnerName(partner != null ? partner.getFullName() : "Không rõ")
+                .hasReviewed(reviewOpt.isPresent())
+                .review(reviewOpt.map(this::toResponse).orElse(null))
+                .build();
+    }
+
+    private CompletedItemResponse buildCompletedItemFromOrder(
+            com.constructx.backend.features.order.entity.Order o, User currentUser, boolean isCustomer) {
+        String refType = "ORDER";
+        Long refId = o.getId();
+
+        Long reviewerId = isCustomer ? currentUser.getId() : (o.getCustomer() != null ? o.getCustomer().getId() : null);
+        Optional<Review> reviewOpt = reviewerId != null 
+                ? reviewRepository.findByReviewerIdAndReferenceTypeAndReferenceId(reviewerId, refType, refId)
+                : Optional.empty();
+
+        User partner = isCustomer ? o.getAssignedContractor() : o.getCustomer();
+
+        return CompletedItemResponse.builder()
+                .referenceType(refType)
+                .referenceId(refId)
+                .name(o.getOrderCode())
+                .price(o.getTotalAmount() != null ? o.getTotalAmount().longValue() : 0L)
+                .completedAt(o.getDeliveredAt())
+                .partnerId(partner != null ? partner.getId() : null)
+                .partnerName(partner != null ? partner.getFullName() : "Không rõ")
+                .hasReviewed(reviewOpt.isPresent())
+                .review(reviewOpt.map(this::toResponse).orElse(null))
                 .build();
     }
 }

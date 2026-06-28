@@ -11,6 +11,9 @@ import com.constructx.backend.features.product.entity.Product;
 import com.constructx.backend.features.product.repository.ProductRepository;
 import com.constructx.backend.features.user.entity.User;
 import com.constructx.backend.features.user.repository.UserRepository;
+import com.constructx.backend.admin.service.FeatureFlagService;
+import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.features.wallet.entity.Wallet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,8 @@ public class OrderService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final OrderPaymentService orderPaymentService;
+    private final FeatureFlagService featureFlagService;
+    private final WalletRepository walletRepository;
 
     private static final Map<Order.Status, String> STATUS_LABELS = Map.of(
         Order.Status.PENDING,        "Chờ Admin xét duyệt",
@@ -59,6 +64,16 @@ public class OrderService {
     public OrderResponse createOrder(OrderRequest req) {
         User customer = getCurrentUser();
 
+        // Check minimum wallet balance required to place order
+        long minBalance = featureFlagService.getMinCustomerBalanceToOrder();
+        if (minBalance > 0) {
+            Wallet wallet = walletRepository.findByUserId(customer.getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví của người dùng"));
+            if (wallet.getAvailableBalance() < minBalance) {
+                throw new RuntimeException(String.format("Số dư ví khả dụng không đủ. Số dư tối thiểu yêu cầu là %,dđ để đặt đơn hàng.", minBalance));
+            }
+        }
+
         if (req.getItems() == null || req.getItems().isEmpty())
             throw new RuntimeException("Đơn hàng phải có ít nhất 1 sản phẩm");
         if (req.getDeliveryAddress() == null || req.getDeliveryAddress().isBlank())
@@ -69,6 +84,10 @@ public class OrderService {
         Order.OrderType orderType = "CUSTOM".equalsIgnoreCase(req.getType())
                 ? Order.OrderType.CUSTOM : Order.OrderType.CATALOG;
 
+        // Kiểm tra feature flag: đơn hàng có cần admin duyệt không?
+        boolean approvalRequired = featureFlagService.isOrderApprovalRequired();
+        Order.Status initialStatus = approvalRequired ? Order.Status.PENDING : Order.Status.OPEN_BIDDING;
+
         Order order = Order.builder()
                 .customer(customer).type(orderType)
                 .deliveryAddress(req.getDeliveryAddress())
@@ -76,7 +95,7 @@ public class OrderService {
                 .customerNote(req.getCustomerNote())
                 .customRequirements(req.getCustomRequirements())
                 .referenceImageUrl(req.getReferenceImageUrl())
-                .status(Order.Status.PENDING)
+                .status(initialStatus)
                 .build();
 
         List<OrderItem> items = new ArrayList<>();
@@ -123,17 +142,29 @@ public class OrderService {
         saved.setOrderCode("ORD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-" + saved.getId());
         orderRepository.save(saved);
 
-        // ── Tất cả đơn hàng đều về PENDING, chờ Admin duyệt & mở đấu giá ──
-        // (Không còn lock cọc ngay — tiền chỉ lock sau khi Customer chọn nhà thầu)
+        // ── Nếu tự động approve: thông báo cho tất cả contractor luôn ──
+        if (!approvalRequired) {
+            List<User> approvedContractors = userRepository.findByRoleAndApprovalStatus(
+                    User.Role.CONTRACTOR, User.ApprovalStatus.APPROVED);
+            for (User contractor2 : approvedContractors) {
+                notificationService.createNotification(
+                        contractor2, Notification.NotifType.BID_RECEIVED,
+                        String.format("📣 Đơn hàng mới đang mở đấu giá: %s. Xem và gửi báo giá ngay!", saved.getOrderCode())
+                );
+            }
+        }
 
-        // Notify admin
-        String adminMsg = String.format("📦 Đơn hàng mới từ %s — %s. Cần phê duyệt & mở đấu giá.", customer.getFullName(), saved.getOrderCode());
-        notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM, adminMsg);
-        notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM, adminMsg);
+        // Notify admin (chỉ khi cần admin duyệt)
+        if (approvalRequired) {
+            String adminMsg = String.format("📦 Đơn hàng mới từ %s — %s. Cần phê duyệt & mở đấu giá.", customer.getFullName(), saved.getOrderCode());
+            notificationService.createNotificationForAdmins(Notification.NotifType.SYSTEM, adminMsg);
+        }
 
         // Notify customer
-        notificationService.createNotification(customer, Notification.NotifType.SYSTEM,
-            String.format("✅ Đơn hàng %s đã được tạo. Đang chờ Admin phê duyệt.", saved.getOrderCode()));
+        String customerMsg = approvalRequired
+                ? String.format("✅ Đơn hàng %s đã được tạo. Đang chờ Admin phê duyệt.", saved.getOrderCode())
+                : String.format("✅ Đơn hàng %s đã được tạo và đang mở đấu giá. Nhà thầu sẽ sớm gửi báo giá!", saved.getOrderCode());
+        notificationService.createNotification(customer, Notification.NotifType.SYSTEM, customerMsg);
 
         return toResponse(saved);
     }

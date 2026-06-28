@@ -1,776 +1,913 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShoppingBag, Package, CheckCircle, XCircle, Clock,
-  ChevronDown, ChevronUp, AlertCircle, Plus, Gavel,
-  EyeOff, Eye, Star, Users, ArrowRight, Wallet,
-  Truck, ShieldCheck, FileText, BadgeCheck, Loader2
+  Plus, Gavel, Star, ArrowRight, Hammer,
+  ShieldCheck, FileText, Loader2, Phone,
+  MapPin, ChevronRight, ArrowLeft, Users, RefreshCw, Search,
+  DollarSign, AlertCircle, Eye, Calendar, Building,
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import useAuthStore from '../store/useAuthStore';
 
 const fmt = (n) =>
-  n == null ? '0đ' :
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
+  n == null ? '0đ' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
+const fmtBudget = (n) =>
+  n == null ? 'Thỏa thuận' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n).replace('₫', 'đ');
 
-const CUSTOM_STATUS_CFG = {
-  PENDING:        { label: 'Chờ Admin duyệt',  cls: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400 animate-pulse', icon: <Clock size={12}/> },
-  OPEN_BIDDING:   { label: 'Đang đấu giá',     cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400 animate-pulse', icon: <Gavel size={12}/> },
-  BIDDING_CLOSED: { label: 'Đã chọn nhà thầu', cls: 'bg-purple-100 text-purple-700',dot: 'bg-purple-400',             icon: <CheckCircle size={12}/> },
-  PROCESSING:     { label: 'Đang thi công',    cls: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-400',             icon: <Package size={12}/> },
-  DELIVERED:      { label: 'Đã hoàn thành',    cls: 'bg-green-100 text-green-700',  dot: 'bg-green-500',              icon: <CheckCircle size={12}/> },
-  CANCELLED:      { label: 'Đã hủy',            cls: 'bg-red-100 text-red-600',      dot: 'bg-red-400',                icon: <XCircle size={12}/> },
+// ── Order status ──────────────────────────────────────────────────────────────
+const ORDER_STATUS = {
+  PENDING:        { label: 'Chờ Admin duyệt',  color: 'bg-amber-100 text-amber-700 border-amber-200',    dot: 'bg-amber-400 animate-pulse' },
+  OPEN_BIDDING:   { label: 'Đang đấu giá',     color: 'bg-blue-100 text-blue-700 border-blue-200',      dot: 'bg-blue-400 animate-pulse'  },
+  SHIPPED:        { label: 'Đang giao hàng',   color: 'bg-cyan-100 text-cyan-700 border-cyan-200',       dot: 'bg-cyan-400 animate-pulse'  },
+  CANCELLED:      { label: 'Đã hủy',           color: 'bg-red-100 text-red-600 border-red-200',          dot: 'bg-red-400'                 },
+};
+const ORDER_STEPS = ['PENDING', 'OPEN_BIDDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
+
+// ── Project status ────────────────────────────────────────────────────────────
+const PROJECT_STATUS = {
+  DRAFT:       { label: 'Nháp',          color: 'bg-gray-100 text-gray-500 border-gray-200',    dot: 'bg-gray-400'   },
+  OPEN:        { label: 'Đang tuyển',    color: 'bg-blue-100 text-blue-700 border-blue-200',    dot: 'bg-blue-400 animate-pulse'   },
+  CLOSED:      { label: 'Đã đóng',       color: 'bg-gray-100 text-gray-500 border-gray-200',    dot: 'bg-gray-300'   },
+  CANCELLED:   { label: 'Đã hủy',        color: 'bg-red-100 text-red-600 border-red-200',       dot: 'bg-red-400'    },
+};
+const APPROVAL_STATUS = {
+  PENDING:  { label: 'Chờ duyệt', color: 'bg-amber-50 text-amber-600 border-amber-200', icon: <AlertCircle size={10}/> },
+  APPROVED: { label: 'Đã duyệt',  color: 'bg-green-50 text-green-600 border-green-200', icon: <CheckCircle size={10}/> },
+  REJECTED: { label: 'Từ chối',   color: 'bg-red-50 text-red-600 border-red-200',       icon: <XCircle size={10}/> },
 };
 
-const CATALOG_STATUS_CFG = {
-  PENDING:        { label: 'Chờ Admin duyệt',  cls: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400 animate-pulse', icon: <Clock size={12}/> },
-  CONFIRMED:      { label: 'Đã xác nhận',      cls: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400',               icon: <CheckCircle size={12}/> },
-  DEPOSIT_PAID:   { label: 'Đã đặt cọc (60%)', cls: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-400 animate-pulse',icon: <Wallet size={12}/> },
-  PROCESSING:     { label: 'Đang sản xuất',    cls: 'bg-orange-100 text-orange-700',dot: 'bg-orange-400',             icon: <Package size={12}/> },
-  SHIPPED:        { label: 'Đang giao hàng',    cls: 'bg-cyan-100 text-cyan-700',    dot: 'bg-cyan-400 animate-pulse', icon: <Truck size={12}/> },
-  DELIVERED:      { label: 'Đã hoàn thành',    cls: 'bg-green-100 text-green-700',  dot: 'bg-green-500',              icon: <CheckCircle size={12}/> },
-  CANCELLED:      { label: 'Đã hủy',            cls: 'bg-red-100 text-red-600',      dot: 'bg-red-400',                icon: <XCircle size={12}/> },
-};
+// ── Shared ────────────────────────────────────────────────────────────────────
+function Badge({ label, color }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color}`}>
+      {label}
+    </span>
+  );
+}
 
-const STEPS_CUSTOM = ['PENDING', 'OPEN_BIDDING', 'BIDDING_CLOSED', 'PROCESSING', 'DELIVERED'];
-const STEPS_CATALOG = ['PENDING', 'CONFIRMED', 'DEPOSIT_PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
+function OrderStatusBadge({ status }) {
+  const cfg = ORDER_STATUS[status] || { label: status, color: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${cfg.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  );
+}
 
-export default function OrdersPage() {
+function Stepper({ currentStatus }) {
+  if (currentStatus === 'CANCELLED') return null;
+  const steps = ORDER_STEPS.filter(s => currentStatus === 'PENDING' ? true : s !== 'PENDING');
+  const cur = steps.indexOf(currentStatus);
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+      {steps.map((s, i) => {
+        const done = i <= cur; const active = i === cur;
+        return (
+          <React.Fragment key={s}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0
+              ${done ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}
+              ${active ? 'ring-2 ring-primary ring-offset-1' : ''}`}>
+              {done && i < cur ? '✓' : i + 1}
+            </div>
+            {i < steps.length - 1 && <div className={`flex-1 h-0.5 min-w-[8px] ${i < cur ? 'bg-primary' : 'bg-gray-200'}`} />}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Tab: Đơn hàng — danh sách ────────────────────────────────────────────────
+function OrderList({ orders, contracts, loading, onSelect, onRefresh }) {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState([]);
-  const [contracts, setContracts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Tab phân luồng: 'custom' (Đơn hàng riêng) hoặc 'catalog' (Đơn hàng mua sẵn)
-  const [activeTab, setActiveTab] = useState('custom');
-  const [filter, setFilter] = useState('all');
-  
-  const [expanded, setExpanded] = useState(null);
-  const [cancelling, setCancelling] = useState(null);
-  const [confirmingDelivery, setConfirmingDelivery] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
-  // Bids panel (đấu giá bảo mật)
-  const [bidsPanel, setBidsPanel] = useState(null);
+  const counts = Object.fromEntries(Object.keys(ORDER_STATUS).map(k => [k, orders.filter(o => o.status === k).length]));
+  const filtered = orders.filter(o => {
+    const ms = statusFilter === 'all' || o.status === statusFilter;
+    const mq = !search.trim() || o.orderCode?.toLowerCase().includes(search.toLowerCase()) || o.deliveryAddress?.toLowerCase().includes(search.toLowerCase());
+    return ms && mq;
+  });
+  const needAction = orders.filter(o => ['PENDING','OPEN_BIDDING','SHIPPED'].includes(o.status)).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Mini stats */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng đơn',    value: orders.length,                                        color: 'text-gray-800',   bg: 'bg-white'      },
+          { label: 'Cần xử lý',  value: needAction,                                            color: needAction > 0 ? 'text-red-600' : 'text-gray-400',   bg: needAction > 0 ? 'bg-red-50' : 'bg-gray-50'  },
+          { label: 'Thi công',   value: orders.filter(o => o.status === 'PROCESSING').length,  color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+          { label: 'Hoàn thành', value: orders.filter(o => o.status === 'DELIVERED').length,   color: 'text-teal-600',   bg: 'bg-teal-50'    },
+        ].map(s => (
+          <div key={s.label} className={`${s.bg} border border-gray-100 rounded-xl p-3 text-center`}>
+            <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 font-medium">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={13}/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm mã đơn, địa chỉ..."
+            className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-primary"/>
+        </div>
+        <button onClick={onRefresh} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 shrink-0"><RefreshCw size={14}/></button>
+        <button onClick={() => navigate('/shop/order')} className="flex items-center gap-1.5 bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-primary/90 shrink-0">
+          <Plus size={13}/> Đặt hàng
+        </button>
+      </div>
+
+      {/* Status chips */}
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${statusFilter === 'all' ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'}`}>
+          Tất cả ({orders.length})
+        </button>
+        {Object.entries(ORDER_STATUS).map(([k, v]) => counts[k] > 0 && (
+          <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${statusFilter === k ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'}`}>
+            {v.label} ({counts[k]})
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-primary"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <ShoppingBag size={36} className="mx-auto text-gray-200 mb-3"/>
+          <p className="text-gray-400 text-sm font-medium">Chưa có đơn hàng nào</p>
+          <button onClick={() => navigate('/shop')} className="mt-4 px-5 py-2.5 bg-primary text-white font-bold rounded-xl text-xs hover:bg-primary/90">Khám phá Shop</button>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filtered.map(o => {
+            const lc = contracts.find(c => c.orderId === o.id);
+            const hint = o.status === 'OPEN_BIDDING' ? '👥 Chờ bạn chọn nhà thầu'
+              : o.status === 'PENDING' ? '⏳ Chờ Admin phê duyệt'
+              : o.status === 'SHIPPED' ? '📦 Xác nhận khi nhận hàng'
+              : lc?.status === 'WAITING_SIGNATURE' ? '✍️ Hợp đồng chờ ký'
+              : null;
+            return (
+              <button key={o.id} onClick={() => onSelect(o)}
+                className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-left hover:border-primary hover:shadow-sm transition-all group">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <OrderStatusBadge status={o.status}/>
+                      <span className="text-[10px] font-mono font-bold text-gray-400">{o.orderCode}</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${o.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
+                        {o.type === 'CUSTOM' ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                      </span>
+                    </div>
+                    {hint && <p className="text-[11px] font-semibold text-primary mt-0.5">{hint}</p>}
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                      <Clock size={10}/> {new Date(o.createdAt).toLocaleDateString('vi-VN')}
+                      {o.deliveryAddress && <><span className="mx-1">·</span><MapPin size={10}/><span className="truncate max-w-[140px]">{o.deliveryAddress}</span></>}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-primary text-sm">
+                      {['PENDING','OPEN_BIDDING'].includes(o.status) && o.type === 'CUSTOM' ? 'Đang báo giá' : fmt(o.totalAmount)}
+                    </p>
+                    <p className="text-[10px] text-gray-400">{o.items?.length || 0} sp</p>
+                  </div>
+                </div>
+                <Stepper currentStatus={o.status}/>
+                {o.items?.length > 0 && (
+                  <div className="flex gap-1.5 mt-2 overflow-x-auto">
+                    {o.items.slice(0,3).map((item, i) => (
+                      <div key={i} className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1 shrink-0">
+                        {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-5 h-5 rounded object-cover"/> : <Package size={12} className="text-gray-300"/>}
+                        <span className="text-[10px] text-gray-500 max-w-[60px] truncate">{item.itemName}</span>
+                      </div>
+                    ))}
+                    {o.items.length > 3 && <span className="text-[10px] text-gray-400 self-center">+{o.items.length-3}</span>}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tab: Dự án — danh sách ────────────────────────────────────────────────────
+function ProjectList({ projects, loading, onSelect, onRefresh, isContractor }) {
+  const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const counts = Object.fromEntries(Object.keys(PROJECT_STATUS).map(k => [k, projects.filter(p => p.status === k).length]));
+  const filtered = projects.filter(p => {
+    const ms = statusFilter === 'all' || p.status === statusFilter;
+    const mq = !search.trim() || p.name?.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase());
+    return ms && mq;
+  });
+  const pending = projects.filter(p => p.approvalStatus === 'PENDING').length;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng dự án',  value: projects.length,        color: 'text-gray-800',   bg: 'bg-white'     },
+          { label: 'Chờ duyệt',   value: pending,                 color: pending > 0 ? 'text-amber-600' : 'text-gray-400', bg: pending > 0 ? 'bg-amber-50' : 'bg-gray-50' },
+          { label: 'Đang tuyển',  value: counts.OPEN || 0,        color: 'text-blue-600',   bg: 'bg-blue-50'   },
+          { label: 'Thi công',    value: counts.IN_PROGRESS || 0, color: 'text-amber-600',  bg: 'bg-amber-50'  },
+        ].map(s => (
+          <div key={s.label} className={`${s.bg} border border-gray-100 rounded-xl p-3 text-center`}>
+            <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 font-medium">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={13}/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên, hạng mục..."
+            className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-primary"/>
+        </div>
+        <button onClick={onRefresh} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 shrink-0"><RefreshCw size={14}/></button>
+        {!isContractor ? (
+          <button onClick={() => navigate('/projects/new')} className="flex items-center gap-1.5 bg-[#1a4f3a] text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-[#2d7a5a] shrink-0">
+            <Plus size={13}/> Đăng dự án
+          </button>
+        ) : (
+          <button onClick={() => navigate('/projects/browse')} className="flex items-center gap-1.5 bg-[#1a4f3a] text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-[#2d7a5a] shrink-0">
+            <Search size={13}/> Tìm dự án
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${statusFilter === 'all' ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'}`}>
+          Tất cả ({projects.length})
+        </button>
+        {Object.entries(PROJECT_STATUS).map(([k, v]) => counts[k] > 0 && (
+          <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${statusFilter === k ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'}`}>
+            {v.label} ({counts[k]})
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-primary"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="text-4xl mb-3">🏗️</div>
+          <p className="text-gray-400 text-sm font-medium">Chưa có dự án nào</p>
+          {!isContractor && (
+            <button onClick={() => navigate('/projects/new')} className="mt-4 px-5 py-2.5 bg-primary text-white font-bold rounded-xl text-xs hover:bg-primary/90">
+              Tạo dự án đầu tiên
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {filtered.map(p => {
+            const stCfg = PROJECT_STATUS[p.status] || PROJECT_STATUS.DRAFT;
+            const apCfg = APPROVAL_STATUS[p.approvalStatus] || APPROVAL_STATUS.PENDING;
+            return (
+              <button key={p.id} onClick={() => onSelect(p)}
+                className="bg-white border border-gray-100 rounded-2xl overflow-hidden text-left hover:border-primary hover:shadow-sm transition-all group">
+                {p.imageUrls?.[0] && (
+                  <div className="h-32 w-full bg-gray-100 overflow-hidden">
+                    <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    <Badge label={stCfg.label} color={stCfg.color}/>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${apCfg.color}`}>
+                      {apCfg.icon}{apCfg.label}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm mb-1.5 line-clamp-2">{p.name}</h3>
+                  <div className="flex flex-wrap gap-2 text-[10px] text-gray-400 mb-2">
+                    {p.address && <span className="flex items-center gap-0.5"><MapPin size={9}/>{p.address}</span>}
+                    {p.category && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">{p.category}</span>}
+                    <span className="flex items-center gap-0.5"><Clock size={9}/>{new Date(p.createdAt).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  {(p.budgetMin || p.budgetMax) && (
+                    <div className="flex items-center gap-1 text-[10px] text-gray-600 bg-gray-50 rounded-lg px-2 py-1 w-fit mb-2">
+                      <DollarSign size={10} className="text-primary"/>
+                      <span className="font-semibold">{fmtBudget(p.budgetMin)} – {fmtBudget(p.budgetMax)}</span>
+                    </div>
+                  )}
+                  {p.approvalStatus === 'REJECTED' && p.adminNote && (
+                    <div className="flex items-start gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 text-[10px] text-red-700">
+                      <XCircle size={10} className="mt-0.5 shrink-0"/><span><strong>Lý do:</strong> {p.adminNote}</span>
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Chi tiết đơn hàng ─────────────────────────────────────────────────────────
+function OrderDetail({ order: initialOrder, contracts, onBack, onRefresh }) {
+  const navigate = useNavigate();
+  const [order, setOrder] = useState(initialOrder);
   const [bids, setBids] = useState([]);
   const [loadingBids, setLoadingBids] = useState(false);
   const [accepting, setAccepting] = useState(null);
-
-  // Review modal (Đơn custom đánh giá qua đơn)
-  const [reviewModal, setReviewModal] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [reviewModal, setReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewedOrders, setReviewedOrders] = useState(new Set());
+  const [hasReviewed, setHasReviewed] = useState(false);
+
+  const [profileModal, setProfileModal] = useState(null); // contractorId
+  const [profileData, setProfileData] = useState(null);
+  const [profileWorks, setProfileWorks] = useState([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleOpenProfile = async (contractorId) => {
+    setProfileModal(contractorId);
+    setLoadingProfile(true);
+    setProfileData(null);
+    setProfileWorks([]);
+    try {
+      const profileRes = await api.get(`/public/contractor-profile/${contractorId}`);
+      setProfileData(profileRes.data.data);
+      const worksRes = await api.get(`/portfolio/contractor/${contractorId}`);
+      setProfileWorks(worksRes.data.data || []);
+    } catch {
+      toast.error('Không thể tải hồ sơ năng lực nhà thầu');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const isProfileContractorAccepted = () => {
+    if (!profileData) return false;
+    const bid = bids.find(b => b.contractorId === profileData.id);
+    return bid ? bid.status === 'ACCEPTED' : false;
+  };
+
+  const isCustom = order.type === 'CUSTOM';
+  const linkedContract = contracts.find(c => c.orderId === order.id);
+  const st = ORDER_STATUS[order.status] || {};
+  const defaultTab = order.status === 'OPEN_BIDDING' ? 'bids' : linkedContract ? 'contract' : 'items';
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
-    fetchOrdersAndContracts();
-  }, []);
-
-  const fetchOrdersAndContracts = async () => {
-    setLoading(true);
-    try {
-      const [ordersRes, contractsRes] = await Promise.all([
-        api.get('/orders/my'),
-        api.get('/contracts/my').catch(() => ({ data: { data: [] } }))
-      ]);
-      const orderList = ordersRes.data.data || [];
-      setOrders(orderList);
-      setContracts(contractsRes.data.data || []);
-
-      // Check reviewed custom orders
-      const deliveredCustom = orderList.filter(o => o.status === 'DELIVERED' && o.type === 'CUSTOM').map(o => o.id);
-      if (deliveredCustom.length > 0) {
-        Promise.all(deliveredCustom.map(id =>
-          api.get(`/reviews/check?referenceType=ORDER&referenceId=${id}`)
-            .then(r => r.data.data ? id : null).catch(() => null)
-        )).then(results => {
-          setReviewedOrders(new Set(results.filter(Boolean)));
-        });
-      }
-    } catch {
-      toast.error('Không thể tải danh sách đơn hàng');
-    } finally {
-      setLoading(false);
+    if (['OPEN_BIDDING','BIDDING_CLOSED','PROCESSING','DELIVERED'].includes(order.status)) {
+      setLoadingBids(true);
+      api.get(`/order-bids/order/${order.id}`).then(r => setBids(r.data.data || [])).catch(() => {}).finally(() => setLoadingBids(false));
     }
-  };
+    if (order.status === 'DELIVERED' && order.assignedContractorId) {
+      api.get(`/reviews/check?referenceType=ORDER&referenceId=${order.id}`).then(r => setHasReviewed(r.data.data)).catch(() => {});
+    }
+  }, [order.id]);
 
-  const handleCancel = async (id) => {
+  const handleCancel = async () => {
     if (!window.confirm('Xác nhận hủy đơn hàng này?')) return;
-    setCancelling(id);
-    try {
-      await api.post(`/orders/${id}/cancel`);
-      toast.success('Đã hủy đơn hàng');
-      fetchOrdersAndContracts();
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Không thể hủy đơn');
-    } finally {
-      setCancelling(null);
-    }
+    setCancelling(true);
+    try { await api.post(`/orders/${order.id}/cancel`); toast.success('Đã hủy đơn'); onRefresh(); onBack(); }
+    catch (e) { toast.error(e.response?.data?.message || 'Không thể hủy'); } finally { setCancelling(false); }
   };
 
-  // Xác nhận đã nhận hàng (Catalog order)
-  const handleConfirmDelivery = async (id) => {
-    if (!window.confirm('Xác nhận bạn đã nhận được hàng đầy đủ và đúng chất lượng?')) return;
-    setConfirmingDelivery(id);
-    try {
-      await api.post(`/api/orders/${id}/confirm-delivery`);
-      toast.success('🎉 Xác nhận nhận hàng thành công! Đơn hàng hoàn tất.');
-      fetchOrdersAndContracts();
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Có lỗi xảy ra');
-    } finally {
-      setConfirmingDelivery(null);
-    }
+  const handleConfirmDelivery = async () => {
+    if (!window.confirm('Xác nhận đã nhận hàng?')) return;
+    setConfirmingDelivery(true);
+    try { await api.post(`/orders/${order.id}/confirm-delivery`); toast.success('🎉 Đã xác nhận!'); onRefresh(); onBack(); }
+    catch (e) { toast.error(e.response?.data?.message || 'Lỗi'); } finally { setConfirmingDelivery(false); }
   };
 
-  const toggleBids = async (orderId) => {
-    if (bidsPanel === orderId) { setBidsPanel(null); return; }
-    setBidsPanel(orderId);
-    setLoadingBids(true);
-    try {
-      const res = await api.get(`/order-bids/order/${orderId}`);
-      setBids(res.data.data || []);
-    } catch {
-      toast.error('Không thể tải báo giá');
-    } finally {
-      setLoadingBids(false);
-    }
-  };
-
-  const handleAcceptBid = async (orderId, bidId) => {
-    if (!window.confirm('Chọn nhà thầu này? Các báo giá khác sẽ bị từ chối và Hợp đồng sẽ được tự động thiết lập.')) return;
+  const handleAcceptBid = async (bidId) => {
     setAccepting(bidId);
-    try {
-      await api.post(`/order-bids/order/${orderId}/accept/${bidId}`);
-      toast.success('🎉 Đã chọn nhà thầu thành công! Hợp đồng đã được lập và đang chờ Admin duyệt.');
-      fetchOrdersAndContracts();
-      setBidsPanel(null);
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Lỗi chọn nhà thầu');
-    } finally {
-      setAccepting(null);
-    }
+    try { await api.post(`/order-bids/order/${order.id}/accept/${bidId}`); toast.success('🎉 Hợp đồng có hiệu lực!'); setConfirmModal(null); onRefresh(); onBack(); }
+    catch (e) { toast.error(e.response?.data?.message || 'Lỗi'); } finally { setAccepting(null); }
   };
 
-  const handleSubmitReview = async () => {
-    if (!reviewModal) return;
-    if (!reviewData.comment.trim()) { toast.error('Vui lòng nhập nhận xét'); return; }
-    setSubmittingReview(true);
-    try {
-      await api.post('/reviews', {
-        rating: reviewData.rating,
-        comment: reviewData.comment,
-        referenceType: 'ORDER',
-        referenceId: reviewModal.id,
-        revieweeId: reviewModal.assignedContractorId,
-      });
-      toast.success('🌟 Cảm ơn bạn đã đánh giá nhà thầu!');
-      setReviewedOrders(prev => new Set([...prev, reviewModal.id]));
-      setReviewModal(null);
-      setReviewData({ rating: 5, comment: '' });
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Lỗi gửi đánh giá');
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  // Phân loại danh sách
-  const customOrders = orders.filter(o => o.type === 'CUSTOM');
-  const catalogOrders = orders.filter(o => o.type === 'CATALOG');
-  const activeOrders = activeTab === 'custom' ? customOrders : catalogOrders;
-
-  // Bộ lọc theo trạng thái
-  const filtered = filter === 'all' ? activeOrders : activeOrders.filter(o => o.status === filter);
-  
-  const statusCfg = activeTab === 'custom' ? CUSTOM_STATUS_CFG : CATALOG_STATUS_CFG;
-  const counts = Object.fromEntries(Object.keys(statusCfg).map(k => [k, activeOrders.filter(o => o.status === k).length]));
+  const tabs = [
+    { key: 'items',    label: `Sản phẩm (${order.items?.length || 0})`, icon: <Package size={12}/> },
+    ...(order.status === 'OPEN_BIDDING' || bids.length > 0 ? [{ key: 'bids', label: `Báo giá (${bids.length})`, icon: <Users size={12}/> }] : []),
+    ...(linkedContract ? [{ key: 'contract', label: 'Hợp đồng', icon: <FileText size={12}/> }] : []),
+  ];
 
   return (
-    <>
-    <Layout title="Đơn hàng của tôi">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="space-y-4">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary group">
+        <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform"/> Quay lại
+      </button>
 
-        {/* PHÂN LUỒNG TABS CHÍNH (Custom vs Catalog) */}
-        <div className="flex justify-between items-center flex-wrap gap-4 border-b border-gray-150 pb-2">
-          <div className="flex gap-2 bg-gray-100 rounded-xl p-1 shadow-inner">
-            <button
-              onClick={() => { setActiveTab('custom'); setFilter('all'); setBidsPanel(null); }}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                activeTab === 'custom'
-                  ? 'bg-white text-primary shadow'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              <Gavel size={15} />
-              Đơn hàng Thiết kế riêng ({customOrders.length})
-            </button>
-            <button
-              onClick={() => { setActiveTab('catalog'); setFilter('all'); setBidsPanel(null); }}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                activeTab === 'catalog'
-                  ? 'bg-white text-primary shadow'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              <ShoppingBag size={15} />
-              Đơn hàng Mua sẵn ({catalogOrders.length})
-            </button>
+      {/* Hero */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-stretch">
+          <div className={`w-1 shrink-0 ${(st.dot||'bg-gray-200').replace(' animate-pulse','')}`}/>
+          <div className="flex-1 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <OrderStatusBadge status={order.status}/>
+                  <span className="text-[10px] font-mono font-bold text-gray-400">{order.orderCode}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isCustom ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
+                    {isCustom ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400"><Clock size={10} className="inline mr-1"/>{new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-400 uppercase tracking-wide text-[10px]">Tổng thanh toán</p>
+                <p className="text-xl font-black text-primary">{isCustom && ['PENDING','OPEN_BIDDING'].includes(order.status) ? 'Đang báo giá...' : fmt(order.totalAmount)}</p>
+              </div>
+            </div>
+            <div className="mt-3"><Stepper currentStatus={order.status}/></div>
+            {order.deliveryAddress && (
+              <p className="text-xs text-gray-500 flex items-start gap-1 mt-3"><MapPin size={11} className="mt-0.5 text-gray-400 shrink-0"/>{order.deliveryAddress}</p>
+            )}
+            {order.customRequirements && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-1">Yêu cầu thiết kế</p>
+                <p className="text-xs text-amber-900 whitespace-pre-wrap">{order.customRequirements}</p>
+              </div>
+            )}
+            {order.status === 'OPEN_BIDDING' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('bids')}
+                className="w-full text-left flex items-start gap-2 bg-[#e8f5ee] hover:bg-[#dcede3] border border-green-200 rounded-xl px-3 py-2.5 mt-3 text-xs text-[#1a4f3a] transition-all cursor-pointer"
+              >
+                <Gavel size={12} className="mt-0.5 shrink-0 text-[#1a4f3a]"/>
+                <span className="flex-1">
+                  {activeTab === 'bids' ? (
+                    <><strong>Đang đấu giá!</strong> Xem danh sách báo giá thầu bên dưới, click <strong>"Xem hồ sơ thầu"</strong> để kiểm tra hồ sơ năng lực trước khi bấm <strong>"Chọn nhà thầu này"</strong>.</>
+                  ) : (
+                    <><strong>Đang đấu giá!</strong> Click tại đây hoặc chọn tab <strong>Báo giá ({bids.length})</strong> bên dưới để xem danh sách báo giá và chọn nhà thầu.</>
+                  )}
+                </span>
+              </button>
+            )}
+            <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-100">
+              {['PENDING','OPEN_BIDDING'].includes(order.status) && (
+                <button onClick={handleCancel} disabled={cancelling} className="flex items-center gap-1 text-xs font-bold border-2 border-red-300 text-red-600 px-3 py-2 rounded-xl hover:bg-red-50 disabled:opacity-60">
+                  <XCircle size={12}/>{cancelling ? 'Đang hủy...' : 'Hủy đơn'}
+                </button>
+              )}
+              {order.status === 'SHIPPED' && (
+                <button onClick={handleConfirmDelivery} disabled={confirmingDelivery} className="flex items-center gap-1 text-xs font-bold bg-teal-600 text-white px-4 py-2 rounded-xl hover:bg-teal-700 disabled:opacity-60">
+                  <CheckCircle size={12}/>{confirmingDelivery ? 'Đang xử lý...' : 'Xác nhận nhận hàng'}
+                </button>
+              )}
+              {order.status === 'DELIVERED' && order.assignedContractorId && !linkedContract && (
+                hasReviewed
+                  ? <span className="flex items-center gap-1 px-3 py-2 bg-amber-50 text-amber-600 text-xs font-bold rounded-xl border border-amber-200"><Star size={11} fill="currentColor"/>Đã đánh giá</span>
+                  : <button onClick={() => setReviewModal(true)} className="flex items-center gap-1 text-xs font-bold bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600"><Star size={12}/>Đánh giá</button>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
 
-          <button
-            onClick={() => navigate('/shop/order')}
-            className="flex items-center gap-1.5 bg-primary hover:bg-primary-light text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors"
-          >
-            <Plus size={15}/> Đặt hàng mới
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`flex items-center gap-1 flex-1 justify-center py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Items */}
+      {activeTab === 'items' && (
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Sản phẩm</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500">SL</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {order.items?.map((item, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0"/> : <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-300"/></div>}
+                      <div><p className="font-semibold text-gray-900 text-xs">{item.itemName}</p>{item.customNote && <p className="text-[10px] text-amber-600">{item.customNote}</p>}</div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-center font-bold text-gray-700 text-xs">{item.quantity}</td>
+                  <td className="px-4 py-3 text-right font-black text-primary text-xs">{isCustom && ['PENDING','OPEN_BIDDING'].includes(order.status) ? '—' : fmt(item.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {!(['PENDING','OPEN_BIDDING'].includes(order.status) && isCustom) && (
+              <tfoot className="bg-gray-50 border-t border-gray-100">
+                <tr>
+                  <td colSpan={2} className="px-4 py-3 text-right text-xs font-bold text-gray-700">Tổng cộng:</td>
+                  <td className="px-4 py-3 text-right font-black text-primary text-sm">{fmt(order.totalAmount)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+
+      {/* Tab: Bids */}
+      {activeTab === 'bids' && (
+        <div className="space-y-3">
+          {loadingBids ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-primary"/></div>
+          ) : bids.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+              <Gavel size={28} className="mx-auto text-gray-200 mb-2"/>
+              <p className="text-gray-400 text-sm">Chưa có báo giá nào</p>
+            </div>
+          ) : bids.map(b => (
+            <div key={b.id} className={`bg-white rounded-2xl border shadow-sm p-5 ${b.status === 'ACCEPTED' ? 'border-green-300' : 'border-gray-100'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${b.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {b.status === 'ACCEPTED' ? <><CheckCircle size={9}/>Đã chọn</> : 'Đang chờ'}
+                    </span>
+                  </div>
+                  <p className="font-bold text-gray-900 text-sm">{b.contractorName}</p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenProfile(b.contractorId)}
+                    className="text-[11px] text-blue-600 font-bold hover:underline mt-1.5 flex items-center gap-1"
+                  >
+                    🔍 Xem hồ sơ thầu
+                  </button>
+                  {b.contractorPhone && (
+                    <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-1">
+                      <Phone size={9}/>
+                      {b.status === 'ACCEPTED' ? b.contractorPhone : '******** (Hiện sau khi chọn)'}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-primary">{fmt(b.quotedPrice)}</p>
+                  {b.estimatedDays && <p className="text-[11px] text-gray-400">{b.estimatedDays} ngày</p>}
+                </div>
+              </div>
+              {b.proposal && <p className="text-xs text-gray-600 bg-gray-50 rounded-xl p-3 mb-3 line-clamp-3">{b.proposal}</p>}
+              {order.status === 'OPEN_BIDDING' && b.status !== 'ACCEPTED' && (
+                <button onClick={() => setConfirmModal(b)}
+                  className="w-full py-2.5 text-white text-xs font-bold rounded-xl bg-[#1a4f3a] hover:bg-[#2d7a5a] flex items-center justify-center gap-1.5">
+                  <CheckCircle size={12}/>Chọn nhà thầu này
+                </button>
+              )}
+              {b.status === 'ACCEPTED' && linkedContract && (
+                <button onClick={() => navigate('/contracts')}
+                  className="w-full py-2.5 text-white text-xs font-bold rounded-xl bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1.5">
+                  <ArrowRight size={12}/>Xem tiến độ thi công
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Contract */}
+      {activeTab === 'contract' && linkedContract && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText size={16} className="text-primary"/>
+            <h3 className="font-bold text-gray-900">Hợp đồng #{linkedContract.id}</h3>
+            <span className={`ml-auto px-2.5 py-1 rounded-full text-[10px] font-bold ${linkedContract.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+              {linkedContract.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {linkedContract.contractorName && <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 text-[10px] font-bold mb-1">NHÀ THẦU</p><p className="font-bold">{linkedContract.contractorName}</p></div>}
+            {linkedContract.totalValue && <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 text-[10px] font-bold mb-1">GIÁ TRỊ HĐ</p><p className="font-black text-primary">{fmt(linkedContract.totalValue)}</p></div>}
+          </div>
+          <button onClick={() => navigate('/contracts')}
+            className="w-full py-2.5 text-white text-xs font-bold rounded-xl bg-primary hover:bg-primary/90 flex items-center justify-center gap-1.5">
+            <Eye size={12}/>Xem hợp đồng đầy đủ
           </button>
         </div>
+      )}
 
-        {/* Tóm tắt số lượng bộ lọc trạng thái */}
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-              filter === 'all'
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white border border-gray-250/60 text-gray-650 hover:border-primary'
-            }`}
-          >
-            Tất cả ({activeOrders.length})
-          </button>
-          {Object.entries(statusCfg).map(([k, v]) => counts[k] > 0 && (
-            <button
-              key={k}
-              onClick={() => setFilter(k)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                filter === k
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'bg-white border border-gray-250/60 text-gray-650 hover:border-primary'
-              }`}
-            >
-              {v.label} ({counts[k]})
+      {/* Modal chọn thầu */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="font-black text-gray-900 text-lg flex items-center gap-2"><CheckCircle size={20} className="text-green-500"/>Xác nhận chọn nhà thầu</h3>
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <p className="font-black text-gray-900">{confirmModal.contractorName}</p>
+              <div className="flex gap-4 mt-2 text-sm">
+                <div><p className="text-[10px] text-gray-400">Giá trị HĐ</p><p className="font-black text-primary">{fmt(confirmModal.quotedPrice)}</p></div>
+                {confirmModal.estimatedDays && <div><p className="text-[10px] text-gray-400">Thời gian</p><p className="font-bold text-gray-800">{confirmModal.estimatedDays} ngày</p></div>}
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+              <ShieldCheck size={12} className="inline mr-1.5"/>Hợp đồng tạo ngay, nhà thầu bắt đầu thi công, tiền escrow được khóa bảo đảm.
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmModal(null)} disabled={!!accepting} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50">Xem lại</button>
+              <button onClick={() => handleAcceptBid(confirmModal.id)} disabled={accepting === confirmModal.id} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+                {accepting === confirmModal.id ? <><Loader2 size={14} className="animate-spin"/>Đang tạo...</> : <><CheckCircle size={14}/>Xác nhận</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal đánh giá */}
+      {reviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2"><Star size={16} className="text-amber-500"/>Đánh giá nhà thầu</h3>
+            <div className="flex gap-1 mb-4">
+              {[1,2,3,4,5].map(s => <button key={s} onClick={() => setReviewData(d => ({...d, rating: s}))} className={`text-2xl ${s <= reviewData.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</button>)}
+              <span className="ml-2 text-sm font-black text-amber-600 self-center">{reviewData.rating}/5</span>
+            </div>
+            <textarea rows={4} value={reviewData.comment} onChange={e => setReviewData(d => ({...d, comment: e.target.value}))} placeholder="Nhận xét về tay nghề, chất lượng..." className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-primary resize-none mb-4"/>
+            <div className="flex gap-3">
+              <button onClick={() => setReviewModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium">Hủy</button>
+              <button onClick={async () => {
+                if (!reviewData.comment.trim()) return toast.error('Nhập nhận xét');
+                setSubmittingReview(true);
+                try {
+                  await api.post('/reviews', { rating: reviewData.rating, comment: reviewData.comment, referenceType: 'ORDER', referenceId: order.id, revieweeId: order.assignedContractorId });
+                  toast.success('Đã đánh giá!'); setHasReviewed(true); setReviewModal(false);
+                } catch(e) { toast.error('Lỗi'); } finally { setSubmittingReview(false); }
+              }} disabled={submittingReview} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold disabled:opacity-60 flex items-center justify-center gap-1.5">
+                {submittingReview ? <Loader2 size={13} className="animate-spin"/> : <Star size={13}/>}Gửi đánh giá
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Contractor Profile Modal */}
+      {profileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto space-y-6">
+            {loadingProfile ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <Loader2 size={32} className="animate-spin text-primary mb-2" />
+                <p className="text-xs">Đang tải hồ sơ nhà thầu...</p>
+              </div>
+            ) : profileData ? (
+              <>
+                {/* Header */}
+                <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    {profileData.logoUrl ? (
+                      <img src={profileData.logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover border border-gray-150" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-[#e8f5ee] text-[#1a4f3a] flex items-center justify-center font-bold text-lg">
+                        {profileData.companyName?.charAt(0) || 'C'}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="font-extrabold text-gray-900 text-base">{profileData.companyName}</h3>
+                      <p className="text-xs text-gray-400">Năm thành lập: {profileData.yearEstablished || '2020'}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setProfileModal(null)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-250 flex items-center justify-center text-gray-500 font-bold">
+                    ✕
+                  </button>
+                </div>
+
+                {/* Info Card */}
+                <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <div>
+                    <span className="text-gray-400 block mb-0.5">SỐ ĐIỆN THOẠI</span>
+                    <span className="font-bold text-gray-800">
+                      {isProfileContractorAccepted() ? (profileData.phoneNumber || '—') : '******** (Hiện sau khi chọn)'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block mb-0.5">EMAIL</span>
+                    <span className="font-bold text-gray-800">
+                      {isProfileContractorAccepted() ? (profileData.email || '—') : '******** (Hiện sau khi chọn)'}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-400 block mb-0.5">ĐỊA CHỈ THI CÔNG</span>
+                    <span className="font-bold text-gray-800">
+                      {isProfileContractorAccepted() ? (profileData.address || '—') : '******** (Hiện sau khi chọn)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Giới thiệu */}
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Giới thiệu ngắn</span>
+                  <p className="text-sm text-gray-700 leading-relaxed font-semibold italic bg-green-50/50 p-4 rounded-xl border border-green-100">
+                    "{profileData.shortIntro || 'Chuyên thiết kế và thi công nội thất nhà ở, căn hộ, văn phòng.'}"
+                  </p>
+                </div>
+
+                {/* Lĩnh vực & Cam kết */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Lĩnh vực hoạt động</span>
+                    <div className="space-y-1 text-xs">
+                      {profileData.designInterior && <p className="text-[#1a4f3a] font-semibold">☑ Thiết kế nội thất</p>}
+                      {profileData.constructInterior && <p className="text-[#1a4f3a] font-semibold">☑ Thi công nội thất</p>}
+                      {profileData.produceWood && <p className="text-[#1a4f3a] font-semibold">☑ Sản xuất đồ gỗ</p>}
+                      {profileData.renovateHouse && <p className="text-[#1a4f3a] font-semibold">☑ Cải tạo nhà ở</p>}
+                      {!profileData.designInterior && !profileData.constructInterior && !profileData.produceWood && !profileData.renovateHouse && (
+                        <p className="text-gray-400 italic">Chưa cập nhật lĩnh vực</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Chính sách cam kết</span>
+                    <div className="space-y-1 text-xs">
+                      {profileData.warranty24Months && <p className="text-blue-700 font-semibold">✔ Bảo hành 24 tháng</p>}
+                      {profileData.freeQuote && <p className="text-blue-700 font-semibold">✔ Báo giá miễn phí</p>}
+                      {profileData.onTimeProgress && <p className="text-blue-700 font-semibold">✔ Thi công đúng tiến độ</p>}
+                      {!profileData.warranty24Months && !profileData.freeQuote && !profileData.onTimeProgress && (
+                        <p className="text-gray-400 italic">Chưa cập nhật chính sách</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Thống kê năng lực */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Thống kê năng lực</span>
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Kinh nghiệm</p>
+                      <p className="font-extrabold text-sm text-gray-800 mt-1">{profileData.experienceYears || '0'} năm</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Dự án thầu</p>
+                      <p className="font-extrabold text-sm text-gray-800 mt-1">{profileData.completedProjectsCount || '0'}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Khách hàng</p>
+                      <p className="font-extrabold text-sm text-gray-800 mt-1">{profileData.customerCount || '0+'}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Đánh giá</p>
+                      <p className="font-extrabold text-sm text-amber-500 mt-1">★ {profileData.rating?.toFixed(1) || '5.0'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3-5 Dự án tiêu biểu */}
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Công trình tiêu biểu đã hoàn thành</span>
+                  {profileWorks && profileWorks.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {profileWorks.slice(0, 4).map(w => (
+                        <div key={w.id} className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[9px] font-bold text-[#1a4f3a] uppercase tracking-wider bg-[#e8f5ee] px-2 py-0.5 rounded">
+                              {w.category || 'Công trình'}
+                            </span>
+                            <h4 className="font-bold text-gray-900 text-xs mt-1.5 line-clamp-1">{w.title}</h4>
+                            {w.description && <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{w.description}</p>}
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-gray-400 mt-3 pt-2 border-t border-gray-100">
+                            <span>📅 {w.completionYear || '2024'}</span>
+                            <span className="font-bold text-[#1a4f3a]">{fmt(w.projectValue)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">Chưa cập nhật công trình tiêu biểu nào.</p>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="pt-4 border-t border-gray-100 flex justify-end">
+                  <button onClick={() => setProfileModal(null)} className="px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-light">
+                    Đóng
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-gray-400 text-xs">Không tìm thấy thông tin hồ sơ nhà thầu.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Root Page ─────────────────────────────────────────────────────────────────
+export default function OrdersPage() {
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeMainTab = searchParams.get('tab') || 'orders';
+  const setMainTab = (tab) => setSearchParams({ tab });
+
+  const isContractor = user?.role === 'CONTRACTOR';
+
+  const [orders, setOrders] = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
+
+  const fetchOrders = useCallback(async () => {
+    setLoadingOrders(true);
+    try {
+      const [ordRes, ctrRes] = await Promise.all([
+        api.get('/orders/my'),
+        api.get('/contracts/my').catch(() => ({ data: { data: [] } })),
+      ]);
+      setOrders(ordRes.data.data || []);
+      setContracts(ctrRes.data.data || []);
+    } catch { toast.error('Không thể tải đơn hàng'); }
+    finally { setLoadingOrders(false); }
+  }, []);
+
+  const fetchProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await api.get('/projects/my');
+      setProjects(res.data.data || []);
+    } catch { toast.error('Không thể tải dự án'); }
+    finally { setLoadingProjects(false); }
+  }, []);
+
+  useEffect(() => { fetchOrders(); fetchProjects(); }, [fetchOrders, fetchProjects]);
+
+  // Contractor dùng trang riêng — redirect sau khi hooks đã được khai báo
+  useEffect(() => {
+    if (isContractor) navigate('/order-bidding', { replace: true });
+  }, [isContractor, navigate]);
+
+  const orderNeedAction   = orders.filter(o => ['PENDING','OPEN_BIDDING','SHIPPED'].includes(o.status)).length;
+  const projectNeedAction = projects.filter(p => p.approvalStatus === 'PENDING' || p.status === 'OPEN').length;
+
+  if (selectedOrder) {
+    return (
+      <Layout title={selectedOrder.orderCode}>
+        <div className="max-w-3xl mx-auto">
+          <OrderDetail order={selectedOrder} contracts={contracts} onBack={() => setSelectedOrder(null)} onRefresh={fetchOrders}/>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (selectedProject) {
+    navigate(`/projects/${selectedProject.id}`);
+    return null;
+  }
+
+  return (
+    <Layout title="Hoạt động của tôi">
+      <div className="max-w-4xl mx-auto space-y-5">
+
+        {/* Header */}
+        {/*  */}
+
+        {/* Main tabs */}
+        <div className="flex gap-1 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm">
+          {[
+            { key: 'orders',   icon: <ShoppingBag size={15}/>, label: 'Đơn hàng',                               badge: orderNeedAction   },
+            { key: 'projects', icon: <Hammer size={15}/>,       label: isContractor ? 'Dự án tham gia' : 'Dự án của tôi', badge: projectNeedAction },
+          ].map(t => (
+            <button key={t.key} onClick={() => setMainTab(t.key)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all relative ${
+                activeMainTab === t.key ? 'bg-primary text-white shadow-sm shadow-primary/30' : 'text-gray-500 hover:bg-gray-50'
+              }`}>
+              {t.icon}{t.label}
+              {t.badge > 0 && (
+                <span className={`absolute top-1.5 right-2 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${activeMainTab === t.key ? 'bg-white text-primary' : 'bg-red-500 text-white'}`}>
+                  {t.badge > 9 ? '9+' : t.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Nội dung danh sách */}
-        {loading ? (
-          <div className="text-center py-20 text-gray-400 flex items-center justify-center gap-2">
-            <Loader2 className="animate-spin text-primary" size={20} />
-            Đang tải dữ liệu đơn hàng...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-200">
-            <ShoppingBag size={44} className="mx-auto text-gray-200 mb-3"/>
-            <p className="text-gray-400 font-semibold text-sm">
-              Không có đơn hàng nào thuộc bộ lọc này
-            </p>
-            <button
-              onClick={() => navigate('/shop')}
-              className="mt-4 px-5 py-2.5 bg-primary text-white font-bold rounded-xl text-xs hover:bg-primary-light transition-colors"
-            >
-              Khám phá Shop ngay
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map(o => {
-              const st = statusCfg[o.status] || statusCfg.PENDING;
-              const steps = activeTab === 'custom' ? STEPS_CUSTOM : STEPS_CATALOG;
-              const curStep = steps.indexOf(o.status);
-              const isExp = expanded === o.id;
-
-              // Đối chiếu Hợp đồng liên kết (Smart Contract Bridge)
-              const linkedContract = activeTab === 'custom'
-                ? contracts.find(c => c.orderId === o.id)
-                : null;
-
-              return (
-                <div key={o.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:border-gray-200 transition-all">
-                  
-                  {/* Phần hiển thị chính */}
-                  <div className="p-5">
-                    
-                    {/* Header Thẻ */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>
-                            {st.icon} {st.label}
-                          </span>
-                          
-                          {activeTab === 'custom' ? (
-                            <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Gavel size={10}/> Đặt gia công riêng
-                            </span>
-                          ) : (
-                            <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                              Mua catalog có sẵn
-                            </span>
-                          )}
-                        </div>
-                        
-                        <p className="font-mono text-xs font-bold text-gray-800">Mã đơn: {o.orderCode}</p>
-                        <p className="text-[10px] text-gray-450">{new Date(o.createdAt).toLocaleString('vi-VN')}</p>
-                      </div>
-                      
-                      <div className="text-right">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Tổng thanh toán</p>
-                        <p className="text-xl font-black text-primary mt-0.5">
-                          {activeTab === 'custom' && (o.status === 'PENDING' || o.status === 'OPEN_BIDDING')
-                            ? 'Đang báo giá...'
-                            : fmt(o.totalAmount)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Stepper Tiến trình ngang */}
-                    {o.status !== 'CANCELLED' && (
-                      <div className="flex items-center mb-5 overflow-x-auto pb-1 gap-1">
-                        {steps.map((step, i) => {
-                          const done = i <= curStep;
-                          const active = i === curStep;
-                          const label = statusCfg[step]?.label?.split(' ')[0];
-                          return (
-                            <React.Fragment key={step}>
-                              <div className="flex flex-col items-center gap-1 shrink-0">
-                                <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                                  done ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'
-                                } ${active ? 'ring-2 ring-primary ring-offset-1 font-extrabold' : ''}`}>
-                                  {done && i < curStep ? '✓' : i + 1}
-                                </div>
-                                <span className={`text-[9px] font-semibold hidden sm:block ${done ? 'text-primary' : 'text-gray-400'}`}>
-                                  {label}
-                                </span>
-                              </div>
-                              {i < steps.length - 1 && (
-                                <div className={`flex-1 h-0.5 min-w-[20px] transition-all ${i < curStep ? 'bg-primary' : 'bg-gray-200'}`}/>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* ── SMART CONTRACT BRIDGE: BANNER HỢP ĐỒNG LIÊN KẾT ── */}
-                    {linkedContract && (
-                      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 mb-4 border ${
-                        linkedContract.status === 'WAITING_SIGNATURE' ? 'bg-blue-50/50 border-blue-200 text-blue-800' :
-                        linkedContract.status === 'ACTIVE' ? 'bg-gradient-to-r from-primary/5 to-blue-50/50 border-primary/20 text-primary' :
-                        'bg-green-50/50 border-green-200 text-green-855 text-green-800'
-                      }`}>
-                        <div className="flex items-start gap-2 text-xs flex-1">
-                          <FileText size={16} className="mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-bold">Hợp đồng liên kết: {linkedContract.contractNumber}</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
-                              {linkedContract.status === 'WAITING_SIGNATURE' && 'Hợp đồng đã được duyệt! Vui lòng đọc điều khoản và ký hợp đồng để tiến hành đặt cọc và thi công.'}
-                              {linkedContract.status === 'ACTIVE' && 'Công việc đang được nhà thầu thi công. Theo dõi nhật ký tiến độ thực tế hàng ngày và phê duyệt giải ngân Escrow tại đây.'}
-                              {linkedContract.status === 'COMPLETED' && 'Công trình đã được nghiệm thu hoàn tất và đang được bảo hành 6 tháng.'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Nút bấm liên kết trực tiếp */}
-                        <div className="shrink-0">
-                          {linkedContract.status === 'WAITING_SIGNATURE' && (
-                            <button
-                              onClick={() => navigate('/contracts')}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors"
-                            >
-                              Ký hợp đồng ngay
-                              <ArrowRight size={10} />
-                            </button>
-                          )}
-                          {linkedContract.status === 'ACTIVE' && (
-                            <button
-                              onClick={() => navigate(`/contracts/${linkedContract.id}/progress`)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-primary-light text-white text-[10px] font-bold rounded-lg transition-colors"
-                            >
-                              Theo dõi Tiến độ & Giải ngân
-                              <ArrowRight size={10} />
-                            </button>
-                          )}
-                          {linkedContract.status === 'COMPLETED' && (
-                            <button
-                              onClick={() => navigate(`/contracts/${linkedContract.id}/review`)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold rounded-lg transition-colors"
-                            >
-                              Xem Nghiệm thu & Bảo hành
-                              <ArrowRight size={10} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hướng dẫn khi đang đấu giá tự do */}
-                    {o.status === 'OPEN_BIDDING' && activeTab === 'custom' && (
-                      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-2xl px-3.5 py-3 text-xs text-blue-800 mb-4">
-                        <Gavel size={14} className="mt-0.5 shrink-0 text-blue-500" />
-                        <div>
-                          <strong>Đơn hàng đang mở đấu giá bảo mật!</strong> Các nhà thầu uy tín đang chuẩn bị hồ sơ hạng mục và gửi báo giá. 
-                          Hãy bấm nút <strong>"Xem danh sách báo giá"</strong> bên dưới để chọn nhà thầu phù hợp nhất.
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hiển thị tóm tắt một số hạng mục */}
-                    <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-                      {o.items?.slice(0, 3).map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 shrink-0 border border-gray-100/50">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-gray-200"/>
-                          ) : (
-                            <Package size={15} className="text-gray-300"/>
-                          )}
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 max-w-[100px] truncate">{item.itemName}</p>
-                            <p className="text-[10px] text-gray-400 font-bold">SL: ×{item.quantity}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {o.items?.length > 3 && (
-                        <div className="bg-gray-50 rounded-xl px-3 py-2 shrink-0 border border-gray-100/50 flex items-center justify-center text-[10px] font-bold text-gray-550">
-                          +{o.items.length - 3} sản phẩm khác
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Chân thẻ đơn hàng - các nút bấm hành động */}
-                    <div className="flex items-center justify-between gap-4 border-t border-gray-50 pt-4 flex-wrap">
-                      <button
-                        onClick={() => setExpanded(isExp ? null : o.id)}
-                        className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors"
-                      >
-                        {isExp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                        {isExp ? 'Ẩn chi tiết đơn hàng' : 'Xem chi tiết đơn hàng'}
-                      </button>
-
-                      <div className="flex gap-1.5 flex-wrap">
-                        {/* Nút đấu giá riêng cho đơn Custom */}
-                        {activeTab === 'custom' && ['OPEN_BIDDING', 'BIDDING_CLOSED'].includes(o.status) && (
-                          <button
-                            onClick={() => toggleBids(o.id)}
-                            className={`flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl transition-all ${
-                              bidsPanel === o.id
-                                ? 'bg-primary text-white shadow'
-                                : 'border border-primary text-primary hover:bg-primary-bg'
-                            }`}
-                          >
-                            {bidsPanel === o.id ? <EyeOff size={13}/> : <Eye size={13}/>}
-                            {bidsPanel === o.id ? 'Ẩn báo giá' : 'Xem báo giá từ nhà thầu'}
-                          </button>
-                        )}
-
-                        {/* Thanh toán cọc cho Catalog order */}
-                        {activeTab === 'catalog' && o.status === 'CONFIRMED' && (
-                          <button
-                            onClick={() => navigate('/wallet')}
-                            className="flex items-center gap-1 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary-light transition-colors shadow-sm"
-                          >
-                            <Wallet size={13}/>
-                            Thanh toán cọc 60%
-                          </button>
-                        )}
-
-                        {/* Xác nhận nhận hàng cho Catalog order */}
-                        {activeTab === 'catalog' && o.status === 'SHIPPED' && (
-                          <button
-                            onClick={() => handleConfirmDelivery(o.id)}
-                            disabled={confirmingDelivery === o.id}
-                            className="flex items-center gap-1 bg-green-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50"
-                          >
-                            <CheckCircle size={13}/>
-                            {confirmingDelivery === o.id ? 'Đang xử lý...' : 'Xác nhận nhận hàng'}
-                          </button>
-                        )}
-
-                        {/* Đánh giá nhà thầu qua đơn (nếu DELIVERED và không có contract) */}
-                        {o.status === 'DELIVERED' && o.assignedContractorId && !linkedContract && (
-                          <div className="flex gap-2">
-                            {reviewedOrders.has(o.id) ? (
-                              <span className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-500 rounded-xl text-xs font-bold border border-amber-200">
-                                <Star size={12} fill="currentColor"/> Đã đánh giá
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => { setReviewModal(o); setReviewData({ rating: 5, comment: '' }); }}
-                                className="flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl hover:bg-amber-600 transition-colors"
-                              >
-                                <Star size={12}/>
-                                Đánh giá nhà thầu
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Nút hủy đơn hàng */}
-                        {o.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleCancel(o.id)}
-                            disabled={cancelling === o.id}
-                            className="flex items-center gap-1 text-xs font-bold text-red-500 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
-                          >
-                            <XCircle size={13}/>
-                            {cancelling === o.id ? 'Đang hủy...' : 'Hủy đơn hàng'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── BẢNG BÁO GIÁ ĐẤU THẦU BẢO MẬT (BLIND BIDDING DRAWER) ── */}
-                  {bidsPanel === o.id && activeTab === 'custom' && (
-                    <div className="border-t border-gray-100 p-5 bg-gray-50/50 space-y-4">
-                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5 text-xs text-amber-800">
-                        <EyeOff size={13} className="shrink-0 mt-0.5 text-amber-500" />
-                        <span><strong>Cơ chế đấu giá bảo mật:</strong> Nhà thầu hoàn toàn không thể thấy báo giá của nhau. Chỉ duy nhất bạn thấy danh sách báo giá chi tiết này để bảo đảm tính khách quan nhất.</span>
-                      </div>
-                      
-                      {loadingBids ? (
-                        <div className="text-center py-8 text-gray-400 text-xs flex items-center justify-center gap-2">
-                          <Loader2 className="animate-spin text-primary" size={15} />
-                          Đang tải danh sách báo giá...
-                        </div>
-                      ) : bids.length === 0 ? (
-                        <div className="text-center py-8 text-gray-400 text-xs">
-                          Hiện chưa nhận được báo giá nào. Các nhà thầu đang thẩm định hồ sơ kỹ thuật và bóc tách khối lượng.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {bids.map(bid => (
-                            <div
-                              key={bid.id}
-                              className={`rounded-2xl border p-4 bg-white transition-all ${
-                                bid.status === 'ACCEPTED' ? 'border-green-300 shadow-sm' : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-primary-bg text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                                    {bid.contractorName?.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <p
-                                      onClick={() => navigate(`/contractor/${bid.contractorId}`)}
-                                      className="font-bold text-gray-900 text-sm cursor-pointer hover:underline hover:text-primary"
-                                    >
-                                      {bid.contractorName}
-                                    </p>
-                                    <p className="text-xs text-gray-400">SĐT: {bid.contractorPhone}</p>
-                                  </div>
-                                  {bid.status === 'ACCEPTED' && (
-                                    <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                      ✓ Đã chọn
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                <div className="text-right shrink-0">
-                                  <p className="font-extrabold text-primary text-base sm:text-lg">{fmt(bid.quotedPrice)}</p>
-                                  <p className="text-xs text-gray-400 font-semibold">{bid.estimatedDays} ngày sản xuất</p>
-                                </div>
-                              </div>
-
-                              {bid.proposal && (
-                                <p className="text-xs text-gray-500 bg-gray-50/50 rounded-xl p-3 mb-3 leading-relaxed border border-gray-100/50">
-                                  <strong>Giải pháp thi công:</strong> "{bid.proposal}"
-                                </p>
-                              )}
-
-                              {/* Bảng chi tiết hạng mục báo thầu */}
-                              {bid.items?.length > 0 && (
-                                <div className="overflow-x-auto rounded-xl border border-gray-100 mb-3 shadow-sm">
-                                  <table className="w-full text-xs">
-                                    <thead className="bg-gray-50 text-gray-500 font-bold">
-                                      <tr>
-                                        <th className="text-left px-3 py-2">Hạng mục sản xuất</th>
-                                        <th className="text-center px-2 py-2">Số lượng</th>
-                                        <th className="text-right px-2 py-2">Đơn giá</th>
-                                        <th className="text-right px-3 py-2">Thành tiền</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50 text-gray-700">
-                                      {bid.items.map((it, i) => (
-                                        <tr key={i} className="hover:bg-gray-50/50">
-                                          <td className="px-3 py-2 font-medium">{it.itemName}</td>
-                                          <td className="px-2 py-2 text-center text-gray-500 font-semibold">{it.quantity} {it.unit}</td>
-                                          <td className="px-2 py-2 text-right text-gray-500">{fmt(it.unitPrice)}</td>
-                                          <td className="px-3 py-2 text-right font-bold text-primary">{fmt(it.totalPrice)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                    <tfoot className="bg-primary-bg font-bold">
-                                      <tr>
-                                        <td colSpan={3} className="px-3 py-2 text-right text-gray-700">Tổng cộng giá thầu:</td>
-                                        <td className="px-3 py-2 text-right text-primary font-black text-xs sm:text-sm">{fmt(bid.quotedPrice)}</td>
-                                      </tr>
-                                    </tfoot>
-                                  </table>
-                                </div>
-                              )}
-
-                              {/* Hành động chấp nhận thầu */}
-                              {bid.status === 'PENDING' && o.status === 'OPEN_BIDDING' && (
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleAcceptBid(o.id, bid.id)}
-                                    disabled={accepting === bid.id}
-                                    className="flex items-center gap-1.5 bg-primary hover:bg-primary-light text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm disabled:opacity-50"
-                                  >
-                                    <CheckCircle size={13}/>
-                                    {accepting === bid.id ? 'Đang lập HĐ...' : 'Chọn nhà thầu & Ký kết'}
-                                  </button>
-                                  <button
-                                    onClick={() => navigate(`/contractor/${bid.contractorId}`)}
-                                    className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-bold bg-white px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-                                  >
-                                    Xem hồ sơ năng lực
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── CHI TIẾT ĐƠN HÀNG MỞ RỘNG (EXPANDED DETAIL) ── */}
-                  {isExp && (
-                    <div className="border-t border-gray-100 p-5 bg-gray-50/20">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-xs sm:text-sm text-gray-600">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Địa chỉ giao nhận hàng</p>
-                          <p className="text-gray-800 font-medium">{o.deliveryAddress}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Số điện thoại liên hệ</p>
-                          <p className="text-gray-800 font-medium">{o.contactPhone}</p>
-                        </div>
-                        
-                        {o.customRequirements && (
-                          <div className="sm:col-span-2 bg-amber-50/50 border border-amber-100 rounded-xl p-3.5 mt-2">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1 flex items-center gap-1">
-                              <Info size={11} /> Yêu cầu kỹ thuật & Thiết kế riêng
-                            </p>
-                            <p className="text-amber-900 text-xs whitespace-pre-wrap font-medium leading-relaxed">{o.customRequirements}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Bảng kê sản phẩm chi tiết trong đơn */}
-                      <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm bg-white">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gray-50 text-gray-500 font-bold">
-                            <tr>
-                              <th className="text-left px-4 py-2">Sản phẩm nội thất</th>
-                              <th className="text-center px-3 py-2">Số lượng</th>
-                              <th className="text-right px-4 py-2">Tổng giá trị</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50 text-gray-700">
-                            {o.items?.map((item, i) => (
-                              <tr key={i} className="hover:bg-gray-50/30">
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center gap-3">
-                                    {item.imageUrl && (
-                                      <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-gray-150 shrink-0"/>
-                                    )}
-                                    <div>
-                                      <p className="font-semibold text-gray-850">{item.itemName}</p>
-                                      {item.customNote && <p className="text-gray-400 text-[10px] mt-0.5">📝 Ghi chú: {item.customNote}</p>}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-3 text-center text-gray-550 font-bold">{item.quantity}</td>
-                                <td className="px-4 py-3 text-right font-black text-primary">
-                                  {activeTab === 'custom' && (o.status === 'PENDING' || o.status === 'OPEN_BIDDING')
-                                    ? 'Chờ báo giá'
-                                    : fmt(item.subtotal)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {activeMainTab === 'orders' && (
+          <OrderList orders={orders} contracts={contracts} loading={loadingOrders} onSelect={setSelectedOrder} onRefresh={fetchOrders}/>
+        )}
+        {activeMainTab === 'projects' && (
+          <ProjectList projects={projects} loading={loadingProjects} onSelect={setSelectedProject} onRefresh={fetchProjects} isContractor={isContractor}/>
         )}
       </div>
     </Layout>
-
-    {/* MODAL: Đánh giá nhà thầu của đơn Custom (nếu không có Contract) */}
-    {reviewModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
-          <h3 className="font-bold text-gray-950 text-lg mb-1 flex items-center gap-2">
-            <Star size={18} className="text-amber-500"/> Đánh giá nhà thầu
-          </h3>
-          <p className="text-xs text-gray-500 mb-5">Đơn đặt hàng thiết kế riêng: <span className="font-mono font-bold text-gray-700">{reviewModal.orderCode}</span></p>
-
-          {/* Star rating */}
-          <div className="mb-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Số sao đánh giá chung</p>
-            <div className="flex gap-1.5">
-              {[1,2,3,4,5].map(s => (
-                <button
-                  key={s}
-                  onClick={() => setReviewData(d => ({...d, rating: s}))}
-                  className={`text-3xl transition-transform hover:scale-110 ${s <= reviewData.rating ? 'text-amber-400' : 'text-gray-200'}`}
-                >
-                  ★
-                </button>
-              ))}
-              <span className="ml-3 text-sm font-extrabold text-amber-600 self-center">{reviewData.rating}/5 sao</span>
-            </div>
-          </div>
-
-          {/* Comment */}
-          <div className="mb-5">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nhận xét chi tiết</p>
-            <textarea
-              rows={4}
-              value={reviewData.comment}
-              onChange={e => setReviewData(d => ({...d, comment: e.target.value}))}
-              placeholder="Chia sẻ nhận xét thực tế về tay nghề, chất lượng gỗ, mức độ hoàn thiện sản phẩm..."
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-primary resize-none transition-all focus:ring-2 focus:ring-primary/10"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setReviewModal(null)}
-              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-650 text-xs font-bold hover:bg-gray-50 transition-colors"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSubmitReview}
-              disabled={submittingReview}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5"
-            >
-              {submittingReview ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" />
-                  Đang gửi...
-                </>
-              ) : (
-                <>
-                  <Star size={13}/> Gửi đánh giá
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    </>
   );
 }

@@ -45,12 +45,32 @@ export default function CreateProjectPage() {
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
 
+  const [wallet, setWallet] = useState(null);
+  const [minProjectBalance, setMinProjectBalance] = useState(0);
+
   useEffect(() => {
     fetch('https://provinces.open-api.vn/api/p/')
       .then(res => res.json())
       .then(data => setProvinces(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // Fetch wallet
+    api.get('/wallet')
+      .then(res => setWallet(res.data.data))
+      .catch(() => {});
+
+    // Fetch public settings for min balance
+    api.get('/public/settings')
+      .then(res => {
+        setMinProjectBalance(res.data.data?.minCustomerBalanceToProject || 0);
+      })
+      .catch(() => {});
+  }, []);
+
+  const availableBalance = wallet ? (wallet.balance - wallet.lockedAmount) : 0;
+  const hasEnoughBalance = !minProjectBalance || (availableBalance >= minProjectBalance);
 
   const handleCityChange = (e) => {
     const cityName = e.target.value;
@@ -162,6 +182,13 @@ export default function CreateProjectPage() {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) { toast.error('Vui lòng nhập tên dự án'); setStep(1); return; }
+
+    // Check wallet balance
+    if (minProjectBalance > 0 && !hasEnoughBalance) {
+      toast.error(`Số dư khả dụng của bạn (${fmt(availableBalance)}) không đủ. Yêu cầu tối thiểu ${fmt(minProjectBalance)} để đăng dự án.`);
+      return;
+    }
+
     setLoading(true);
     try {
       let uploadedImageUrls = [];
@@ -210,7 +237,7 @@ export default function CreateProjectPage() {
       navigate('/projects');
     } catch {
       toast.dismiss('upload-project-images');
-      toast.error('Lỗi khi tạo dự án, vui lòng thử lại');
+      toast.error('Lỗi khi tạo dự án, vui lòng thử lại1');
     } finally {
       setLoading(false);
     }
@@ -224,6 +251,19 @@ export default function CreateProjectPage() {
   return (
     <Layout title="Tạo dự án mới">
       <div className="max-w-3xl mx-auto">
+
+        {/* Warning: số dư ví không đủ */}
+        {wallet && minProjectBalance > 0 && !hasEnoughBalance && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex gap-3 text-red-800 shadow-sm animate-pulse">
+            <Info size={20} className="shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1">
+              <p className="font-bold">Cảnh báo: Số dư ví khả dụng của bạn không đủ để đăng dự án!</p>
+              <p>Số dư ví khả dụng hiện tại: <span className="font-bold">{fmt(availableBalance)}</span></p>
+              <p>Số dư tối thiểu yêu cầu để đăng dự án: <span className="font-bold">{fmt(minProjectBalance)}</span></p>
+              <p className="text-red-750 font-medium">Vui lòng nạp thêm tiền vào ví trước khi gửi đăng dự án thầu này.</p>
+            </div>
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="flex items-center justify-between mb-8 px-2">
