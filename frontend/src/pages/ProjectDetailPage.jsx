@@ -5,7 +5,8 @@ import {
   MapPin, Clock, Construction, DollarSign, ArrowLeft,
   Tag, User as UserIcon, MessageSquare, CheckCircle,
   ChevronDown, ChevronUp, AlertCircle, FileText,
-  Star, Calendar, Banknote, Eye, EyeOff, XCircle
+  Star, Calendar, Banknote, Eye, EyeOff, XCircle, Loader2,
+  Phone, Mail, Building
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -40,6 +41,37 @@ export default function ProjectDetailPage() {
   const [showBids, setShowBids] = useState(false);
   const [expandedBid, setExpandedBid] = useState(null);
   const [accepting, setAccepting] = useState(null);
+
+  // ── Contractor Profile Modal (giống OrdersPage) ──────────────────────────
+  const [profileModal, setProfileModal]   = useState(null); // contractorId
+  const [profileData, setProfileData]     = useState(null);
+  const [profileWorks, setProfileWorks]   = useState([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleOpenProfile = async (contractorId) => {
+    setProfileModal(contractorId);
+    setLoadingProfile(true);
+    setProfileData(null);
+    setProfileWorks([]);
+    try {
+      const [profileRes, worksRes] = await Promise.all([
+        api.get(`/public/contractor-profile/${contractorId}`),
+        api.get(`/portfolio/contractor/${contractorId}`),
+      ]);
+      setProfileData(profileRes.data.data);
+      setProfileWorks(worksRes.data.data || []);
+    } catch {
+      toast.error('Không thể tải hồ sơ năng lực nhà thầu');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  // Kiểm tra nhà thầu trong modal đã được chọn (bid ACCEPTED) chưa
+  const isProfileAccepted = () => {
+    if (!profileData) return false;
+    return bids.some(b => b.contractorId === profileData.id && b.status === 'ACCEPTED');
+  };
 
   // --- Contractor Bidding States ---
   const [myBid, setMyBid] = useState(null);
@@ -425,13 +457,17 @@ export default function ProjectDetailPage() {
                         <div className="p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-primary-bg text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                                {bid.contractorName?.charAt(0) || 'C'}
+                              <div className="w-10 h-10 rounded-full bg-primary-bg text-primary flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden border border-gray-100">
+                                {bid.contractorAvatar
+                                  ? <img src={bid.contractorAvatar} alt="" className="w-full h-full object-cover"/>
+                                  : bid.contractorName?.charAt(0) || 'C'
+                                }
                               </div>
                               <div>
-                                <p onClick={() => navigate(`/contractor/${bid.contractorId}`)}
-                                   className="font-semibold text-gray-900 text-sm cursor-pointer hover:underline hover:text-primary">
+                                <p onClick={() => handleOpenProfile(bid.contractorId)}
+                                   className="font-semibold text-gray-900 text-sm cursor-pointer hover:underline hover:text-primary flex items-center gap-1">
                                   {bid.contractorName}
+                                  <Star size={11} className="text-primary opacity-60"/>
                                 </p>
                                 <p className="text-xs text-gray-500">{bid.contractorPhone || bid.contractorEmail}</p>
                               </div>
@@ -462,8 +498,16 @@ export default function ProjectDetailPage() {
                               {expandedBid === bid.id ? <><ChevronUp size={13}/> Ẩn chi tiết</> : <><Eye size={13}/> Xem chi tiết</>}
                             </button>
 
-                            {bid.status === 'PENDING' && isOwner && project.status === 'OPEN' && (
-                              <div className="flex gap-2">
+                            <div className="flex gap-2">
+                              {/* Nút Xem hồ sơ — luôn hiện với mọi bid */}
+                              <button
+                                onClick={() => handleOpenProfile(bid.contractorId)}
+                                className="flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-bold px-3 py-2 rounded-xl hover:bg-gray-50 hover:border-primary hover:text-primary transition-all"
+                              >
+                                <Star size={12}/> Xem hồ sơ
+                              </button>
+
+                              {bid.status === 'PENDING' && isOwner && project.status === 'OPEN' && (
                                 <button
                                   onClick={() => handleAcceptBid(bid.id)}
                                   disabled={accepting === bid.id}
@@ -472,14 +516,8 @@ export default function ProjectDetailPage() {
                                   <CheckCircle size={13} />
                                   {accepting === bid.id ? 'Đang xử lý...' : 'Chấp nhận'}
                                 </button>
-                                <button
-                                  onClick={() => navigate(`/contractor/${bid.contractorId}`)}
-                                  className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-                                >
-                                  Xem hồ sơ
-                                </button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
 
                           {/* Expanded detail */}
@@ -540,8 +578,7 @@ export default function ProjectDetailPage() {
 
       {/* --- CONTRACTOR BIDDING MODAL --- */}
       {showBidModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-6 my-8 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-6 my-8 space-y-5">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold font-display text-gray-900">Gửi báo giá thầu thi công</h2>
               <button
@@ -689,6 +726,166 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+
+      {/* --- CONTRACTOR PROFILE MODAL --- */}
+      {profileModal && (
+        <ContractorProfileModal
+          contractorId={profileModal}
+          profileData={profileData}
+          profileWorks={profileWorks}
+          loading={loadingProfile}
+          bids={bids}
+          onClose={() => { setProfileModal(null); setProfileData(null); setProfileWorks([]); }}
+          fmt={fmt}
+        />
+      )}
     </Layout>
+  );
+} 
+
+/* ── Contractor Profile Modal — dùng chung cho cả ProjectDetailPage ── */
+function ContractorProfileModal({ contractorId, profileData, profileWorks, loading, bids, onClose, fmt }) {
+  const isAccepted = bids.some(b => b.contractorId === contractorId && b.status === 'ACCEPTED');
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto space-y-6 my-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <div className="w-8 h-8 border-3 border-[#1a4f3a] border-t-transparent rounded-full animate-spin mb-3"/>
+            <p className="text-xs">Đang tải hồ sơ nhà thầu...</p>
+          </div>
+        ) : profileData ? (
+          <>
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                {profileData.logoUrl ? (
+                  <img src={profileData.logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover border border-gray-100"/>
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-[#e8f5ee] text-[#1a4f3a] flex items-center justify-center font-bold text-lg">
+                    {profileData.companyName?.charAt(0) || 'C'}
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-base">{profileData.companyName}</h3>
+                  <p className="text-xs text-gray-400">Năm thành lập: {profileData.yearEstablished || '2020'}</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm">✕</button>
+            </div>
+
+            {/* Thông tin liên hệ */}
+            <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div>
+                <span className="text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Số điện thoại</span>
+                <span className="font-bold text-gray-800">{isAccepted ? (profileData.phoneNumber || '—') : '••••••••'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Email</span>
+                <span className="font-bold text-gray-800">{isAccepted ? (profileData.email || '—') : '••••••••'}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Địa chỉ thi công</span>
+                <span className="font-bold text-gray-800">{isAccepted ? (profileData.address || '—') : '••••••••'}</span>
+              </div>
+              {!isAccepted && (
+                <div className="col-span-2">
+                  <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 font-semibold">
+                    🔒 Thông tin liên lạc hiển thị sau khi chấp nhận báo giá
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Giới thiệu */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Giới thiệu ngắn</p>
+              <p className="text-sm text-gray-700 leading-relaxed font-semibold italic bg-green-50/50 p-4 rounded-xl border border-green-100">
+                "{profileData.shortIntro || 'Chuyên thiết kế và thi công nội thất nhà ở, căn hộ, văn phòng.'}"
+              </p>
+            </div>
+
+            {/* Lĩnh vực & Cam kết */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Lĩnh vực hoạt động</p>
+                <div className="space-y-1 text-xs">
+                  {profileData.designInterior    && <p className="text-[#1a4f3a] font-semibold">☑ Thiết kế nội thất</p>}
+                  {profileData.constructInterior && <p className="text-[#1a4f3a] font-semibold">☑ Thi công nội thất</p>}
+                  {profileData.produceWood       && <p className="text-[#1a4f3a] font-semibold">☑ Sản xuất đồ gỗ</p>}
+                  {profileData.renovateHouse     && <p className="text-[#1a4f3a] font-semibold">☑ Cải tạo nhà ở</p>}
+                  {!profileData.designInterior && !profileData.constructInterior && !profileData.produceWood && !profileData.renovateHouse && (
+                    <p className="text-gray-400 italic">Chưa cập nhật</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Chính sách cam kết</p>
+                <div className="space-y-1 text-xs">
+                  {profileData.warranty24Months && <p className="text-blue-700 font-semibold">✔ Bảo hành 24 tháng</p>}
+                  {profileData.freeQuote        && <p className="text-blue-700 font-semibold">✔ Báo giá miễn phí</p>}
+                  {profileData.onTimeProgress   && <p className="text-blue-700 font-semibold">✔ Thi công đúng tiến độ</p>}
+                  {!profileData.warranty24Months && !profileData.freeQuote && !profileData.onTimeProgress && (
+                    <p className="text-gray-400 italic">Chưa cập nhật</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Thống kê năng lực */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Thống kê năng lực</p>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                {[
+                  { label: 'Kinh nghiệm', value: `${profileData.experienceYears || 0} năm` },
+                  { label: 'Dự án thầu',  value: profileData.completedProjectsCount || 0 },
+                  { label: 'Khách hàng',  value: profileData.customerCount || '—' },
+                  { label: 'Đánh giá',    value: `★ ${profileData.rating?.toFixed(1) || '5.0'}`, amber: true },
+                ].map(s => (
+                  <div key={s.label} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                    <p className="text-[9px] text-gray-400 font-bold uppercase">{s.label}</p>
+                    <p className={`font-extrabold text-sm mt-1 ${s.amber ? 'text-amber-500' : 'text-gray-800'}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Công trình tiêu biểu */}
+            {profileWorks.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Công trình tiêu biểu</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {profileWorks.slice(0, 4).map(w => (
+                    <div key={w.id} className="bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                      {w.imageUrl && <img src={w.imageUrl} alt={w.title} className="w-full h-24 object-cover"/>}
+                      <div className="p-3">
+                        <p className="text-[9px] font-bold text-[#1a4f3a] uppercase">{w.category || 'Công trình'}</p>
+                        <p className="font-bold text-gray-900 text-xs mt-0.5 line-clamp-1">{w.title}</p>
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                          <span>📅 {w.completionYear || '2024'}</span>
+                          {w.projectValue && <span className="font-bold text-[#1a4f3a]">{fmt(w.projectValue)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-gray-100 flex justify-end">
+              <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-[#1a4f3a] text-white text-sm font-bold hover:bg-[#163b2d] transition-all">
+                Đóng hồ sơ
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            <p>Nhà thầu này chưa cập nhật hồ sơ năng lực</p>
+            <button onClick={onClose} className="mt-4 px-5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Đóng</button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

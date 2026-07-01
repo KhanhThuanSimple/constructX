@@ -267,9 +267,11 @@ public class ContractService {
         Contract saved = contractRepository.save(contract);
 
         notificationService.createNotification(customer, Notification.NotifType.SYSTEM,
-                "Hợp đồng " + contractNum + " đã có hiệu lực! Đã khóa escrow " + fmtVnd(depositAmt) + ". Nhà thầu bắt đầu thi công.");
+                "Hợp đồng " + contractNum + " đã có hiệu lực! Đã khóa escrow " + fmtVnd(depositAmt) + ". Nhà thầu bắt đầu thi công.",
+                "/contracts/" + saved.getId() + "/progress");
         notificationService.createNotification(bid.getContractor(), Notification.NotifType.SYSTEM,
-                "🎉 Báo giá được chọn! Hợp đồng " + contractNum + " (" + fmtVnd(bid.getTotalPrice()) + ") đã ACTIVE. Bắt đầu thi công.");
+                "🎉 Báo giá được chọn! Hợp đồng " + contractNum + " (" + fmtVnd(bid.getTotalPrice()) + ") đã ACTIVE. Bắt đầu thi công.",
+                "/contracts/" + saved.getId() + "/progress");
 
         return toResponse(saved);
     }
@@ -480,10 +482,12 @@ public class ContractService {
         contractRepository.save(c);
 
         notificationService.createNotification(c.getClient(), Notification.NotifType.PAYMENT_SUCCESS,
-                "HD " + c.getContractNumber() + " hoan thanh! Nha thau nhan 95%% ngay. 5%% bao hanh giu " + WARRANTY_MONTHS + " thang.");
+                "HD " + c.getContractNumber() + " hoan thanh! Nha thau nhan 95%% ngay. 5%% bao hanh giu " + WARRANTY_MONTHS + " thang.",
+                "/contracts/" + saved.getId() + "/progress");
         notificationService.createNotification(c.getContractor(), Notification.NotifType.PAYMENT_SUCCESS,
                 "HD " + c.getContractNumber() + " hoan thanh! Nhan " + fmtVnd(immediateAmt) + " ngay. " +
-                fmtVnd(warrantyAmt) + " bao hanh giu den " + c.getWarrantyEndDate().toLocalDate() + ".");
+                fmtVnd(warrantyAmt) + " bao hanh giu den " + c.getWarrantyEndDate().toLocalDate() + ".",
+                "/contracts/" + saved.getId() + "/progress");
         return toResponse(c);
     }
 
@@ -522,9 +526,11 @@ public class ContractService {
         contractRepository.save(c);
 
         notificationService.createNotification(c.getContractor(), Notification.NotifType.PAYMENT_SUCCESS,
-                "✅ Da giai ngan " + fmtVnd(warrantyAmt) + " tien bao hanh HD " + c.getContractNumber() + ". Bao hanh ket thuc.");
+                "✅ Da giai ngan " + fmtVnd(warrantyAmt) + " tien bao hanh HD " + c.getContractNumber() + ". Bao hanh ket thuc.",
+                "/contracts/" + c.getId() + "/disbursements");
         notificationService.createNotification(c.getClient(), Notification.NotifType.SYSTEM,
-                "Tien bao hanh HD " + c.getContractNumber() + " da duoc giai ngan cho nha thau sau " + WARRANTY_MONTHS + " thang bao hanh.");
+                "Tien bao hanh HD " + c.getContractNumber() + " da duoc giai ngan cho nha thau sau " + WARRANTY_MONTHS + " thang bao hanh.",
+                "/contracts/" + c.getId() + "/progress");
         return toResponse(c);
     }
 

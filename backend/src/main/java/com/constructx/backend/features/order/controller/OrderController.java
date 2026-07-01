@@ -39,6 +39,22 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.ok(orderService.getMyOrders()));
     }
 
+    /** GET /api/orders/history — lịch sử đơn hàng đã hoàn thành / hủy của khách hàng */
+    @GetMapping("/api/orders/history")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyOrderHistory() {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.getMyOrderHistory()));
+    }
+
+    /** GET /api/orders/contractor-history — lịch sử đơn hàng đã hoàn thành của nhà thầu */
+    @GetMapping("/api/orders/contractor-history")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getContractorOrderHistory() {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(orderService.getContractorOrderHistory()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     /** GET /api/orders/{id} — chi tiết đơn hàng */
     @GetMapping("/api/orders/{id}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Long id) {
@@ -113,6 +129,12 @@ public class OrderController {
             @RequestParam(defaultValue = "all") String status
     ) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.getAllOrders(status)));
+    }
+
+    /** GET /api/admin/orders/history — lịch sử tất cả đơn hàng đã hoàn thành */
+    @GetMapping("/api/admin/orders/history")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getCompletedOrdersAdmin() {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.getCompletedOrdersAdmin()));
     }
 
     /** PUT /api/admin/orders/{id}/status — cập nhật trạng thái */

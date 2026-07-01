@@ -46,14 +46,20 @@ public class PublicCatalogController {
 
     /**
      * GET /api/public/settings
-     * Returns public settings (wallet limits, etc.).
+     * Returns public settings (wallet limits, feature flags).
+     * No auth required — used by frontend to show/hide UI elements.
      */
     @GetMapping("/settings")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getPublicSettings() {
         return ResponseEntity.ok(ApiResponse.ok(Map.of(
-            "minCustomerBalanceToOrder", featureFlagService.getMinCustomerBalanceToOrder(),
-            "minCustomerBalanceToProject", featureFlagService.getMinCustomerBalanceToProject(),
-            "minContractorBalanceToBid", featureFlagService.getMinContractorBalanceToBid()
+            "minCustomerBalanceToOrder",        featureFlagService.getMinCustomerBalanceToOrder(),
+            "minCustomerBalanceToProject",      featureFlagService.getMinCustomerBalanceToProject(),
+            "minContractorBalanceToBid",        featureFlagService.getMinContractorBalanceToBid(),
+            "vnpayEnabled",                     featureFlagService.isVnpayEnabled(),
+            "chatEnabled",                      featureFlagService.isChatEnabled(),
+            "orderApprovalRequired",            featureFlagService.isOrderApprovalRequired(),
+            "projectApprovalRequired",          featureFlagService.isProjectApprovalRequired(),
+            "disbursementAdminApprovalRequired", featureFlagService.isDisbursementAdminApprovalRequired()
         )));
     }
 }

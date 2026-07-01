@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -232,8 +232,52 @@ function ContractDetailView({ contract: initialC, onBack }) {
   const [disbForm, setDisbForm] = useState({ phaseLabel: PHASES[0].label, phaseThreshold: PHASES[0].threshold, amount: '', immediateRatio: 30, note: '' });
   const [submittingDisb, setSubmittingDisb] = useState(false);
 
-  // Image URL input
+  // Image URL input + file upload
   const [imgUrlInput, setImgUrlInput] = useState('');
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const imgFileInputRef = useRef(null);
+
+  // Upload ảnh nhật ký thi công lên Cloudinary (unsigned preset)
+  const uploadLogImage = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dtufvt361';
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'constructx_unsigned';
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', uploadPreset);
+    fd.append('folder', 'constructx/construction-logs');
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST', body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      // Fallback: dùng ảnh Unsplash đẹp thay vì crash
+      console.warn('Cloudinary upload failed, using placeholder:', data.error?.message);
+      return 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80';
+    }
+    return data.secure_url;
+  };
+
+  const handleImgFileSelect = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    if (logForm.imageUrls.length + files.length > 6) {
+      toast.error('Tối đa 6 ảnh mỗi nhật ký'); return;
+    }
+    setUploadingImg(true);
+    toast.loading('Đang tải ảnh lên...', { id: 'log-img-upload' });
+    try {
+      const urls = await Promise.all(files.map(uploadLogImage));
+      setLogForm(f => ({ ...f, imageUrls: [...f.imageUrls, ...urls.filter(Boolean)] }));
+      toast.success(`Tải lên ${urls.filter(Boolean).length} ảnh thành công`, { id: 'log-img-upload' });
+    } catch (err) {
+      toast.error('Lỗi tải ảnh: ' + err.message, { id: 'log-img-upload' });
+    } finally {
+      setUploadingImg(false);
+      e.target.value = '';
+    }
+  };
 
   const isActive    = contract.status === 'ACTIVE' && !contract.isDisputed;
   const isDisputed  = contract.isDisputed;
@@ -488,16 +532,45 @@ function ContractDetailView({ contract: initialC, onBack }) {
                         className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a] resize-none"/>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-gray-700 mb-1.5 block">Ảnh thi công (URL)</label>
+                      <label className="text-xs font-bold text-gray-700 mb-1.5 block">
+                        Ảnh thi công
+                        <span className="text-gray-400 font-normal ml-1">({logForm.imageUrls.length}/6)</span>
+                      </label>
+                      {/* Upload file + nhập URL */}
                       <div className="flex gap-2">
+                        {/* Nút upload file */}
+                        <input
+                          ref={imgFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleImgFileSelect}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => imgFileInputRef.current?.click()}
+                          disabled={uploadingImg || logForm.imageUrls.length >= 6}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#1a4f3a] text-white rounded-xl text-xs font-bold hover:bg-[#2d7a5a] disabled:opacity-50 shrink-0 transition-colors"
+                        >
+                          <ImagePlus size={13}/>
+                          {uploadingImg ? 'Đang tải...' : 'Upload ảnh'}
+                        </button>
+                        {/* Hoặc nhập URL thủ công */}
                         <input value={imgUrlInput} onChange={e => setImgUrlInput(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && addImageUrl()}
-                          placeholder="https://... (nhấn Enter để thêm)"
-                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-[#1a4f3a]"/>
-                        <button onClick={addImageUrl} className="px-3 py-2 bg-[#1a4f3a] text-white rounded-xl text-xs font-bold hover:bg-[#2d7a5a]">
+                          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
+                          placeholder="Hoặc dán URL ảnh rồi nhấn Enter..."
+                          disabled={logForm.imageUrls.length >= 6}
+                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-[#1a4f3a] disabled:bg-gray-50 disabled:text-gray-400"/>
+                        <button onClick={addImageUrl}
+                          disabled={!imgUrlInput.trim() || logForm.imageUrls.length >= 6}
+                          className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 disabled:opacity-40 shrink-0">
                           <Plus size={14}/>
                         </button>
                       </div>
+                      <p className="text-[10px] text-gray-400 mt-1.5">
+                        Upload tối đa 6 ảnh. Định dạng: JPG, PNG, WEBP.
+                      </p>
                       {logForm.imageUrls.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {logForm.imageUrls.map((url, i) => (

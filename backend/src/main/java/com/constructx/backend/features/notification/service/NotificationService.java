@@ -45,6 +45,11 @@ public class NotificationService {
 
     @Transactional
     public void createNotification(User user, Notification.NotifType type, String content) {
+        createNotification(user, type, content, null);
+    }
+
+    @Transactional
+    public void createNotification(User user, Notification.NotifType type, String content, String actionUrl) {
         if (user == null || content == null || content.isBlank()) {
             return;
         }
@@ -54,6 +59,7 @@ public class NotificationService {
                 .type(type == null ? Notification.NotifType.SYSTEM : type)
                 .content(content.trim())
                 .isRead(false)
+                .actionUrl(actionUrl)
                 .build();
 
         notificationRepository.save(notification);
@@ -61,6 +67,11 @@ public class NotificationService {
 
     @Transactional
     public void createNotificationForAdmins(Notification.NotifType type, String content) {
+        createNotificationForAdmins(type, content, null);
+    }
+
+    @Transactional
+    public void createNotificationForAdmins(Notification.NotifType type, String content, String actionUrl) {
         if (content == null || content.isBlank()) {
             return;
         }
@@ -69,7 +80,7 @@ public class NotificationService {
 
         for (User admin : admins) {
             if (admin.isActive()) {
-                createNotification(admin, type, content);
+                createNotification(admin, type, content, actionUrl);
             }
         }
     }

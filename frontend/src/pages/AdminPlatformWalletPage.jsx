@@ -27,6 +27,7 @@ const AdminPlatformWalletPage = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawDescription, setWithdrawDescription] = useState('');
   const [submittingWithdraw, setSubmittingWithdraw] = useState(false);
+  const [bankInfo, setBankInfo] = useState({ bankName: '', accountNumber: '', accountName: '' });
 
   useEffect(() => {
     fetchPlatformWalletData();
@@ -62,12 +63,22 @@ const AdminPlatformWalletPage = () => {
       toast.error('Số dư ví nền tảng không đủ để thực hiện giao dịch này');
       return;
     }
+    if (!bankInfo.bankName || !bankInfo.accountNumber || !bankInfo.accountName) {
+      toast.error('Vui lòng điền đầy đủ thông tin ngân hàng nhận tiền');
+      return;
+    }
+
+    // Ghép thông tin ngân hàng vào description để lưu trữ
+    const fullDescription = [
+      withdrawDescription.trim() || 'Rút lợi tức nền tảng ConstructX',
+      `NH: ${bankInfo.bankName} | STK: ${bankInfo.accountNumber} | CTK: ${bankInfo.accountName.toUpperCase()}`,
+    ].join(' — ');
 
     setSubmittingWithdraw(true);
     try {
       const response = await api.post('/wallet/admin/platform-wallet/withdraw', {
         amount,
-        description: withdrawDescription.trim(),
+        description: fullDescription,
       });
       
       if (response.data.success) {
@@ -75,15 +86,14 @@ const AdminPlatformWalletPage = () => {
         setShowWithdrawModal(false);
         setWithdrawAmount('');
         setWithdrawDescription('');
-        // Reload data
+        setBankInfo({ bankName: '', accountNumber: '', accountName: '' });
         fetchPlatformWalletData();
       } else {
         toast.error(response.data.message || 'Rút tiền thất bại');
       }
     } catch (error) {
       console.error('Error executing platform withdraw:', error);
-      const errMsg = error.response?.data?.message || 'Lỗi hệ thống khi rút tiền';
-      toast.error(errMsg);
+      toast.error(error.response?.data?.message || 'Lỗi hệ thống khi rút tiền');
     } finally {
       setSubmittingWithdraw(false);
     }
@@ -327,12 +337,12 @@ const AdminPlatformWalletPage = () => {
                   </h2>
                 </div>
                 <button
-                  type="button"
-                  onClick={() => setShowWithdrawModal(false)}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition-all"
-                >
-                  Đóng
-                </button>
+                    type="button"
+                    onClick={() => { setShowWithdrawModal(false); setBankInfo({ bankName: '', accountNumber: '', accountName: '' }); }}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition-all"
+                  >
+                    Đóng
+                  </button>
               </div>
 
               {/* Modal Body */}
@@ -366,7 +376,85 @@ const AdminPlatformWalletPage = () => {
                   )}
                 </div>
 
-                {/* Description decree */}
+                {/* Bank info section */}
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                  <p className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+                    Thông tin ngân hàng nhận tiền
+                  </p>
+
+                  {/* Bank name select */}
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                      Ngân hàng <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={bankInfo.bankName}
+                      onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 font-semibold outline-none focus:border-[#1a4f3a] focus:ring-2 focus:ring-[#1a4f3a]/10 transition-all"
+                    >
+                      <option value="">-- Chọn ngân hàng --</option>
+                      <option value="Vietcombank">Vietcombank (VCB)</option>
+                      <option value="Vietinbank">Vietinbank (CTG)</option>
+                      <option value="BIDV">BIDV</option>
+                      <option value="Agribank">Agribank</option>
+                      <option value="Techcombank">Techcombank (TCB)</option>
+                      <option value="MB Bank">MB Bank</option>
+                      <option value="ACB">ACB</option>
+                      <option value="VPBank">VPBank</option>
+                      <option value="TPBank">TPBank</option>
+                      <option value="SHB">SHB</option>
+                      <option value="HDBank">HDBank</option>
+                      <option value="OCB">OCB</option>
+                      <option value="Sacombank">Sacombank</option>
+                      <option value="VIB">VIB</option>
+                      <option value="MSB">MSB</option>
+                    </select>
+                  </div>
+
+                  {/* Account number */}
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                      Số tài khoản <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankInfo.accountNumber}
+                      onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value.replace(/\D/g, '') })}
+                      placeholder="Nhập số tài khoản..."
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 font-bold outline-none focus:border-[#1a4f3a] focus:ring-2 focus:ring-[#1a4f3a]/10 transition-all font-mono tracking-wider"
+                    />
+                  </div>
+
+                  {/* Account name */}
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                      Tên chủ tài khoản <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankInfo.accountName}
+                      onChange={(e) => setBankInfo({ ...bankInfo, accountName: e.target.value.toUpperCase() })}
+                      placeholder="NGUYEN VAN A"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none focus:border-[#1a4f3a] focus:ring-2 focus:ring-[#1a4f3a]/10 transition-all"
+                    />
+                  </div>
+
+                  {/* Preview */}
+                  {bankInfo.bankName && bankInfo.accountNumber && bankInfo.accountName && (
+                    <div className="rounded-xl bg-white border border-blue-200 px-3 py-2.5 text-[10px] text-slate-600 space-y-0.5">
+                      <p className="font-black text-blue-700 mb-1">Xác nhận thông tin chuyển khoản:</p>
+                      <p>🏦 <strong>{bankInfo.bankName}</strong></p>
+                      <p>📋 STK: <strong className="font-mono">{bankInfo.accountNumber}</strong></p>
+                      <p>👤 CTK: <strong>{bankInfo.accountName}</strong></p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-black text-slate-700 uppercase tracking-wide">
                     Ghi chú / Nội dung rút tiền
@@ -374,8 +462,8 @@ const AdminPlatformWalletPage = () => {
                   <textarea
                     value={withdrawDescription}
                     onChange={(e) => setWithdrawDescription(e.target.value)}
-                    rows={3}
-                    placeholder="Ghi chú mục đích rút tiền lợi tức (ví dụ: Chuyển khoản lợi tức tháng 6 về tài khoản công ty)..."
+                    rows={2}
+                    placeholder="Ghi chú mục đích (ví dụ: Lợi tức tháng 6/2026)..."
                     className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-800 leading-relaxed outline-none focus:border-[#1a4f3a] focus:ring-2 focus:ring-[#1a4f3a]/15 transition-all"
                   />
                 </div>
@@ -392,7 +480,7 @@ const AdminPlatformWalletPage = () => {
                 <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setShowWithdrawModal(false)}
+                    onClick={() => { setShowWithdrawModal(false); setBankInfo({ bankName: '', accountNumber: '', accountName: '' }); }}
                     className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
                   >
                     Hủy bỏ

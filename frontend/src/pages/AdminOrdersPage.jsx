@@ -5,7 +5,7 @@ import {
   Loader2, ShoppingBag, MapPin, Phone, User as UserIcon,
   Calendar, CheckCircle, XCircle, FileText, Tag,
   Hammer, FolderOpen, RefreshCw, Eye, AlertCircle,
-  DollarSign, Clock, MoreHorizontal, Building,
+  DollarSign, Clock, MoreHorizontal, Building, History,
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -572,6 +572,259 @@ function CustomerDetailView({ customer, onBack, onRefresh }) {
   );
 }
 
+// ── View 3: Lịch sử đơn hàng đã hoàn thành (Admin) ──────────────────────────
+function AdminOrderHistoryView() {
+  const [completedOrders, setCompletedOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const fetchHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/admin/orders/history');
+      setCompletedOrders(res.data.data || []);
+    } catch { toast.error('Không thể tải lịch sử'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const totalRevenue = completedOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const catalogCount = completedOrders.filter(o => o.type === 'CATALOG').length;
+  const customCount  = completedOrders.filter(o => o.type === 'CUSTOM').length;
+
+  const filtered = completedOrders.filter(o => {
+    const mt = typeFilter === 'all' || o.type === typeFilter;
+    const mq = !search.trim() || [o.orderCode, o.customerName, o.deliveryAddress]
+      .some(v => v?.toLowerCase().includes(search.toLowerCase()));
+    return mt && mq;
+  });
+
+  if (selectedOrder) {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setSelectedOrder(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary group">
+          <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform"/> Quay lại lịch sử
+        </button>
+
+        {/* Hero card */}
+        <div className="bg-white rounded-2xl border border-teal-200 shadow-sm overflow-hidden">
+          <div className="h-1.5 w-full bg-teal-400"/>
+          <div className="p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border bg-teal-100 text-teal-700 border-teal-200">
+                    <CheckCircle size={10}/>Đã hoàn thành
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-gray-400">{selectedOrder.orderCode}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedOrder.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-sky-50 text-sky-600'}`}>
+                    {selectedOrder.type === 'CUSTOM' ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                  <span className="flex items-center gap-1"><Calendar size={10}/> Đặt: {new Date(selectedOrder.createdAt).toLocaleDateString('vi-VN')}</span>
+                  {selectedOrder.deliveredAt && <span className="flex items-center gap-1 text-teal-500 font-medium"><CheckCircle size={10}/> Hoàn thành: {new Date(selectedOrder.deliveredAt).toLocaleDateString('vi-VN')}</span>}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Giá trị đơn</p>
+                <p className="text-2xl font-black text-primary">{fmt(selectedOrder.totalAmount)}</p>
+                {selectedOrder.fullyPaid && <p className="text-[10px] text-teal-600 font-bold flex items-center justify-end gap-1 mt-0.5"><CheckCircle size={9}/>Đã giải ngân</p>}
+              </div>
+            </div>
+
+            {/* Khách hàng & Nhà thầu */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Khách hàng</p>
+                <p className="font-bold text-gray-900 text-sm">{selectedOrder.customerName || '—'}</p>
+                {selectedOrder.customerPhone && <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5"><Phone size={9}/>{selectedOrder.customerPhone}</p>}
+              </div>
+              {selectedOrder.assignedContractorName && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                  <p className="text-[10px] text-green-600 font-bold uppercase mb-1">Nhà thầu thực hiện</p>
+                  <p className="font-bold text-gray-900 text-sm">{selectedOrder.assignedContractorName}</p>
+                </div>
+              )}
+            </div>
+
+            {selectedOrder.deliveryAddress && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 mb-4 text-xs text-gray-600">
+                <MapPin size={11} className="text-gray-400 shrink-0"/><span>{selectedOrder.deliveryAddress}</span>
+              </div>
+            )}
+
+            {selectedOrder.completionImageUrl && (
+              <div className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ảnh sản phẩm hoàn thiện</p>
+                <img src={selectedOrder.completionImageUrl} alt="completion" className="rounded-xl max-h-52 object-cover border border-gray-100 w-full"/>
+              </div>
+            )}
+
+            {selectedOrder.customRequirements && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+                <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-1">Yêu cầu thiết kế</p>
+                <p className="text-xs text-amber-900 whitespace-pre-wrap">{selectedOrder.customRequirements}</p>
+              </div>
+            )}
+
+            {selectedOrder.processingNote && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 mb-3 text-xs text-blue-800">
+                <p className="font-bold mb-0.5 flex items-center gap-1.5"><FileText size={10}/>Ghi chú Admin</p>
+                <p>{selectedOrder.processingNote}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bảng sản phẩm */}
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+            <Package size={14} className="text-primary"/>
+            <h3 className="font-bold text-gray-900 text-sm">Chi tiết sản phẩm ({selectedOrder.items?.length || 0})</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Sản phẩm</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500">SL</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {selectedOrder.items?.map((item, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0"/> : <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-300"/></div>}
+                      <div>
+                        <p className="font-semibold text-gray-900 text-xs">{item.itemName}</p>
+                        {item.customNote && <p className="text-[10px] text-amber-600">{item.customNote}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-center font-bold text-gray-700 text-xs">{item.quantity}</td>
+                  <td className="px-4 py-3 text-right font-black text-primary text-xs">{fmt(item.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 border-t border-gray-100">
+              <tr>
+                <td colSpan={2} className="px-4 py-3 text-right text-xs font-bold text-gray-700">Tổng cộng:</td>
+                <td className="px-4 py-3 text-right font-black text-primary text-sm">{fmt(selectedOrder.totalAmount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Tổng quan thống kê */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng đã hoàn thành', value: completedOrders.length, color: 'text-gray-800', bg: 'bg-white border-gray-100' },
+          { label: 'Đơn catalog', value: catalogCount, color: 'text-sky-600', bg: 'bg-sky-50 border-sky-100' },
+          { label: 'Đơn tùy chỉnh', value: customCount, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
+          { label: 'Tổng doanh thu', value: new Intl.NumberFormat('vi-VN').format(totalRevenue) + 'đ', color: 'text-primary', bg: 'bg-primary/5 border-primary/10', small: true },
+        ].map(s => (
+          <div key={s.label} className={`border rounded-2xl p-4 text-center ${s.bg}`}>
+            <p className={`${s.small ? 'text-base' : 'text-2xl'} font-black ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={15}/>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Tìm mã đơn, khách hàng, địa chỉ..."
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-primary"/>
+        </div>
+        <button onClick={fetchHistory} className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+          <RefreshCw size={14}/> Làm mới
+        </button>
+        <div className="flex gap-1.5">
+          {[
+            { key: 'all', label: `Tất cả (${completedOrders.length})` },
+            { key: 'CATALOG', label: `Catalog (${catalogCount})` },
+            { key: 'CUSTOM', label: `Tùy chỉnh (${customCount})` },
+          ].map(f => (
+            <button key={f.key} onClick={() => setTypeFilter(f.key)}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${typeFilter === f.key ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Danh sách */}
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <CheckCircle size={36} className="mx-auto text-gray-200 mb-3"/>
+          <p className="text-gray-400 text-sm">Chưa có đơn hàng nào hoàn thành</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(o => (
+            <button key={o.id} onClick={() => setSelectedOrder(o)}
+              className="w-full bg-white border border-gray-100 rounded-2xl p-5 text-left hover:border-primary hover:shadow-sm transition-all group">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-teal-100 text-teal-700 border-teal-200">
+                      <CheckCircle size={9}/>Hoàn thành
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-400">{o.orderCode}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${o.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-sky-50 text-sky-600 border-sky-200'}`}>
+                      {o.type === 'CUSTOM' ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                    {o.customerName && <span className="flex items-center gap-1 font-medium"><UserIcon size={10}/>{o.customerName}</span>}
+                    {o.assignedContractorName && <span className="flex items-center gap-1 text-green-600"><Building size={10}/>{o.assignedContractorName}</span>}
+                    <span className="flex items-center gap-1"><Calendar size={10}/>{new Date(o.createdAt).toLocaleDateString('vi-VN')}</span>
+                    {o.deliveredAt && <span className="flex items-center gap-1 text-teal-500 font-medium"><CheckCircle size={9}/>Xong: {new Date(o.deliveredAt).toLocaleDateString('vi-VN')}</span>}
+                  </div>
+                  {o.deliveryAddress && (
+                    <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-1 truncate"><MapPin size={9}/>{o.deliveryAddress}</p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xl font-black text-primary">{fmt(o.totalAmount)}</p>
+                  <p className="text-[10px] text-gray-400">{o.items?.length || 0} sản phẩm</p>
+                  {o.fullyPaid && <p className="text-[10px] text-teal-600 font-bold flex items-center justify-end gap-1 mt-0.5"><CheckCircle size={9}/>Đã giải ngân</p>}
+                </div>
+              </div>
+              {o.items?.length > 0 && (
+                <div className="flex gap-1.5 mt-3 overflow-x-auto">
+                  {o.items.slice(0,4).map((item, i) => (
+                    <div key={i} className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 text-xs text-gray-600 shrink-0">
+                      {item.imageUrl && <img src={item.imageUrl} alt="" className="w-5 h-5 rounded object-cover"/>}
+                      <span className="max-w-[70px] truncate">{item.itemName}</span>
+                      <span className="text-gray-400">×{item.quantity}</span>
+                    </div>
+                  ))}
+                  {o.items.length > 4 && <span className="text-[10px] text-gray-400 self-center">+{o.items.length-4}</span>}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Root Page ─────────────────────────────────────────────────────────────────
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -579,6 +832,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [activeMainTab, setActiveMainTab] = useState('active'); // 'active' | 'history'
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -636,7 +890,29 @@ export default function AdminOrdersPage() {
           </div>
         )}
 
-        {!selectedCustomer ? (
+        {/* Main tab switcher (chỉ hiện khi không xem detail customer) */}
+        {!selectedCustomer && (
+          <div className="flex gap-1 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm w-fit">
+            <button onClick={() => setActiveMainTab('active')}
+              className={`flex items-center gap-2 py-2.5 px-5 rounded-xl text-sm font-bold transition-all ${activeMainTab === 'active' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+              <ShoppingBag size={14}/> Đang hoạt động
+              {totalNeedAction > 0 && (
+                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${activeMainTab === 'active' ? 'bg-white/20 text-white' : 'bg-red-500 text-white'}`}>
+                  {totalNeedAction}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setActiveMainTab('history')}
+              className={`flex items-center gap-2 py-2.5 px-5 rounded-xl text-sm font-bold transition-all ${activeMainTab === 'history' ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+              <CheckCircle size={14}/> Lịch sử hoàn thành
+            </button>
+          </div>
+        )}
+
+        {/* Tab content */}
+        {activeMainTab === 'history' && !selectedCustomer ? (
+          <AdminOrderHistoryView/>
+        ) : !selectedCustomer ? (
           <>
             {/* Alert banner nếu có việc cần làm */}
             {totalNeedAction > 0 && (

@@ -34,6 +34,10 @@ public class Notification {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    /** URL điều hướng khi click vào thông báo (optional) */
+    @Column(length = 300)
+    private String actionUrl;
+
     public enum NotifType {
         BID_RECEIVED, PAYMENT_SUCCESS, PAYMENT_FAILED,
         DESIGN_UPDATED, MILESTONE_REQUEST, DISPUTE, SYSTEM

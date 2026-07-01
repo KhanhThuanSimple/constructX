@@ -7,6 +7,7 @@ import com.constructx.backend.features.wallet.entity.Wallet;
 import com.constructx.backend.features.wallet.entity.UserToken;
 import com.constructx.backend.features.wallet.repository.TransactionRepository;
 import com.constructx.backend.features.wallet.repository.WalletRepository;
+import com.constructx.backend.admin.service.FeatureFlagService;
 import com.constructx.backend.features.wallet.repository.UserTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class WalletService {
     private final UserTokenRepository userTokenRepository;
     private final WalletCoreManager walletCoreManager;
     private final PaymentGatewayFactory paymentGatewayFactory;
+    private final FeatureFlagService featureFlagService;
 
     public Wallet getWalletByUserId(Long userId) {
         return walletRepository.findByUserId(userId).orElseThrow(() -> new RuntimeException("Ví không tồn tại"));
@@ -43,6 +45,10 @@ public class WalletService {
 
     @Transactional
     public String createPaymentUrl(String email, Long amount, String gatewayName, HttpServletRequest request) {
+        // Kiểm tra feature flag VNPay trước khi xử lý
+        if ("VNPAY".equalsIgnoreCase(gatewayName) && !featureFlagService.isVnpayEnabled()) {
+            throw new RuntimeException("Thanh toán VNPay hiện tạm thời bị tắt bởi Admin. Vui lòng thử lại sau.");
+        }
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         Wallet wallet = walletRepository.findByUserId(user.getId())
                 .orElseGet(() -> walletRepository.save(Wallet.builder().user(user).balance(0L).lockedAmount(0L).build()));

@@ -15,6 +15,19 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
 
 server:
   port: 8080
@@ -66,3 +79,9 @@ logging:
         session:
           cookie:
             same-site=lax:
+
+# Password Reset
+app:
+  frontend-url: http://localhost:5173
+  password-reset:
+    token-expiry-minutes: 15

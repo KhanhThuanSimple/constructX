@@ -6,7 +6,8 @@ import {
   Plus, Gavel, Star, ArrowRight, Hammer,
   ShieldCheck, FileText, Loader2, Phone,
   MapPin, ChevronRight, ArrowLeft, Users, RefreshCw, Search,
-  DollarSign, AlertCircle, Eye, Calendar, Building,
+  DollarSign, AlertCircle, Eye, Calendar, Building, History,
+  TrendingUp, Award, Filter,
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -808,6 +809,278 @@ function OrderDetail({ order: initialOrder, contracts, onBack, onRefresh }) {
   );
 }
 
+// ── Tab: Lịch sử đơn hàng (CUSTOMER) ────────────────────────────────────────
+function OrderHistoryList({ loading, onRefresh }) {
+  const navigate = useNavigate();
+  const [history, setHistory] = useState([]);
+  const [loadingH, setLoadingH] = useState(true);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedDetail, setSelectedDetail] = useState(null);
+
+  useEffect(() => {
+    setLoadingH(true);
+    api.get('/orders/history')
+      .then(r => setHistory(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoadingH(false));
+  }, []);
+
+  const delivered = history.filter(o => o.status === 'DELIVERED');
+  const cancelled = history.filter(o => o.status === 'CANCELLED');
+  const totalSpent = delivered.reduce((s, o) => s + (o.totalAmount || 0), 0);
+
+  const filtered = history.filter(o => {
+    const ms = typeFilter === 'all' || o.status === typeFilter;
+    const mq = !search.trim() || o.orderCode?.toLowerCase().includes(search.toLowerCase())
+      || o.deliveryAddress?.toLowerCase().includes(search.toLowerCase());
+    return ms && mq;
+  });
+
+  if (selectedDetail) {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setSelectedDetail(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary group">
+          <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform"/> Quay lại lịch sử
+        </button>
+
+        {/* Order Detail - Readonly history view */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-stretch">
+            <div className={`w-1 shrink-0 ${selectedDetail.status === 'DELIVERED' ? 'bg-teal-400' : 'bg-red-400'}`}/>
+            <div className="flex-1 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      selectedDetail.status === 'DELIVERED'
+                        ? 'bg-teal-100 text-teal-700 border-teal-200'
+                        : 'bg-red-100 text-red-600 border-red-200'
+                    }`}>
+                      {selectedDetail.status === 'DELIVERED' ? <CheckCircle size={10}/> : <XCircle size={10}/>}
+                      {selectedDetail.status === 'DELIVERED' ? 'Đã hoàn thành' : 'Đã hủy'}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-400">{selectedDetail.orderCode}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedDetail.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
+                      {selectedDetail.type === 'CUSTOM' ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                    <span className="flex items-center gap-1"><Clock size={10}/> Đặt: {new Date(selectedDetail.createdAt).toLocaleDateString('vi-VN')}</span>
+                    {selectedDetail.deliveredAt && (
+                      <span className="flex items-center gap-1"><CheckCircle size={10} className="text-teal-500"/> Hoàn thành: {new Date(selectedDetail.deliveredAt).toLocaleDateString('vi-VN')}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide text-[10px]">Tổng thanh toán</p>
+                  <p className="text-2xl font-black text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedDetail.totalAmount || 0).replace('₫','đ')}</p>
+                  {selectedDetail.fullyPaid && <p className="text-[10px] text-teal-600 font-bold flex items-center justify-end gap-1 mt-0.5"><CheckCircle size={9}/>Đã thanh toán</p>}
+                </div>
+              </div>
+
+              {/* Địa chỉ giao hàng */}
+              {selectedDetail.deliveryAddress && (
+                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 mb-3 text-xs text-gray-600">
+                  <MapPin size={11} className="text-gray-400 shrink-0"/>
+                  <span>{selectedDetail.deliveryAddress}</span>
+                </div>
+              )}
+
+              {/* Nhà thầu */}
+              {selectedDetail.assignedContractorName && (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3 py-2.5 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-green-200 text-green-700 flex items-center justify-center font-bold text-sm shrink-0">
+                    {selectedDetail.assignedContractorName.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Nhà thầu thực hiện</p>
+                    <p className="text-sm font-bold text-green-900">{selectedDetail.assignedContractorName}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Completion image */}
+              {selectedDetail.completionImageUrl && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ảnh sản phẩm hoàn thiện</p>
+                  <img src={selectedDetail.completionImageUrl} alt="hoàn thiện" className="rounded-xl max-h-52 object-cover border border-gray-100 w-full"/>
+                </div>
+              )}
+
+              {/* Yêu cầu tùy chỉnh */}
+              {selectedDetail.customRequirements && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                  <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-1">Yêu cầu thiết kế</p>
+                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{selectedDetail.customRequirements}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bảng sản phẩm */}
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+            <Package size={14} className="text-primary"/>
+            <h3 className="font-bold text-gray-900 text-sm">Chi tiết sản phẩm ({selectedDetail.items?.length || 0})</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Sản phẩm</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500">SL</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {selectedDetail.items?.map((item, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {item.imageUrl
+                        ? <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0"/>
+                        : <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-300"/></div>}
+                      <div>
+                        <p className="font-semibold text-gray-900 text-xs">{item.itemName}</p>
+                        {item.customNote && <p className="text-[10px] text-amber-600">{item.customNote}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-center font-bold text-gray-700 text-xs">{item.quantity}</td>
+                  <td className="px-4 py-3 text-right font-black text-primary text-xs">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.subtotal || 0).replace('₫','đ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 border-t border-gray-100">
+              <tr>
+                <td colSpan={2} className="px-4 py-3 text-right text-xs font-bold text-gray-700">Tổng cộng:</td>
+                <td className="px-4 py-3 text-right font-black text-primary text-sm">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedDetail.totalAmount || 0).replace('₫','đ')}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Ghi chú xử lý */}
+        {selectedDetail.processingNote && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 text-xs text-blue-800">
+            <p className="font-bold mb-1 flex items-center gap-1.5"><FileText size={11}/>Ghi chú từ Admin</p>
+            <p>{selectedDetail.processingNote}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Tổng quan */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng đơn', value: history.length, color: 'text-gray-800', bg: 'bg-white border-gray-100' },
+          { label: 'Hoàn thành', value: delivered.length, color: 'text-teal-600', bg: 'bg-teal-50 border-teal-100' },
+          { label: 'Đã hủy', value: cancelled.length, color: 'text-red-500', bg: 'bg-red-50 border-red-100' },
+          { label: 'Tổng chi tiêu', value: new Intl.NumberFormat('vi-VN').format(totalSpent) + 'đ', color: 'text-primary', bg: 'bg-primary/5 border-primary/10', small: true },
+        ].map(s => (
+          <div key={s.label} className={`border rounded-2xl p-4 text-center ${s.bg}`}>
+            <p className={`${s.small ? 'text-base' : 'text-2xl'} font-black ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={13}/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm mã đơn, địa chỉ..."
+            className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-primary"/>
+        </div>
+        <button onClick={() => {
+          setLoadingH(true);
+          api.get('/orders/history').then(r => setHistory(r.data.data || [])).catch(() => {}).finally(() => setLoadingH(false));
+        }} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 shrink-0"><RefreshCw size={14}/></button>
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-1.5">
+        {[
+          { key: 'all', label: `Tất cả (${history.length})` },
+          { key: 'DELIVERED', label: `Hoàn thành (${delivered.length})` },
+          { key: 'CANCELLED', label: `Đã hủy (${cancelled.length})` },
+        ].map(f => (
+          <button key={f.key} onClick={() => setTypeFilter(f.key)}
+            className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+              typeFilter === f.key ? 'bg-primary text-white border-primary' : 'bg-white border-gray-200 text-gray-500 hover:border-primary'
+            }`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loadingH ? (
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-primary"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <History size={36} className="mx-auto text-gray-200 mb-3"/>
+          <p className="text-gray-400 text-sm font-medium">Chưa có lịch sử đơn hàng nào</p>
+          <button onClick={() => navigate('/shop')} className="mt-4 px-5 py-2.5 bg-primary text-white font-bold rounded-xl text-xs hover:bg-primary/90">Khám phá Shop</button>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filtered.map(o => (
+            <button key={o.id} onClick={() => setSelectedDetail(o)}
+              className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-left hover:border-primary hover:shadow-sm transition-all group">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      o.status === 'DELIVERED'
+                        ? 'bg-teal-100 text-teal-700 border-teal-200'
+                        : 'bg-red-100 text-red-600 border-red-200'
+                    }`}>
+                      {o.status === 'DELIVERED' ? <CheckCircle size={9}/> : <XCircle size={9}/>}
+                      {o.status === 'DELIVERED' ? 'Hoàn thành' : 'Đã hủy'}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-400">{o.orderCode}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${o.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
+                      {o.type === 'CUSTOM' ? '🎨 Thiết kế riêng' : '🛍️ Mua sẵn'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-gray-400">
+                    <span className="flex items-center gap-1"><Clock size={9}/>{new Date(o.createdAt).toLocaleDateString('vi-VN')}</span>
+                    {o.deliveredAt && <span className="flex items-center gap-1 text-teal-500 font-medium"><CheckCircle size={9}/>Xong: {new Date(o.deliveredAt).toLocaleDateString('vi-VN')}</span>}
+                    {o.deliveryAddress && <span className="flex items-center gap-1 truncate max-w-[160px]"><MapPin size={9}/>{o.deliveryAddress}</span>}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-primary text-sm">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(o.totalAmount || 0).replace('₫','đ')}</p>
+                  <p className="text-[10px] text-gray-400">{o.items?.length || 0} sản phẩm</p>
+                </div>
+              </div>
+              {o.items?.length > 0 && (
+                <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
+                  {o.items.slice(0,3).map((item, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1 shrink-0">
+                      {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-5 h-5 rounded object-cover"/> : <Package size={12} className="text-gray-300"/>}
+                      <span className="text-[10px] text-gray-500 max-w-[60px] truncate">{item.itemName}</span>
+                    </div>
+                  ))}
+                  {o.items.length > 3 && <span className="text-[10px] text-gray-400 self-center">+{o.items.length-3}</span>}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Root Page ─────────────────────────────────────────────────────────────────
 export default function OrdersPage() {
   const { user } = useAuthStore();
@@ -858,6 +1131,7 @@ export default function OrdersPage() {
 
   const orderNeedAction   = orders.filter(o => ['PENDING','OPEN_BIDDING','SHIPPED'].includes(o.status)).length;
   const projectNeedAction = projects.filter(p => p.approvalStatus === 'PENDING' || p.status === 'OPEN').length;
+  const deliveredCount    = orders.filter(o => o.status === 'DELIVERED').length;
 
   if (selectedOrder) {
     return (
@@ -886,6 +1160,7 @@ export default function OrdersPage() {
           {[
             { key: 'orders',   icon: <ShoppingBag size={15}/>, label: 'Đơn hàng',                               badge: orderNeedAction   },
             { key: 'projects', icon: <Hammer size={15}/>,       label: isContractor ? 'Dự án tham gia' : 'Dự án của tôi', badge: projectNeedAction },
+            { key: 'history',  icon: <History size={15}/>,      label: 'Lịch sử',                               badge: 0                 },
           ].map(t => (
             <button key={t.key} onClick={() => setMainTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all relative ${
@@ -902,10 +1177,13 @@ export default function OrdersPage() {
         </div>
 
         {activeMainTab === 'orders' && (
-          <OrderList orders={orders} contracts={contracts} loading={loadingOrders} onSelect={setSelectedOrder} onRefresh={fetchOrders}/>
+          <OrderList orders={orders.filter(o => !['DELIVERED','CANCELLED'].includes(o.status))} contracts={contracts} loading={loadingOrders} onSelect={setSelectedOrder} onRefresh={fetchOrders}/>
         )}
         {activeMainTab === 'projects' && (
           <ProjectList projects={projects} loading={loadingProjects} onSelect={setSelectedProject} onRefresh={fetchProjects} isContractor={isContractor}/>
+        )}
+        {activeMainTab === 'history' && (
+          <OrderHistoryList loading={loadingOrders} onRefresh={fetchOrders}/>
         )}
       </div>
     </Layout>

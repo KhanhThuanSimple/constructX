@@ -102,13 +102,40 @@ export default function FurnitureDesignerPage() {
   const [showBOM, setShowBOM] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutForm, setCheckoutForm] = useState({ 
-    address: user?.address || '', 
+    street: '',
+    city: '',
+    district: '',
     phone: user?.phoneNumber || '', 
     note: '' 
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [showRoomConfig, setShowRoomConfig] = useState(false);
+
+  // Address API — giống CreateProjectPage
+  const [provinces, setProvinces]   = useState([]);
+  const [districts, setDistricts]   = useState([]);
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(r => r.json())
+      .then(data => setProvinces(data))
+      .catch(() => {});
+  }, []);
+
+  const handleCityChange = (e) => {
+    const cityName = e.target.value;
+    setCheckoutForm(f => ({ ...f, city: cityName, district: '' }));
+    const p = provinces.find(x => x.name === cityName);
+    if (p) {
+      fetch(`https://provinces.open-api.vn/api/p/${p.code}?depth=2`)
+        .then(r => r.json())
+        .then(data => setDistricts(data.districts || []))
+        .catch(() => setDistricts([]));
+    } else {
+      setDistricts([]);
+    }
+  };
 
   // Drag from palette
   const dragFrom = useRef(null);
@@ -379,8 +406,16 @@ export default function FurnitureDesignerPage() {
   const handleCheckout = async () => {
     if (!token) { navigate('/login?redirect=/shop/designer'); return; }
     if (placed.length === 0) { toast.error('Chưa có sản phẩm nào trong thiết kế'); return; }
-    if (!checkoutForm.address.trim()) { toast.error('Vui lòng nhập địa chỉ'); return; }
+    if (!checkoutForm.city.trim()) { toast.error('Vui lòng chọn Tỉnh / Thành phố'); return; }
+    if (!checkoutForm.district.trim()) { toast.error('Vui lòng chọn Quận / Huyện'); return; }
     if (!checkoutForm.phone.trim()) { toast.error('Vui lòng nhập số điện thoại'); return; }
+
+    // Ghép địa chỉ đầy đủ
+    const fullAddress = [
+      checkoutForm.street.trim(),
+      checkoutForm.district.trim(),
+      checkoutForm.city.trim(),
+    ].filter(Boolean).join(', ');
 
     setSubmitting(true);
     try {
@@ -392,7 +427,7 @@ export default function FurnitureDesignerPage() {
 
       const payload = {
         type: 'CUSTOM',
-        deliveryAddress: checkoutForm.address,
+        deliveryAddress: fullAddress,
         contactPhone: checkoutForm.phone,
         customerNote: checkoutForm.note,
         customRequirements: `THIẾT KẾ 2D - ${room.w}x${room.h}cm\n\nMÔ-ĐUN:\n${customReqs}\n\nBOM:\n${bomText}`,
@@ -838,26 +873,84 @@ export default function FurnitureDesignerPage() {
             </div>
 
             <div className="space-y-3 mb-5">
+              {/* Tỉnh / Thành phố */}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Địa chỉ giao hàng *</label>
-                <textarea rows={2} value={checkoutForm.address}
-                  onChange={e => setCheckoutForm(f => ({...f, address: e.target.value}))}
-                  placeholder="Số nhà, đường, quận, thành phố..."
-                  className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-[#1a4f3a] resize-none"/>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">
+                  Tỉnh / Thành phố <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={checkoutForm.city}
+                  onChange={handleCityChange}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a] bg-white"
+                >
+                  <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                  {provinces.map(p => (
+                    <option key={p.code} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
               </div>
+
+              {/* Quận / Huyện */}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Số điện thoại *</label>
-                <input value={checkoutForm.phone}
-                  onChange={e => setCheckoutForm(f => ({...f, phone: e.target.value}))}
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">
+                  Quận / Huyện <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={checkoutForm.district}
+                  onChange={e => setCheckoutForm(f => ({ ...f, district: e.target.value }))}
+                  disabled={!checkoutForm.city || districts.length === 0}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a] bg-white disabled:opacity-50"
+                >
+                  <option value="">-- Chọn Quận / Huyện --</option>
+                  {districts.map(d => (
+                    <option key={d.code} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Số nhà, tên đường */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">
+                  Số nhà, tên đường
+                </label>
+                <input
+                  value={checkoutForm.street}
+                  onChange={e => setCheckoutForm(f => ({ ...f, street: e.target.value }))}
+                  placeholder="VD: 123 Nguyễn Trãi"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a]"
+                />
+              </div>
+
+              {/* Preview địa chỉ đầy đủ */}
+              {(checkoutForm.city || checkoutForm.district || checkoutForm.street) && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-600">
+                  <span className="font-bold text-gray-400 uppercase tracking-wider text-[9px]">Địa chỉ giao hàng: </span>
+                  {[checkoutForm.street, checkoutForm.district, checkoutForm.city].filter(Boolean).join(', ')}
+                </div>
+              )}
+
+              {/* Số điện thoại */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">
+                  Số điện thoại <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={checkoutForm.phone}
+                  onChange={e => setCheckoutForm(f => ({ ...f, phone: e.target.value }))}
                   placeholder="0901 234 567"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a]"/>
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a]"
+                />
               </div>
+
+              {/* Ghi chú */}
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Ghi chú</label>
-                <input value={checkoutForm.note}
-                  onChange={e => setCheckoutForm(f => ({...f, note: e.target.value}))}
-                  placeholder="Yêu cầu đặc biệt..."
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a]"/>
+                <input
+                  value={checkoutForm.note}
+                  onChange={e => setCheckoutForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="Yêu cầu đặc biệt, giờ giao hàng..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1a4f3a]"
+                />
               </div>
             </div>
 

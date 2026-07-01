@@ -29,6 +29,9 @@ import com.constructx.backend.features.constructor.entity.Bid;
 import com.constructx.backend.features.wallet.entity.Transaction;
 import com.constructx.backend.features.wallet.repository.TransactionRepository;
 import com.constructx.backend.features.wallet.service.WalletArbitrationManager;
+import com.constructx.backend.features.wallet.entity.PlatformTransaction;
+import com.constructx.backend.features.wallet.repository.PlatformTransactionRepository;
+import com.constructx.backend.features.constructor.repository.DisbursementRequestRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,6 +90,10 @@ public class ConstructXWorkflowTest {
     private DisputeMessageRepository disputeMessageRepository;
     @Mock
     private ChatService chatService;
+    @Mock
+    private PlatformTransactionRepository platformTransactionRepository;
+    @Mock
+    private DisbursementRequestRepository disbursementRequestRepository;
 
     @InjectMocks
     private ReviewService reviewService;
@@ -298,6 +305,7 @@ public class ConstructXWorkflowTest {
         when(contractRepository.save(any(Contract.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(platformWalletRepository.save(any(PlatformWallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(platformTransactionRepository.save(any(PlatformTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Call completeContract
         contractService.completeContract(contractId, "Xác nhận hoàn thành thi công");
@@ -430,6 +438,8 @@ public class ConstructXWorkflowTest {
         when(disputeRepository.findById(1L)).thenReturn(Optional.of(projectDispute));
         when(transactionRepository.findByGatewayOrderId("LOCK-CTR-ESCROW-10-50")).thenReturn(Optional.of(projectLockTx));
         when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(disbursementRequestRepository.sumApprovedByContractId(any())).thenReturn(0L);
+        when(disbursementRequestRepository.sumLockedAndNotUnlockedByContractId(any())).thenReturn(0L);
 
         DisputeResolutionRequest request = new DisputeResolutionRequest();
         request.setResolution("Phân chia 60-40 do chậm tiến độ");
@@ -448,7 +458,7 @@ public class ConstructXWorkflowTest {
         assertEquals("CTR-PROJ-100", response1.getContractNumber());
 
         verify(walletArbitrationManager, times(1)).resolveProjectDispute(
-                eq(999L), eq(300L), eq(60.0), eq(40.0), eq("PRJ-10"), anyLong(), anyLong()
+                eq(999L), eq(200L), eq(300L), eq(60.0), eq(40.0), eq("PRJ-10"), anyLong(), anyLong()
         );
 
         // 2. Setup Custom Order-Based Dispute Resolution (Project is NULL)
@@ -497,7 +507,7 @@ public class ConstructXWorkflowTest {
         assertEquals("CTR-ORD-888", response2.getContractNumber());
 
         verify(walletArbitrationManager, times(1)).resolveProjectDispute(
-                eq(888L), eq(300L), eq(60.0), eq(40.0), eq("ORD-999"), anyLong(), anyLong()
+                eq(888L), eq(200L), eq(300L), eq(60.0), eq(40.0), eq("ORD-999"), anyLong(), anyLong()
         );
 
         System.out.println("--------------------------------------------------------------------------------");

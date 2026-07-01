@@ -411,29 +411,7 @@ export default function ContractDisbursementsPage() {
         )}
 
         {/* Quy trình giải ngân 5 bước đồ họa */}
-        <div className="bg-gradient-to-br from-primary/5 to-blue-50/50 border border-primary/10 rounded-2xl p-5 shadow-inner">
-          <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-1.5">
-            <ArrowRight size={14}/>
-            Quy trình giải ngân Escrow 5 bước bảo mật
-          </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-            {[
-              { step: 1, text: 'Gửi yêu cầu', desc: 'Nhà thầu đề xuất' },
-              { step: 2, text: 'Admin xác nhận', desc: 'Kiểm tra hiện trường' },
-              { step: 3, text: 'Khách phê duyệt', desc: 'Ký lệnh giải ngân' },
-              { step: 4, text: '30% nhận ngay', desc: 'Chuyển thẳng ví' },
-              { step: 5, text: '70% locked', desc: 'Giải phóng mốc sau' },
-            ].map((p, i) => (
-              <div key={i} className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm relative">
-                <span className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
-                  {p.step}
-                </span>
-                <p className="text-xs font-bold text-gray-800 mt-1">{p.text}</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        
 
         {/* Danh sách yêu cầu giải ngân */}
         <div className="space-y-4">

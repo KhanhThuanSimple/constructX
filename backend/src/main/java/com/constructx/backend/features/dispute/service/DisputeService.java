@@ -98,10 +98,13 @@ public class DisputeService {
         // 5. Gửi thông báo đẩy thời gian thực
         String notifMsg = String.format("⚠️ Khởi tạo tranh chấp: Hợp đồng %s đã bị đóng băng thi công và thanh toán. Lý do: %s.",
                 contract.getContractNumber(), request.getReason());
-        notificationService.createNotification(contract.getClient(), Notification.NotifType.DISPUTE, notifMsg);
-        notificationService.createNotification(contract.getContractor(), Notification.NotifType.DISPUTE, notifMsg);
+        String disputeUrl = "/contracts/" + contract.getId() + "/dispute";
+        notificationService.createNotification(contract.getClient(), Notification.NotifType.DISPUTE, notifMsg, disputeUrl);
+        notificationService.createNotification(contract.getContractor(), Notification.NotifType.DISPUTE, notifMsg, disputeUrl);
         notificationService.createNotificationForAdmins(Notification.NotifType.DISPUTE,
-                "[Hệ Thống] Tranh chấp mới được mở cho hợp đồng " + contract.getContractNumber());
+                "⚖️ [Hệ Thống] Tranh chấp mới được mở cho hợp đồng " + contract.getContractNumber() +
+                ". Nhà thầu: " + contract.getContractor().getFullName(),
+                "/admin/disputes");
 
         log.info("Dispute initiated successfully for contract {}. Dispute ID: {}, Chat Room ID: {}", 
                 contract.getId(), dispute.getId(), chatRoom.getId());

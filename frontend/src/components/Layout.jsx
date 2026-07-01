@@ -214,12 +214,26 @@ const Sidebar = () => {
 const Topbar = ({ title }) => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    let interval;
+    const fetchUnread = async () => {
+      try {
+        const res = await import('../services/api').then(m => m.default.get('/notifications/unread-count'));
+        setUnreadCount(res.data?.data || 0);
+      } catch { /* silent */ }
+    };
+    fetchUnread();
+    interval = setInterval(fetchUnread, 30000); // poll mỗi 30s
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-between sticky top-0 z-10">
       <h2 className="text-lg font-semibold text-gray-800 font-display">{title}</h2>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {user?.role === 'CUSTOMER' && (
           <button
             className="btn btn-primary text-xs py-1.5 px-4"
@@ -237,6 +251,20 @@ const Topbar = ({ title }) => {
             Cấu hình
           </button>
         )}
+
+        {/* Bell icon với unread badge */}
+        <button
+          onClick={() => navigate('/notifications')}
+          className="relative p-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-800"
+          title="Thông báo"
+        >
+          <Bell size={20} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
       </div>
     </div>
   );

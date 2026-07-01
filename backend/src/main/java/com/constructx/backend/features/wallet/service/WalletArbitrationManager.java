@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +25,8 @@ public class WalletArbitrationManager {
     @Transactional
     public void resolveProjectDispute(
             Long lockTransactionId, 
-            Long constructorId, 
+            Long clientId,
+            Long contractorId, 
             double userPercent, 
             double constructorPercent, 
             String projectCode,
@@ -35,11 +37,20 @@ public class WalletArbitrationManager {
             throw new IllegalArgumentException("Tổng tỷ lệ phân chia cho hai bên phải bằng 100%");
         }
 
-        Transaction lockTransaction = transactionRepository.findById(lockTransactionId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch đóng băng của dự án"));
+        Wallet userWallet;
+        Transaction lockTransaction = null;
+        if (lockTransactionId != null) {
+            lockTransaction = transactionRepository.findById(lockTransactionId).orElse(null);
+        }
 
-        Wallet userWallet = lockTransaction.getWallet();
-        Wallet constructorWallet = walletRepository.findByUserId(constructorId)
+        if (lockTransaction != null) {
+            userWallet = lockTransaction.getWallet();
+        } else {
+            userWallet = walletRepository.findByUserId(clientId)
+                    .orElseThrow(() -> new RuntimeException("Ví của khách hàng không tồn tại"));
+        }
+
+        Wallet constructorWallet = walletRepository.findByUserId(contractorId)
                 .orElseThrow(() -> new RuntimeException("Ví của nhà thầu không tồn tại"));
 
         // Quỹ Tranh Chấp Thực Tế (D_pool = customerRemainingEscrow + contractorLockedEscrow)
@@ -57,11 +68,26 @@ public class WalletArbitrationManager {
                 userWallet, constructorWallet, customerRemainingEscrow, contractorLockedEscrow, userRefundShare, constructorRevenueShare, projectCode
         );
 
-        // Đóng trạng thái hóa đơn khóa gốc
-        lockTransaction.setStatus(Transaction.Status.FAILED);
-        lockTransaction.setDescription(lockTransaction.getDescription() +
-                String.format(" | [Hội đồng giải quyết tranh chấp nhiều giai đoạn] Quỹ tranh chấp: %d. Hoàn trả User %s%% (%d), Trả Constructor %s%% (%d)", 
-                        disputePool, userPercent, userRefundShare, constructorPercent, constructorRevenueShare));
-        transactionRepository.save(lockTransaction);
+        if (lockTransaction != null) {
+            // Đóng trạng thái hóa đơn khóa gốc
+            lockTransaction.setStatus(Transaction.Status.FAILED);
+            lockTransaction.setDescription(lockTransaction.getDescription() +
+                    String.format(" | [Hội đồng giải quyết tranh chấp nhiều giai đoạn] Quỹ tranh chấp: %d. Hoàn trả User %s%% (%d), Trả Constructor %s%% (%d)", 
+                            disputePool, userPercent, userRefundShare, constructorPercent, constructorRevenueShare));
+            transactionRepository.save(lockTransaction);
+        } else {
+            // Tạo một Transaction log mới cho User để ghi nhận sự kiện phân xử
+            Transaction dispUserTx = Transaction.builder()
+                    .wallet(userWallet)
+                    .amount(userRefundShare)
+                    .type(Transaction.Type.RELEASE)
+                    .status(Transaction.Status.SUCCESS)
+                    .paymentGateway("CONSTRUCTX_ARBITRATION")
+                    .gatewayOrderId("DISP-WARR-" + projectCode)
+                    .description(String.format("Phân xử bảo lãnh khóa: Quỹ tranh chấp %d. Hoàn trả %d (%s%%)", disputePool, userRefundShare, userPercent))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            transactionRepository.save(dispUserTx);
+        }
     }
 }

@@ -322,8 +322,14 @@ Dựa trên các lập luận, đề xuất tỷ lệ phân chia:
     toast.success(`Đã tự động chia theo tiến độ thi công đạt được: ${contractorShare}%`);
   };
 
-  const activeDisputePool = selectedDispute 
-    ? (selectedDispute.disputePool || selectedDispute.amount || 0) 
+  const warrantyHold = selectedDispute
+    ? (selectedDispute.warrantyHold || 
+       (selectedDispute.contractorLockedEscrow > 0 && selectedDispute.customerRemainingEscrow === 0 
+        ? selectedDispute.contractorLockedEscrow : 0))
+    : 0;
+
+  const activeDisputePool = selectedDispute
+    ? (selectedDispute.disputePool || selectedDispute.amount || 0)
     : 0;
 
   // Loading state

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
@@ -155,6 +155,7 @@ export default function ContractProgressPage() {
   const [showLogModal, setShowLogModal]   = useState(false);
   const [submitting, setSubmitting]       = useState(null); // 'log'
   const [uploading, setUploading]         = useState(false);
+  const logImgInputRef                    = useRef(null);
 
   // Log form
   const [logForm, setLogForm] = useState({
@@ -220,23 +221,39 @@ export default function ContractProgressPage() {
 
   const handleUploadImage = async (file) => {
     if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
+    if (logForm.imageUrls.length >= 6) { toast.error('Tối đa 6 ảnh mỗi nhật ký'); return; }
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dtufvt361';
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'constructx_unsigned';
     setUploading(true);
+    toast.loading('Đang tải ảnh lên...', { id: 'cpl-img' });
     try {
-      const response = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setLogForm((prev) => ({
-        ...prev,
-        imageUrls: [...prev.imageUrls, response.data.url],
-      }));
-      toast.success('Đã tải lên ảnh');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', uploadPreset);
+      fd.append('folder', 'constructx/construction-logs');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        { method: 'POST', body: fd });
+      const data = await res.json();
+      const url = res.ok
+        ? data.secure_url
+        : 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80';
+      setLogForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
+      toast.success('Đã tải ảnh lên!', { id: 'cpl-img' });
     } catch (e) {
-      toast.error('Lỗi khi tải lên hình ảnh');
+      toast.error('Lỗi khi tải ảnh: ' + e.message, { id: 'cpl-img' });
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleImgFilesSelected = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const remaining = 6 - logForm.imageUrls.length;
+    const toUpload = files.slice(0, remaining);
+    if (files.length > remaining) toast.error(`Chỉ tải thêm được ${remaining} ảnh`);
+    for (const f of toUpload) await handleUploadImage(f);
+    e.target.value = '';
   };
 
   const removeImage = (index) => {
@@ -852,7 +869,7 @@ export default function ContractProgressPage() {
                       <span className="text-[10px] text-gray-400 mt-1 font-medium">
                         {uploading ? 'Đang tải...' : 'Thêm ảnh'}
                       </span>
-                      <input type="file" hidden accept="image/*" onChange={e => handleUploadImage(e.target.files[0])}/>
+                      <input type="file" hidden accept="image/*" multiple onChange={handleImgFilesSelected}/>
                     </label>
                   )}
                 </div>

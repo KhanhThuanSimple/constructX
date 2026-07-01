@@ -89,6 +89,12 @@ const LoginPage = () => {
           >
             {loading ? 'Đang xử lý...' : 'Đăng nhập ngay'}
           </button>
+
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-[#1a4f3a] transition-colors">
+              Quên mật khẩu?
+            </Link>
+          </div>
         </form>
 
         <div className="text-center mt-6">

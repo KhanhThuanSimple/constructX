@@ -309,6 +309,40 @@ public class OrderService {
         return toResponse(order);
     }
 
+    // ── Customer: lịch sử đơn hàng đã hoàn thành ─────────────────
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getMyOrderHistory() {
+        User user = getCurrentUser();
+        return orderRepository.findByCustomerIdWithItems(user.getId())
+                .stream()
+                .filter(o -> o.getStatus() == Order.Status.DELIVERED || o.getStatus() == Order.Status.CANCELLED)
+                .collect(Collectors.toList())
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    // ── Contractor: lịch sử đơn hàng đã hoàn thành ─────────────────
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getContractorOrderHistory() {
+        User user = getCurrentUser();
+        if (user.getRole() != User.Role.CONTRACTOR)
+            throw new RuntimeException("Chỉ nhà thầu mới có thể xem lịch sử này");
+        return orderRepository.findByAssignedContractorId(user.getId())
+                .stream()
+                .filter(o -> o.getStatus() == Order.Status.DELIVERED || o.getStatus() == Order.Status.CANCELLED)
+                .collect(Collectors.toList())
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    // ── Admin: thống kê tổng quan lịch sử đơn hàng ─────────────────
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getCompletedOrdersAdmin() {
+        return orderRepository.findByStatusWithItems(Order.Status.DELIVERED)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     // ── Mapping ────────────────────────────────────────────────────
 
     OrderResponse toResponse(Order o) {

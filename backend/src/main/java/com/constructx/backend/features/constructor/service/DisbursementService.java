@@ -132,17 +132,20 @@ public class DisbursementService {
 
         DisbursementRequest saved = disbursementRepository.save(disbursement);
 
+        String contractUrl = "/contracts/" + contract.getId() + "/disbursements";
         notificationService.createNotification(
                 contract.getClient(), Notification.NotifType.PAYMENT_SUCCESS,
-                String.format("Nha thau yeu cau giai ngan %s giai doan '%s' - HD %s. Vui long vao trang Tien do de duyet.",
-                        fmtVnd(req.getAmount()), req.getPhaseLabel(), contract.getContractNumber()));
+                String.format("💰 Nhà thầu yêu cầu giải ngân %s giai đoạn '%s' - HĐ %s. Vui lòng vào trang Tiến độ để duyệt.",
+                        fmtVnd(req.getAmount()), req.getPhaseLabel(), contract.getContractNumber()),
+                contractUrl);
 
         // Notify Admin để verify
         notificationService.createNotificationForAdmins(
                 Notification.NotifType.SYSTEM,
-                String.format("📋 Yeu cau giai ngan moi: HD %s - Nha thau %s - Giai doan '%s' - So tien: %s. Can xac nhan.",
+                String.format("📋 Yêu cầu giải ngân mới: HĐ %s - Nhà thầu %s - Giai đoạn '%s' - Số tiền: %s. Cần xác nhận.",
                         contract.getContractNumber(), contractor.getFullName(),
-                        req.getPhaseLabel(), fmtVnd(req.getAmount())));
+                        req.getPhaseLabel(), fmtVnd(req.getAmount())),
+                "/admin/contracts");
 
         return toResponse(saved);
     }
@@ -173,14 +176,16 @@ public class DisbursementService {
         // Thông báo customer để duyệt
         notificationService.createNotification(
                 req.getContract().getClient(), Notification.NotifType.PAYMENT_SUCCESS,
-                String.format("✅ Admin da xac nhan yeu cau giai ngan %s giai doan '%s' - HD %s. Vui long vao trang Tien do de duyet.",
-                        fmtVnd(req.getAmount()), req.getPhaseLabel(), req.getContract().getContractNumber()));
+                String.format("✅ Admin đã xác nhận yêu cầu giải ngân %s giai đoạn '%s' - HĐ %s. Vui lòng vào trang Tiến độ để duyệt.",
+                        fmtVnd(req.getAmount()), req.getPhaseLabel(), req.getContract().getContractNumber()),
+                "/contracts/" + req.getContract().getId() + "/disbursements");
 
         // Thông báo contractor
         notificationService.createNotification(
                 req.getContractor(), Notification.NotifType.SYSTEM,
-                String.format("✅ Admin da xac nhan yeu cau giai ngan giai doan '%s'. Dang cho khach hang duyet.",
-                        req.getPhaseLabel()));
+                String.format("✅ Admin đã xác nhận yêu cầu giải ngân giai đoạn '%s'. Đang chờ khách hàng duyệt.",
+                        req.getPhaseLabel()),
+                "/contracts/" + req.getContract().getId() + "/progress");
 
         return toResponse(req);
     }
@@ -264,9 +269,10 @@ public class DisbursementService {
 
         notificationService.createNotification(
                 req.getContractor(), Notification.NotifType.PAYMENT_SUCCESS,
-                String.format("Khach hang da duyet giai ngan %s giai doan '%s'. %s dung ngay, %s con locked.",
+                String.format("💸 Khách hàng đã duyệt giải ngân %s giai đoạn '%s'. %s dùng ngay, %s còn khóa.",
                         fmtVnd(req.getAmount()), req.getPhaseLabel(),
-                        fmtVnd(req.getImmediateAmount()), fmtVnd(req.getLockedAmount())));
+                        fmtVnd(req.getImmediateAmount()), fmtVnd(req.getLockedAmount())),
+                "/contracts/" + req.getContract().getId() + "/progress");
 
         // Kiểm tra tự động mở locked của các request cũ nếu tiến độ đủ
         autoUnlockPreviousLocked(contract, req.getPhaseThreshold());
@@ -295,8 +301,9 @@ public class DisbursementService {
 
         notificationService.createNotification(
                 req.getContractor(), Notification.NotifType.PAYMENT_FAILED,
-                String.format("Khach hang tu choi giai ngan giai doan '%s'. Ly do: %s.",
-                        req.getPhaseLabel(), reason != null ? reason : "Khong co ly do"));
+                String.format("❌ Khách hàng từ chối giải ngân giai đoạn '%s'. Lý do: %s.",
+                        req.getPhaseLabel(), reason != null ? reason : "Không có lý do"),
+                "/contracts/" + req.getContract().getId() + "/disbursements");
 
         return toResponse(req);
     }
@@ -359,8 +366,9 @@ public class DisbursementService {
 
         notificationService.createNotification(
                 req.getContractor(), Notification.NotifType.PAYMENT_SUCCESS,
-                String.format("Da mo khoa %s tien bao dam giai doan '%s' HD %s.",
-                        fmtVnd(toUnlock), req.getPhaseLabel(), contract.getContractNumber()));
+                String.format("🔓 Đã mở khóa %s tiền bảo đảm giai đoạn '%s' HĐ %s.",
+                        fmtVnd(toUnlock), req.getPhaseLabel(), contract.getContractNumber()),
+                "/contracts/" + contract.getId() + "/progress");
 
         return toResponse(req);
     }

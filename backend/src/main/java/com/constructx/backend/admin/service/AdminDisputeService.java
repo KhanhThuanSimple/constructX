@@ -111,43 +111,70 @@ public class AdminDisputeService {
             }
 
             // 3. Tìm giao dịch đóng băng tiền ký quỹ gốc (Customer lock)
+            //    Thử nhiều patterns để tương thích với dữ liệu lịch sử
             Transaction lockTx = null;
             String disputeCode = "";
 
             if (contract.getProject() != null) {
                 Long projectId = contract.getProject().getId();
-                Long bidId = contract.getBid().getId();
-                String key1 = "LOCK-CTR-ESCROW-" + projectId + "-" + bidId;
-                String key2 = "CTR-ESCROW-" + projectId + "-" + bidId;
-                lockTx = transactionRepository.findByGatewayOrderId(key1)
-                        .orElseGet(() -> transactionRepository.findByGatewayOrderId(key2).orElse(null));
+                Long bidId = contract.getBid() != null ? contract.getBid().getId() : 0L;
+                // Thử lần lượt các patterns gateway_order_id khác nhau
+                lockTx = transactionRepository.findByGatewayOrderId("LOCK-CTR-ESCROW-" + projectId + "-" + bidId)
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId("CTR-ESCROW-" + projectId + "-" + bidId)
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId("LOCK-CTR-DEPOSIT-" + projectId + "-" + bidId)
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId("CTR-DEPOSIT-" + projectId + "-" + bidId)
+                        .orElse(null))));
                 disputeCode = "PRJ-" + projectId;
             } else if (contract.getSourceOrder() != null) {
                 String orderCode = contract.getSourceOrder().getOrderCode();
-                String key1 = "LOCK-" + orderCode + "-DEPOSIT";
-                String key2 = "LOCK-" + orderCode;
-                String key3 = orderCode + "-DEPOSIT";
-                lockTx = transactionRepository.findByGatewayOrderId(key1)
-                        .orElseGet(() -> transactionRepository.findByGatewayOrderId(key2)
-                        .orElseGet(() -> transactionRepository.findByGatewayOrderId(key3).orElse(null)));
+                lockTx = transactionRepository.findByGatewayOrderId("LOCK-" + orderCode + "-DEPOSIT")
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId("LOCK-" + orderCode)
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId(orderCode + "-DEPOSIT")
+                        .orElseGet(() -> transactionRepository.findByGatewayOrderId("CTR-DEPOSIT-" + orderCode)
+                        .orElse(null))));
                 disputeCode = orderCode.startsWith("ORD-") ? orderCode : "ORD-" + orderCode;
             }
 
             if (lockTx == null) {
-                throw new RuntimeException("Không tìm thấy giao dịch đóng băng tiền ký quỹ gốc cho hợp đồng này");
+                log.warn("[DISPUTE] Không tìm thấy giao dịch đóng băng escrow gốc cho hợp đồng {} — chuyển sang luồng dự phòng (dùng số dư ví trực tiếp).", contract.getContractNumber());
             }
 
 
             // 3b. Tính toán các thành phần của Quỹ Tranh Chấp Thực Tế (D_pool)
             long totalDisbursed = disbursementRequestRepository.sumApprovedByContractId(contract.getId());
-            long customerRemainingEscrow = contract.getAgreedPrice() - totalDisbursed;
-            long contractorLockedEscrow = disbursementRequestRepository.sumLockedAndNotUnlockedByContractId(contract.getId());
-            long disputePool = customerRemainingEscrow + contractorLockedEscrow;
+            long agreedPrice = contract.getAgreedPrice() != null ? contract.getAgreedPrice() : 0L;
+            long customerRemainingEscrow = Math.max(0L, agreedPrice - totalDisbursed);
+            long contractorLockedEscrow  = disbursementRequestRepository.sumLockedAndNotUnlockedByContractId(contract.getId());
+
+            // Tiền bảo lãnh khóa (warranty hold) — LUÔN đưa vào quỹ tranh chấp khi còn locked
+            // (dù customerRemainingEscrow hay contractorLockedEscrow đã > 0)
+            long warrantyHoldAmount = 0L;
+            if (Boolean.TRUE.equals(contract.getWarrantyHoldLocked()) && contract.getWarrantyHoldAmount() != null) {
+                warrantyHoldAmount = contract.getWarrantyHoldAmount();
+                log.info("[DISPUTE] Cộng tiền bảo lãnh khóa {}đ vào quỹ tranh chấp HĐ {}",
+                        warrantyHoldAmount, contract.getContractNumber());
+            }
+
+            // disputePool = tiền còn lại của KH + tiền đã giải ngân nhưng còn khóa của NT + warranty
+            long disputePool = customerRemainingEscrow + contractorLockedEscrow + warrantyHoldAmount;
+
+            // Khi warranty hold là nguồn duy nhất → nó thuộc ví nhà thầu (locked)
+            if (customerRemainingEscrow == 0 && contractorLockedEscrow == 0 && warrantyHoldAmount > 0) {
+                contractorLockedEscrow = warrantyHoldAmount;
+            }
+
+            log.info("[DISPUTE] Quỹ phân xử HĐ {}: customerEscrow={}, contractorLocked={}, warranty={}, total={}",
+                    contract.getContractNumber(), customerRemainingEscrow, contractorLockedEscrow, warrantyHoldAmount, disputePool);
+
+            if (disputePool <= 0) {
+                log.warn("[DISPUTE] Quỹ tranh chấp = 0 cho HĐ {}. Không có tiền để phân bổ.", contract.getContractNumber());
+            }
 
 
             // 4. Gọi WalletArbitrationManager để thực hiện giải phóng và phân chia tiền trên ví điện tử thực tế
             walletArbitrationManager.resolveProjectDispute(
-                    lockTx.getId(), 
+                    lockTx != null ? lockTx.getId() : null, 
+                    contract.getClient().getId(),
                     dispute.getContractor().getId(), 
                     userPercent, 
                     contractorPercent, 
@@ -163,10 +190,18 @@ public class AdminDisputeService {
             // 6. Cập nhật trạng thái Hợp đồng tương ứng
             if ("keep_contractor".equalsIgnoreCase(request.getResolutionType()) || contractorPercent == 100.0) {
                 // Nếu nhà thầu nhận 100% (giữ tiền cho nhà thầu), dự án tiếp tục hoạt động
-                contract.setStatus(Contract.Status.ACTIVE);
+                if (contract.getStatus() != Contract.Status.COMPLETED) {
+                    contract.setStatus(Contract.Status.ACTIVE);
+                }
             } else {
                 // Nếu hoàn tiền hoặc chia đôi, dự án dừng lại
-                contract.setStatus(Contract.Status.CANCELLED);
+                if (contract.getStatus() != Contract.Status.COMPLETED) {
+                    contract.setStatus(Contract.Status.CANCELLED);
+                }
+            }
+            if (Boolean.TRUE.equals(contract.getWarrantyHoldLocked())) {
+                contract.setWarrantyHoldLocked(false);
+                contract.setWarrantyReleased(true);
             }
             contract.setIsDisputed(false); // Gỡ cờ đóng băng hợp đồng
             contractRepository.save(contract);
@@ -181,8 +216,10 @@ public class AdminDisputeService {
                     formatVnd(disputePool - refundAmount),
 
                     request.getResolution());
-            notificationService.createNotification(dispute.getCustomer(), Notification.NotifType.DISPUTE, resolutionMsg);
-            notificationService.createNotification(dispute.getContractor(), Notification.NotifType.DISPUTE, resolutionMsg);
+            notificationService.createNotification(dispute.getCustomer(), Notification.NotifType.DISPUTE, resolutionMsg,
+                    "/contracts");
+            notificationService.createNotification(dispute.getContractor(), Notification.NotifType.DISPUTE, resolutionMsg,
+                    "/contracts");
 
         } catch (Exception e) {
             log.error("Lỗi khi phân xử dòng tiền ví tranh chấp", e);
@@ -390,15 +427,33 @@ public class AdminDisputeService {
         long totalDisbursedResponse = 0L;
         long customerRemainingEscrowResponse = 0L;
         long contractorLockedEscrowResponse = 0L;
+        long warrantyHoldResponse = 0L;
         long disputePoolResponse = dispute.getAmount() != null ? dispute.getAmount() : 0L;
         
         try {
             if (dispute.getContract() != null) {
-                Long cId = dispute.getContract().getId();
+                Contract c = dispute.getContract();
+                Long cId = c.getId();
+                long agreedPrice = c.getAgreedPrice() != null ? c.getAgreedPrice() : 0L;
                 totalDisbursedResponse = disbursementRequestRepository.sumApprovedByContractId(cId);
-                customerRemainingEscrowResponse = dispute.getContract().getAgreedPrice() - totalDisbursedResponse;
+                customerRemainingEscrowResponse = Math.max(0L, agreedPrice - totalDisbursedResponse);
                 contractorLockedEscrowResponse = disbursementRequestRepository.sumLockedAndNotUnlockedByContractId(cId);
-                disputePoolResponse = customerRemainingEscrowResponse + contractorLockedEscrowResponse;
+
+                // Cộng warranty hold vào pool nếu còn bị khóa
+                if (Boolean.TRUE.equals(c.getWarrantyHoldLocked()) && c.getWarrantyHoldAmount() != null) {
+                    warrantyHoldResponse = c.getWarrantyHoldAmount();
+                    // Nếu warranty là nguồn duy nhất → nó thuộc ví nhà thầu
+                    if (customerRemainingEscrowResponse == 0 && contractorLockedEscrowResponse == 0) {
+                        contractorLockedEscrowResponse = warrantyHoldResponse;
+                    }
+                }
+
+                disputePoolResponse = customerRemainingEscrowResponse + contractorLockedEscrowResponse + warrantyHoldResponse;
+                // Tránh double-count khi warranty đã được gán vào contractorLockedEscrow
+                if (customerRemainingEscrowResponse == 0 && warrantyHoldResponse > 0 
+                    && contractorLockedEscrowResponse == warrantyHoldResponse) {
+                    disputePoolResponse = warrantyHoldResponse;
+                }
             }
         } catch (Exception e) {
             log.warn("Lỗi khi tính toán phân rã tài chính cho Dispute Response: {}", e.getMessage());

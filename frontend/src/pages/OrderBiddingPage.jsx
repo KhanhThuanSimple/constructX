@@ -782,11 +782,15 @@ export default function OrderBiddingPage() {
   const navigate = useNavigate();
 
   // ── State ──────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('open');   // open | projects | mybids | assigned
+  const [activeTab, setActiveTab] = useState('open');   // open | projects | mybids | assigned | history
   const [openOrders, setOpenOrders] = useState([]);
   const [openProjects, setOpenProjects] = useState([]);
   const [myBids, setMyBids] = useState([]);
   const [assignedOrders, setAssignedOrders] = useState([]);
+  const [completedOrders, setCompletedOrders] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [selectedHistoryOrder, setSelectedHistoryOrder] = useState(null);
 
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -837,12 +841,22 @@ export default function OrderBiddingPage() {
     finally { setLoadingAssigned(false); }
   }, []);
 
+  const fetchCompletedOrders = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await api.get('/orders/contractor-history');
+      setCompletedOrders(res.data.data || []);
+    } catch { /* silent */ }
+    finally { setLoadingHistory(false); }
+  }, []);
+
   useEffect(() => {
     refreshUser();
     fetchOpenOrders();
     fetchOpenProjects();
     fetchMyBids();
     fetchAssignedOrders();
+    fetchCompletedOrders();
   }, []);
 
   // ── Derived ────────────────────────────────────────────────────
@@ -886,6 +900,7 @@ export default function OrderBiddingPage() {
     { key: 'projects', label: 'Dự án',      icon: <Hammer size={15}/>,         badge: filteredProjects.length,  color: 'primary' },
     { key: 'mybids',   label: 'Báo giá',    icon: <FileText size={15}/>,       badge: myBids.filter(b=>b.status==='PENDING').length, color: 'amber' },
     { key: 'assigned', label: 'Được giao',  icon: <ClipboardList size={15}/>,  badge: needAction,               color: 'indigo' },
+    { key: 'history',  label: 'Lịch sử',    icon: <Award size={15}/>,          badge: 0,                        color: 'primary' },
   ];
 
   return (
@@ -1087,6 +1102,187 @@ export default function OrderBiddingPage() {
                 {assignedOrders.map(o => (
                   <AssignedOrderCard key={o.id} order={o} onMarkDone={setMarkDoneModal}/>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: HISTORY ────────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <div className="space-y-4">
+            {/* Tổng quan */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { label: 'Tổng đã thực hiện', value: completedOrders.length, color: 'text-gray-800', bg: 'bg-white border-gray-100' },
+                { label: 'Hoàn thành', value: completedOrders.filter(o => o.status === 'DELIVERED').length, color: 'text-teal-600', bg: 'bg-teal-50 border-teal-100' },
+                { label: 'Tổng thu nhập', value: new Intl.NumberFormat('vi-VN').format(completedOrders.filter(o => o.status === 'DELIVERED').reduce((s,o) => s + (Number(o.totalAmount)||0), 0)) + 'đ', color: 'text-primary', bg: 'bg-primary/5 border-primary/10', small: true },
+              ].map(s => (
+                <div key={s.label} className={`border rounded-2xl p-4 text-center ${s.bg}`}>
+                  <p className={`${s.small ? 'text-base' : 'text-2xl'} font-black ${s.color}`}>{s.value}</p>
+                  <p className="text-[10px] text-gray-500 font-medium mt-0.5">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Search + Refresh */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 text-gray-400" size={13}/>
+                <input value={historySearch} onChange={e => setHistorySearch(e.target.value)}
+                  placeholder="Tìm mã đơn, địa chỉ..."
+                  className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-primary"/>
+              </div>
+              <button onClick={fetchCompletedOrders} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 shrink-0"><RefreshCw size={14}/></button>
+            </div>
+
+            {/* Nếu đang xem chi tiết */}
+            {selectedHistoryOrder ? (
+              <div className="space-y-4">
+                <button onClick={() => setSelectedHistoryOrder(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary group">
+                  <ArrowUpRight size={14} className="rotate-180 group-hover:-translate-x-0.5 transition-transform"/> Quay lại lịch sử
+                </button>
+
+                {/* Hero */}
+                <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${selectedHistoryOrder.status === 'DELIVERED' ? 'border-teal-200' : 'border-red-200'}`}>
+                  <div className={`h-1.5 w-full ${selectedHistoryOrder.status === 'DELIVERED' ? 'bg-teal-400' : 'bg-red-400'}`}/>
+                  <div className="p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${selectedHistoryOrder.status === 'DELIVERED' ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-red-100 text-red-600 border-red-200'}`}>
+                            {selectedHistoryOrder.status === 'DELIVERED' ? <CheckCircle size={10}/> : <X size={10}/>}
+                            {selectedHistoryOrder.status === 'DELIVERED' ? 'Đã hoàn thành' : 'Đã hủy'}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-gray-400">{selectedHistoryOrder.orderCode}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedHistoryOrder.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-sky-50 text-sky-600'}`}>
+                            {selectedHistoryOrder.type === 'CUSTOM' ? '🎨 Tùy chỉnh' : '🛍️ Có sẵn'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                          <span className="flex items-center gap-1"><Clock size={10}/> Nhận: {new Date(selectedHistoryOrder.createdAt).toLocaleDateString('vi-VN')}</span>
+                          {selectedHistoryOrder.deliveredAt && <span className="flex items-center gap-1 text-teal-500 font-medium"><CheckCircle size={10}/> Giao: {new Date(selectedHistoryOrder.deliveredAt).toLocaleDateString('vi-VN')}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Giá trị đơn</p>
+                        <p className="text-2xl font-black text-primary">{fmt(selectedHistoryOrder.totalAmount)}</p>
+                        {selectedHistoryOrder.fullyPaid && <p className="text-[10px] text-teal-600 font-bold flex items-center justify-end gap-1 mt-0.5"><CheckCircle size={9}/>Đã thanh toán</p>}
+                      </div>
+                    </div>
+
+                    {selectedHistoryOrder.deliveryAddress && (
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 mb-3 text-xs text-gray-600">
+                        <MapPin size={11} className="text-gray-400 shrink-0"/>
+                        <span>{selectedHistoryOrder.deliveryAddress}</span>
+                      </div>
+                    )}
+                    {selectedHistoryOrder.completionImageUrl && (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ảnh sản phẩm hoàn thiện</p>
+                        <img src={selectedHistoryOrder.completionImageUrl} alt="completion" className="rounded-xl max-h-52 object-cover border border-gray-100 w-full"/>
+                      </div>
+                    )}
+                    {selectedHistoryOrder.customRequirements && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+                        <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-1">Yêu cầu thiết kế</p>
+                        <p className="text-xs text-amber-900 whitespace-pre-wrap">{selectedHistoryOrder.customRequirements}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bảng sản phẩm */}
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+                    <Package size={14} className="text-primary"/>
+                    <h3 className="font-bold text-gray-900 text-sm">Sản phẩm đã thực hiện ({selectedHistoryOrder.items?.length || 0})</h3>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Sản phẩm</th>
+                        <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500">SL</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {selectedHistoryOrder.items?.map((item, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0"/> : <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-300"/></div>}
+                              <div>
+                                <p className="font-semibold text-gray-900 text-xs">{item.itemName}</p>
+                                {item.customNote && <p className="text-[10px] text-amber-600">{item.customNote}</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center font-bold text-gray-700 text-xs">{item.quantity}</td>
+                          <td className="px-4 py-3 text-right font-black text-primary text-xs">{fmt(item.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 border-t border-gray-100">
+                      <tr>
+                        <td colSpan={2} className="px-4 py-3 text-right text-xs font-bold text-gray-700">Tổng cộng:</td>
+                        <td className="px-4 py-3 text-right font-black text-primary text-sm">{fmt(selectedHistoryOrder.totalAmount)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            ) : loadingHistory ? (
+              <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-primary"/></div>
+            ) : completedOrders.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+                <Award size={36} className="mx-auto text-gray-200 mb-3"/>
+                <p className="text-gray-400 text-sm font-medium">Chưa có đơn hàng nào hoàn thành</p>
+                <p className="text-xs text-gray-300 mt-1">Các đơn hàng đã giao thành công sẽ hiển thị ở đây</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {completedOrders
+                  .filter(o => !historySearch.trim() || o.orderCode?.toLowerCase().includes(historySearch.toLowerCase()) || o.deliveryAddress?.toLowerCase().includes(historySearch.toLowerCase()))
+                  .map(o => (
+                    <button key={o.id} onClick={() => setSelectedHistoryOrder(o)}
+                      className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-left hover:border-primary hover:shadow-sm transition-all group">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${o.status === 'DELIVERED' ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-red-100 text-red-600 border-red-200'}`}>
+                              {o.status === 'DELIVERED' ? <CheckCircle size={9}/> : <X size={9}/>}
+                              {o.status === 'DELIVERED' ? 'Hoàn thành' : 'Đã hủy'}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-gray-400">{o.orderCode}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${o.type === 'CUSTOM' ? 'bg-amber-50 text-amber-600' : 'bg-sky-50 text-sky-600'}`}>
+                              {o.type === 'CUSTOM' ? '🎨 Tùy chỉnh' : '🛍️ Có sẵn'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[10px] text-gray-400">
+                            <span className="flex items-center gap-1"><Clock size={10}/>{new Date(o.createdAt).toLocaleDateString('vi-VN')}</span>
+                            {o.deliveredAt && <span className="flex items-center gap-1 text-teal-500 font-medium"><CheckCircle size={9}/>Xong: {new Date(o.deliveredAt).toLocaleDateString('vi-VN')}</span>}
+                            {o.deliveryAddress && <span className="flex items-center gap-1 truncate max-w-[140px]"><MapPin size={9}/>{o.deliveryAddress}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-primary text-sm">{fmt(o.totalAmount)}</p>
+                          <p className="text-[10px] text-gray-400">{o.items?.length || 0} sp</p>
+                        </div>
+                      </div>
+                      {o.items?.length > 0 && (
+                        <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
+                          {o.items.slice(0,3).map((item, i) => (
+                            <div key={i} className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1 shrink-0">
+                              {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-5 h-5 rounded object-cover"/> : <Package size={12} className="text-gray-300"/>}
+                              <span className="text-[10px] text-gray-500 max-w-[60px] truncate">{item.itemName}</span>
+                            </div>
+                          ))}
+                          {o.items.length > 3 && <span className="text-[10px] text-gray-400 self-center">+{o.items.length-3}</span>}
+                        </div>
+                      )}
+                    </button>
+                  ))
+                }
               </div>
             )}
           </div>

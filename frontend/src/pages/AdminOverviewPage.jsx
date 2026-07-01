@@ -144,21 +144,50 @@ export default function AdminOverviewPage() {
   const contractorPf  = an.contractorPerformance || {};
   const escrow        = an.escrowLiquidity    || {};
   const disputeAn     = an.disputeAnalytics   || {};
+  const topCustomersAn = an.topCustomers      || {};
+  const paymentAn     = an.paymentStats       || {};
+  const productAn     = an.productStats       || {};
 
-  /* ── Order status donut data ── */
-  const orderStatusData = [
-    { label: 'Chờ xác nhận',   value: s.pendingOrders ?? 0,                                                         color: '#f59e0b' },
-    { label: 'Đang thi công',  value: Math.max(0, (s.activeContracts ?? 0)),                                        color: '#3b82f6' },
-    { label: 'Hoàn thành',     value: Math.max(0, (s.totalContracts ?? 0) - (s.activeContracts ?? 0)),              color: '#10b981' },
-    { label: 'Đã hủy',         value: Math.max(0, (s.totalOrders ?? 0) - (s.pendingOrders ?? 0) - (s.activeContracts ?? 0) - Math.max(0, (s.totalContracts ?? 0) - (s.activeContracts ?? 0))), color: '#ef4444' },
-  ].filter(d => d.value > 0);
+  /* ── KPI: tổng người dùng từ growth (userRepository.count()) ── */
+  const totalUsers      = growth.totalUsers      ?? 0;
+  const totalCustomers  = growth.totalCustomers  ?? 0;
+  const totalContractors = growth.totalContractors ?? (s.activeContractors ?? 0);
+  // Ưu tiên platformWalletBalance (số tiền hoa hồng thực thu),
+  // fallback sang totalCommissions (ước tính 5% từ hợp đồng hoàn thành),
+  // fallback tiếp sang totalRevenue từ stats (tổng giao dịch)
+  const platformRevenue = commission.platformWalletBalance > 0
+    ? commission.platformWalletBalance
+    : (commission.totalCommissions || s.totalRevenue || 0);
+
+  /* ── Order status donut — dùng productStats.orderStatusBreakdown thực tế ── */
+  const COLOR_MAP = {
+    PENDING: '#f59e0b', CONFIRMED: '#3b82f6', DEPOSIT_PAID: '#6366f1',
+    OPEN_BIDDING: '#8b5cf6', PROCESSING: '#0284c7', DELIVERED: '#10b981',
+    CANCELLED: '#ef4444',
+  };
+  const LABEL_MAP = {
+    PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', DEPOSIT_PAID: 'Đã đặt cọc',
+    OPEN_BIDDING: 'Đang đấu thầu', PROCESSING: 'Đang sản xuất',
+    DELIVERED: 'Hoàn thành', CANCELLED: 'Đã hủy',
+  };
+  const rawOrderBreakdown = productAn.orderStatusBreakdown || [];
+  const orderStatusData = rawOrderBreakdown.length
+    ? rawOrderBreakdown.map(d => ({
+        label: LABEL_MAP[d.status] || d.status,
+        value: d.count || 0,
+        color: COLOR_MAP[d.status] || '#9ca3af',
+      })).filter(d => d.value > 0)
+    : [
+        { label: 'Chờ xác nhận', value: s.pendingOrders ?? 0,                                   color: '#f59e0b' },
+        { label: 'Đang thi công', value: s.activeContracts ?? 0,                                  color: '#3b82f6' },
+        { label: 'Hoàn thành',    value: Math.max(0,(s.totalContracts??0)-(s.activeContracts??0)), color: '#10b981' },
+      ].filter(d => d.value > 0);
 
   /* ── User ratio donut ── */
-  const totalUsers = growth.totalUsers || 0;
-  const contractors = s.activeContractors || 0;
-  const customers = Math.max(0, totalUsers - contractors);
+  const contractors = totalContractors;
+  const customers   = totalCustomers > 0 ? totalCustomers : Math.max(0, totalUsers - contractors);
   const userRatioData = [
-    { label: 'Khách hàng', value: customers,  color: '#3b82f6' },
+    { label: 'Khách hàng', value: customers,   color: '#3b82f6' },
     { label: 'Nhà thầu',   value: contractors, color: '#1a4f3a' },
   ].filter(d => d.value > 0);
 
@@ -167,18 +196,21 @@ export default function AdminOverviewPage() {
   const activeC   = s.activeContracts  || 0;
   const completedC = Math.max(0, totalC - activeC - (disputeAn.pendingDisputes || 0));
   const contractCompletionData = [
-    { label: 'Hoàn thành',       value: completedC, color: '#10b981' },
-    { label: 'Đang thực hiện',   value: activeC,    color: '#3b82f6' },
-    { label: 'Tranh chấp',       value: disputeAn.pendingDisputes || 0, color: '#ef4444' },
+    { label: 'Hoàn thành',       value: completedC,                      color: '#10b981' },
+    { label: 'Đang thực hiện',   value: activeC,                         color: '#3b82f6' },
+    { label: 'Tranh chấp',       value: disputeAn.pendingDisputes || 0,  color: '#ef4444' },
   ].filter(d => d.value > 0);
 
-  /* ── Payment method donut (use commission monthly as proxy) ── */
-  const paymentData = [
-    { label: 'VNPay',          value: 45, color: '#0ea5e9' },
-    { label: 'MoMo',           value: 25, color: '#ec4899' },
-    { label: 'Chuyển khoản',   value: 20, color: '#8b5cf6' },
-    { label: 'COD',            value: 10, color: '#f59e0b' },
-  ];
+  /* ── Payment method donut — dùng dữ liệu thực từ paymentStats ── */
+  const PAYMENT_COLORS = { 'VNPay': '#0ea5e9', 'MoMo': '#ec4899', 'Chuyển khoản': '#8b5cf6', 'Khác': '#f59e0b' };
+  const rawPaymentMethods = paymentAn.paymentMethods || [];
+  const paymentData = rawPaymentMethods.length
+    ? rawPaymentMethods.map(p => ({
+        label: p.method,
+        value: p.count || 0,
+        color: PAYMENT_COLORS[p.method] || '#9ca3af',
+      })).filter(d => d.value > 0)
+    : [{ label: 'VNPay', value: 1, color: '#0ea5e9' }];
 
   /* ── Top contractors bar ── */
   const topEarners = contractorPf.topEarners || [];
@@ -190,24 +222,28 @@ export default function AdminOverviewPage() {
   const topRatedLabels = topRated.slice(0,6).map(c => (c.name || '').split(' ').slice(-1)[0]);
   const topRatedData   = topRated.slice(0,6).map(c => Math.round((c.rating || 0) * 10));
 
-  /* ── Dispute trend (use escrow daily as proxy if no dispute trend) ── */
-  const disputeTrendLabels = (escrow.dailyTrends || []).map(d => d.date);
-  const disputeTrendData   = (escrow.dailyTrends || []).map((_, i) => {
-    // synthetic dispute counts based on pendingDisputes spread over 7 days
-    const base = Math.max(0, Math.round((s.openDisputes || 0) / 7));
-    return base + (i % 3 === 1 ? 2 : i % 3 === 2 ? 1 : 0);
-  });
+  /* ── Dispute monthly trend — dữ liệu thực từ growth.disputeMonthlyTrends ── */
+  const disputeMonthlyTrends = growth.disputeMonthlyTrends || [];
+  const disputeTrendLabels = disputeMonthlyTrends.length
+    ? disputeMonthlyTrends.map(d => d.month?.slice(0,5) || '')
+    : (escrow.dailyTrends || []).map(d => d.date);
+  const disputeTrendData = disputeMonthlyTrends.length
+    ? disputeMonthlyTrends.map(d => Number(d.count) || 0)
+    : (escrow.dailyTrends || []).map((_, i) => {
+        const base = Math.max(0, Math.round((s.openDisputes || 0) / 7));
+        return base + (i % 3 === 1 ? 2 : i % 3 === 2 ? 1 : 0);
+      });
 
   /* ── User growth ── */
   const userGrowthTrends = growth.userRegistrationTrends || [];
   const userGrowthLabels = userGrowthTrends.map(d => d.month?.slice(0,5) || '');
   const userGrowthData   = userGrowthTrends.map(d => Number(d.count) || 0);
 
-  /* ── Monthly revenue from commission.monthlyRevenues ── */
+  /* ── Monthly revenue từ commission.monthlyRevenues (hoa hồng thực) ── */
   const commMonthly = commission.monthlyRevenues || [];
   const commLabels  = commMonthly.map(d => d.month?.slice(0,5) || '');
   const commData    = commMonthly.map(d => Number(d.amount) || 0);
-  const revLabels   = commLabels.length ? commLabels : revenueLabels;
+  const revLabels   = commLabels.length ? commLabels : (labels6.length ? labels6 : ['T1','T2','T3','T4','T5','T6']);
   const revData     = commData.length   ? commData   : revenueData;
 
   /* ── Avg contract value by month ── */
@@ -241,16 +277,16 @@ export default function AdminOverviewPage() {
         ═══════════════════════════════════════════════ */}
         <SectionHeader label="Chỉ số tổng quan (KPI)" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={<Users size={20}/>}      label="Tổng người dùng"    value={growth.totalUsers ?? totalUsers}  sub={`${contractors} nhà thầu`}         color="#1a4f3a" bg="#e8f5ef" onClick={() => navigate('/admin/all-users')} />
-          <KpiCard icon={<UserCheck size={20}/>}  label="Tổng nhà thầu"      value={contractors}                     sub={`${s.pendingPartners ?? 0} chờ duyệt`} color="#7c3aed" bg="#f3e8ff" onClick={() => navigate('/admin/all-users')} />
+          <KpiCard icon={<Users size={20}/>}      label="Tổng người dùng"    value={totalUsers}                      sub={`${totalCustomers} KH · ${totalContractors} nhà thầu`}  color="#1a4f3a" bg="#e8f5ef" onClick={() => navigate('/admin/all-users')} />
+          <KpiCard icon={<UserCheck size={20}/>}  label="Tổng nhà thầu"      value={totalContractors}                sub={`${s.pendingPartners ?? 0} chờ duyệt`}                  color="#7c3aed" bg="#f3e8ff" onClick={() => navigate('/admin/all-users')} />
           <KpiCard icon={<ShoppingBag size={20}/>}label="Tổng đơn hàng"      value={s.totalOrders ?? 0}              sub={`${s.pendingOrders ?? 0} chờ xác nhận`} color="#0284c7" bg="#e0f2fe" onClick={() => navigate('/admin/orders')} />
           <KpiCard icon={<FileText size={20}/>}   label="Tổng hợp đồng"      value={totalC}                          sub={`${activeC} đang thi công`}            color="#0d9488" bg="#ccfbf1" onClick={() => navigate('/admin/contracts')} />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={<DollarSign size={20}/>} label="Tổng doanh thu"      value={fmt(s.totalRevenue)}             sub="Giao dịch thành công"                 color="#059669" bg="#d1fae5" onClick={() => navigate('/admin/platform-wallet')} />
+          <KpiCard icon={<DollarSign size={20}/>} label="Hoa hồng platform"   value={fmt(platformRevenue)}             sub="Doanh thu hoa hồng tích lũy"          color="#059669" bg="#d1fae5" onClick={() => navigate('/admin/platform-wallet')} />
           <KpiCard icon={<Star size={20}/>}       label="Đánh giá trung bình" value={topRated[0] ? `${topRated.slice(0,5).reduce((a,c) => a + (c.rating||0), 0) / Math.min(topRated.length, 5) | 0}.${Math.round((topRated.slice(0,5).reduce((a,c) => a + (c.rating||0), 0) / Math.min(topRated.length, 5) % 1) * 10)}★` : '—'} sub="Top nhà thầu"        color="#d97706" bg="#fef3c7" />
           <KpiCard icon={<AlertTriangle size={20}/>} label="Đơn tranh chấp"   value={s.openDisputes ?? 0}             sub="Đang chờ xử lý"                       color="#dc2626" bg="#fee2e2" onClick={() => navigate('/admin/disputes')} />
-          <KpiCard icon={<UserCheck size={20}/>}  label="Nhà thầu mới tháng" value={userGrowthData[userGrowthData.length - 1] ?? 0} sub="Đăng ký tháng này"    color="#7c3aed" bg="#f3e8ff" onClick={() => navigate('/admin/all-users')} />
+          <KpiCard icon={<UserCheck size={20}/>}  label="Thành viên mới tháng" value={userGrowthData.length ? userGrowthData[userGrowthData.length - 1] : 0} sub="Đăng ký tháng này"    color="#7c3aed" bg="#f3e8ff" onClick={() => navigate('/admin/all-users')} />
         </div>
 
         {/* ═══════════════════════════════════════════════
@@ -309,14 +345,14 @@ export default function AdminOverviewPage() {
             />
           </ChartCard>
 
-          {/* 8. Phương thức thanh toán — Pie Chart */}
+          {/* 8. Phương thức thanh toán — Pie Chart (dữ liệu thực từ giao dịch nạp tiền) */}
           <ChartCard
-            title="Phương thức thanh toán"
-            subtitle="Tỷ lệ sử dụng các phương thức"
+            title="Phương thức nạp tiền"
+            subtitle={`${paymentAn.totalDepositCount ?? 0} lần nạp · Tổng ${fmt(paymentAn.totalDepositAmount ?? 0)}`}
             icon={<PieChart size={16}/>}
           >
             <div className="flex justify-center">
-              <DonutChart data={paymentData} size={200} />
+              <DonutChart data={paymentData.length ? paymentData : [{ label: 'Chưa có dữ liệu', value: 1, color: '#e5e7eb' }]} size={200} />
             </div>
           </ChartCard>
         </div>
@@ -361,26 +397,30 @@ export default function AdminOverviewPage() {
             )}
           </ChartCard>
 
-          {/* 4. Top danh mục — Horizontal Bar */}
+          {/* 4. Loại đơn hàng — Horizontal Bar (dữ liệu thực) */}
           <ChartCard
-            title="Top sản phẩm / danh mục bán chạy"
-            subtitle="Các danh mục được đặt nhiều nhất"
+            title="Loại đơn hàng"
+            subtitle="Phân bổ đơn hàng có sẵn vs tùy chỉnh"
             icon={<Package size={16}/>}
           >
-            <CategoryHorizontalBar />
+            <OrderTypeHorizontalBar catalogOrders={productAn.catalogOrders ?? 0} customOrders={productAn.customOrders ?? 0} />
           </ChartCard>
 
-          {/* 13. Top sản phẩm bán chạy — Bar */}
+          {/* 13. Trạng thái đơn hàng chi tiết — Bar */}
           <ChartCard
-            title="Top sản phẩm bán chạy"
-            subtitle="Lượt đặt hàng cao nhất trong tháng"
+            title="Chi tiết trạng thái đơn hàng"
+            subtitle="Số lượng đơn hàng theo từng trạng thái thực tế"
             icon={<BarChart2 size={16}/>}
           >
-            <BarChart
-              labels={['Tủ bếp','Giường','Bàn ăn','Ghế sofa','Tủ quần áo']}
-              datasets={[{ label: 'Lượt đặt', data: [48,37,29,24,18], color: '#7c3aed' }]}
-              height={180}
-            />
+            {rawOrderBreakdown.length > 0 ? (
+              <BarChart
+                labels={rawOrderBreakdown.map(d => LABEL_MAP[d.status] || d.status)}
+                datasets={[{ label: 'Đơn hàng', data: rawOrderBreakdown.map(d => d.count || 0), color: '#7c3aed' }]}
+                height={180}
+              />
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-8">Chưa có dữ liệu đơn hàng</p>
+            )}
           </ChartCard>
         </div>
 
@@ -482,17 +522,13 @@ export default function AdminOverviewPage() {
         <SectionHeader label="Phân bổ địa lý & Phễu chuyển đổi" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* 15. Phân bổ theo tỉnh thành */}
+          {/* 15. Thanh khoản Escrow — dữ liệu thực */}
           <ChartCard
-            title="Phân bổ đơn hàng theo tỉnh / thành"
-            subtitle="Các thị trường lớn nhất"
+            title="Thanh khoản Escrow"
+            subtitle="Tổng tiền hệ thống đang giữ và trạng thái"
             icon={<BarChart2 size={16}/>}
           >
-            <BarChart
-              labels={['TP.HCM','Hà Nội','Đà Nẵng','Bình Dương','Cần Thơ']}
-              datasets={[{ label: 'Đơn hàng', data: [62, 38, 19, 15, 8], color: '#0284c7' }]}
-              height={180}
-            />
+            <EscrowLiquidityBar escrow={escrow} />
           </ChartCard>
 
           {/* 16. Tỷ lệ chuyển đổi — Funnel */}
@@ -519,13 +555,13 @@ export default function AdminOverviewPage() {
         <SectionHeader label="Top khách hàng & nhà thầu rủi ro" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* 12. Top khách hàng */}
+          {/* 12. Top khách hàng — dữ liệu thực */}
           <ChartCard
             title="Top khách hàng mua nhiều nhất"
-            subtitle="Tổng giá trị đơn hàng cao nhất"
+            subtitle="Tổng giá trị đơn hàng cao nhất (dữ liệu thực)"
             icon={<Users size={16}/>}
           >
-            <TopCustomerTable />
+            <TopCustomerTable customers={topCustomersAn.topCustomers || []} />
           </ChartCard>
 
           {/* Risk contractors */}
@@ -572,29 +608,55 @@ function TopContractorTable({ contractors, type }) {
   );
 }
 
-/* Category Horizontal Bar */
-function CategoryHorizontalBar() {
-  const cats = [
-    { label: 'Tủ bếp',       value: 85, color: '#1a4f3a' },
-    { label: 'Tủ quần áo',   value: 72, color: '#0284c7' },
-    { label: 'Sofa',          value: 64, color: '#7c3aed' },
-    { label: 'Giường',        value: 56, color: '#d97706' },
-    { label: 'Bàn ăn',        value: 49, color: '#0d9488' },
-    { label: 'Kệ tivi',       value: 38, color: '#dc2626' },
+/* Category Horizontal Bar — thay bằng Order Type thực tế */
+function OrderTypeHorizontalBar({ catalogOrders, customOrders }) {
+  const total = catalogOrders + customOrders || 1;
+  const items = [
+    { label: 'Đơn có sẵn (Catalog)', value: catalogOrders, color: '#0284c7' },
+    { label: 'Đơn tùy chỉnh (Custom)', value: customOrders, color: '#7c3aed' },
   ];
-  const max = cats[0].value;
   return (
     <div className="space-y-3">
-      {cats.map(c => (
+      {items.map(c => (
         <div key={c.label} className="flex items-center gap-3">
-          <span className="text-xs text-gray-600 w-24 shrink-0 text-right">{c.label}</span>
+          <span className="text-xs text-gray-600 w-36 shrink-0 text-right">{c.label}</span>
           <div className="flex-1 h-5 bg-gray-100 rounded-lg overflow-hidden">
             <div
-              className="h-full rounded-lg transition-all duration-500"
-              style={{ width: `${(c.value / max) * 100}%`, backgroundColor: c.color }}
-            />
+              className="h-full rounded-lg transition-all duration-500 flex items-center pl-2"
+              style={{ width: `${Math.round((c.value / total) * 100)}%`, backgroundColor: c.color, minWidth: c.value > 0 ? '40px' : '0' }}
+            >
+              {c.value > 0 && <span className="text-[9px] text-white font-bold">{Math.round((c.value/total)*100)}%</span>}
+            </div>
           </div>
-          <span className="text-xs font-bold text-gray-500 w-6 shrink-0">{c.value}</span>
+          <span className="text-xs font-bold text-gray-700 w-8 shrink-0 text-right">{c.value}</span>
+        </div>
+      ))}
+      <p className="text-[10px] text-gray-400 text-center mt-2">Tổng {total} đơn hàng trong hệ thống</p>
+    </div>
+  );
+}
+
+/* Escrow Liquidity Bar — dữ liệu thực */
+function EscrowLiquidityBar({ escrow }) {
+  const total     = escrow.totalSystemBalance  || 0;
+  const locked    = escrow.totalLockedInEscrow || 0;
+  const available = escrow.totalAvailable      || 0;
+  const disputed  = escrow.totalDisputedEscrow || 0;
+
+  const items = [
+    { label: 'Tổng số dư hệ thống',  value: total,     color: '#1a4f3a', bg: '#e8f5ef' },
+    { label: 'Đang khóa (Escrow)',    value: locked,    color: '#d97706', bg: '#fef3c7' },
+    { label: 'Khả dụng',             value: available, color: '#0284c7', bg: '#e0f2fe' },
+    { label: 'Đang tranh chấp',       value: disputed,  color: '#dc2626', bg: '#fee2e2' },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map(item => (
+        <div key={item.label} className="rounded-xl p-3 text-center" style={{ backgroundColor: item.bg }}>
+          <p className="text-[10px] text-gray-500 mb-1 font-medium">{item.label}</p>
+          <p className="text-sm font-bold" style={{ color: item.color }}>
+            {item.value >= 1e9 ? (item.value/1e9).toFixed(2)+'T' : item.value >= 1e6 ? (item.value/1e6).toFixed(1)+'tr' : item.value.toLocaleString('vi-VN')+'đ'}
+          </p>
         </div>
       ))}
     </div>
@@ -636,30 +698,34 @@ function FunnelChart({ steps }) {
   );
 }
 
-/* Top Customer Table */
-function TopCustomerTable() {
-  // Static demo data — in production fetch from /api/admin/analytics or a dedicated endpoint
-  const customers = [
-    { name: 'Nguyễn Văn A', orders: 8, value: 1850000000 },
-    { name: 'Lê Thị B',     orders: 6, value: 1320000000 },
-    { name: 'Trần Văn C',   orders: 5, value: 980000000  },
-    { name: 'Phạm Thị D',   orders: 4, value: 760000000  },
-    { name: 'Hoàng Văn E',  orders: 3, value: 540000000  },
-  ];
+/* Top Customer Table — dữ liệu thực từ analytics */
+function TopCustomerTable({ customers }) {
+  if (!customers || customers.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-2xl mb-2">📊</p>
+        <p className="text-xs text-gray-400">Chưa có dữ liệu đơn hàng</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2">
-      {customers.map((c, i) => (
-        <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+      {customers.slice(0, 5).map((c, i) => (
+        <div key={c.customerId || i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
           <span className="text-xs font-bold text-gray-400 w-5 shrink-0">#{i + 1}</span>
           <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-            {c.name.charAt(0)}
+            {(c.name || 'K').charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
-            <p className="text-[10px] text-gray-400">{c.orders} đơn hàng</p>
+            <p className="text-xs font-semibold text-gray-800 truncate">{c.name || 'Khách hàng'}</p>
+            <p className="text-[10px] text-gray-400">{c.orderCount ?? 0} đơn hàng</p>
           </div>
           <span className="text-xs font-bold text-[#1a4f3a] shrink-0">
-            {c.value >= 1e9 ? (c.value/1e9).toFixed(1)+'T' : (c.value/1e6).toFixed(0)+'tr'}
+            {(c.totalValue || 0) >= 1e9
+              ? ((c.totalValue)/1e9).toFixed(1) + 'T'
+              : (c.totalValue || 0) >= 1e6
+              ? ((c.totalValue)/1e6).toFixed(0) + 'tr'
+              : (c.totalValue || 0).toLocaleString('vi-VN') + 'đ'}
           </span>
         </div>
       ))}

@@ -40,12 +40,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/public/**").permitAll() // Public catalog (materials, etc.)
-                .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll() // VNPay callback
+                .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()        // Static uploaded files
+                .requestMatchers("/api/upload").authenticated()     // Upload cần đăng nhập
+                .requestMatchers("/api/wallet/deposit/vnpay-callback").permitAll()
+                .requestMatchers("/api/wallet/vnpay/**").permitAll()
                 .requestMatchers("/mock-vnpay/**").permitAll()
-                .requestMatchers("/ws-chat/**").permitAll() // WebSocket handshake (native + SockJS)
+                .requestMatchers("/ws-chat/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                // All others require authentication
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

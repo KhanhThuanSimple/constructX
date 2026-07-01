@@ -40,6 +40,7 @@ import ContractDisbursementsPage from './pages/ContractDisbursementsPage';
 import ContractReviewPage from './pages/ContractReviewPage';
 import ContractDisputePage from './pages/ContractDisputePage';
 import ReviewsManagementPage from './pages/ReviewsManagementPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AdminOverviewPage from './pages/AdminOverviewPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -70,6 +71,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route path="/" element={
           <ProtectedRoute allowedRoles={['CUSTOMER', 'CONTRACTOR', 'ADMIN']}>

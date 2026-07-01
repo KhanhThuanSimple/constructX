@@ -255,12 +255,14 @@ public class OrderBidService {
         notificationService.createNotification(
                 bid.getContractor(), Notification.NotifType.SYSTEM,
                 String.format("🎉 Báo giá của bạn cho đơn %s đã được chấp nhận! Hợp đồng %s đã có hiệu lực — bắt đầu thi công.",
-                        order.getOrderCode(), contract.getContractNumber()));
+                        order.getOrderCode(), contract.getContractNumber()),
+                "/contracts/" + contract.getId() + "/progress");
 
         notificationService.createNotification(
                 user, Notification.NotifType.SYSTEM,
                 String.format("✅ Hợp đồng %s đã được tạo và có hiệu lực. Nhà thầu %s bắt đầu thi công.",
-                        contract.getContractNumber(), bid.getContractor().getFullName()));
+                        contract.getContractNumber(), bid.getContractor().getFullName()),
+                "/contracts/" + contract.getId() + "/progress");
 
         // Notify các nhà thầu không được chọn
         orderBidRepository.findByOrderIdWithItems(orderId).stream()

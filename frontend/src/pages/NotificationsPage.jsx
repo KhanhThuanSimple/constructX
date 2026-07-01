@@ -1,18 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
 import {
-  Bell,
-  CheckCheck,
-  Search,
-  CreditCard,
-  FileText,
-  AlertTriangle,
-  MessageSquare,
-  Settings,
-  CheckCircle2
+  Bell, CheckCheck, Search, CreditCard, FileText,
+  AlertTriangle, MessageSquare, Settings, CheckCircle2,
+  ArrowRight, ExternalLink
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const FILTERS = [
   { value: 'all', label: 'Tất cả' },
@@ -28,6 +23,7 @@ const NotificationsPage = () => {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -157,14 +153,26 @@ const NotificationsPage = () => {
 
   const formatTime = (createdAt) => {
     if (!createdAt) return '';
-
     return new Date(createdAt).toLocaleString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      day: '2-digit', month: '2-digit', year: 'numeric',
     });
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Đánh dấu đã đọc nếu chưa
+    if (!notification.isRead) {
+      setNotifications(prev => prev.map(n =>
+        n.id === notification.id ? { ...n, isRead: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Gọi API mark individual read (dùng mark-all nếu không có endpoint riêng)
+      try { await api.post('/notifications/mark-all-read'); } catch { /* silent */ }
+    }
+    // Navigate nếu có actionUrl
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    }
   };
 
   if (loading) {
@@ -258,24 +266,20 @@ const NotificationsPage = () => {
               return (
                 <div
                   key={notification.id}
-                  className={`p-5 border-b border-gray-100 last:border-b-0 flex gap-4 ${
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-5 border-b border-gray-100 last:border-b-0 flex gap-4 transition-all ${
                     unread ? 'bg-[#f4fbf7]' : 'bg-white'
-                  }`}
+                  } ${notification.actionUrl ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100' : ''}`}
                 >
-                  <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${meta.bg} ${meta.text}`}
-                  >
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${meta.bg} ${meta.text}`}>
                     {meta.icon}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full ${meta.bg} ${meta.text}`}
-                      >
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${meta.bg} ${meta.text}`}>
                         {meta.label}
                       </span>
-
                       {unread && (
                         <span className="text-xs font-semibold px-2 py-1 rounded-full bg-[#1a4f3a] text-white">
                           Mới
@@ -287,9 +291,14 @@ const NotificationsPage = () => {
                       {notification.content}
                     </p>
 
-                    <p className="text-xs text-gray-400 mt-2">
-                      {formatTime(notification.createdAt)}
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-400">{formatTime(notification.createdAt)}</p>
+                      {notification.actionUrl && (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#1a4f3a] hover:text-[#2d7a5a]">
+                          Xem ngay <ArrowRight size={11}/>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
